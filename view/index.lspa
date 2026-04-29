@@ -58,7 +58,7 @@
     </style>
   </head>
   <body>
-    <main id="app">{{ SPA_OUTLET }}</main>
+    <main id="{{ SPA_MOUNT_ID }}">{{ SPA_OUTLET }}</main>
     {{ SPA_BOOTSTRAP }}
   </body>
 </html>

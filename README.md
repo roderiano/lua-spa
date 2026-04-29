@@ -5,10 +5,11 @@ Backend-first SPA framework prototype in Python.
 This project now includes:
 
 - View file served by the backend
-- HTML components with component import support
+- `.lspa` components (HTML + Python) with component import support
 - Client hydration at component level
 - DOM diff renderer inspired by React's virtual DOM flow
 - `useState` hook-style state management
+- Base app definitions isolated in `view/spa.config.json`
 
 ## Requirements
 
@@ -51,10 +52,11 @@ lua-spa/
       main.py
       runtime_assets.py
   view/
-    index.html
+    index.lspa
+    spa.config.json
     components/
-      App.html
-      Counter.html
+      App.lspa
+      Counter.lspa
   tests/
     test_app.py
 ```
@@ -67,35 +69,62 @@ poetry run pytest
 
 ## Component format
 
-Components are HTML files with optional imports and script blocks.
+Components are `.lspa` files with optional imports and a `<python>` block.
+
+Inside `<python>`, use:
+
+- `context(props)` for server-side values used by template interpolation (`py.*`)
+- `client()` for declarative client state/actions (hydration + `useState` behavior)
 
 ```html
-@import Counter from "./Counter.html"
+@import Counter from "./Counter.lspa"
+
+<python>
+def context(props):
+    return {
+        "title": props.get("title", "Lua SPA Framework"),
+    }
+
+
+def client():
+  return {
+    "state": {
+      "count": {
+        "from_prop": "start",
+        "default": 0,
+        "cast": "int",
+      }
+    },
+    "actions": {
+      "increment": {
+        "op": "add",
+        "state": "count",
+        "value": 1,
+      },
+    },
+  }
+</python>
 
 <template>
   <section>
+    <h1>{{ py.title }}</h1>
     <Counter start="1" />
   </section>
 </template>
-
-<script>
-function setup({ useState, props }) {
-  const [count, setCount] = useState(Number(props.start || 0));
-  return {
-    state: { count: count },
-    actions: {
-      increment: function () {
-        setCount(function (value) {
-          return value + 1;
-        });
-      },
-    },
-  };
-}
-</script>
 ```
 
-Use `on:event="actionName"` in templates to bind events to actions returned by `setup`.
+Use `on:event="actionName"` in templates to bind events to actions declared in `client()`.
+
+## View base definition
+
+All base app definitions are centralized in `view/spa.config.json`:
+
+- Entry component (`entry_component`)
+- Mount id (`mount_id`)
+- Initial props (`initial_props`)
+- Server host/port (`server`)
+
+This keeps `lua_spa` isolated and generic while the view directory defines the app behavior.
 
 ## Linting and typing
 

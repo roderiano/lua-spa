@@ -8,11 +8,6 @@ from lua_spa.framework import SpaFramework
 
 
 def create_default_framework(base_dir: Path | None = None) -> SpaFramework:
-    """Build the default framework configured with the workspace view files."""
+    """Build framework using only settings defined under view/."""
     root = (base_dir or Path.cwd()).resolve()
-    return SpaFramework(
-        view_file=root / "view" / "index.html",
-        components_dir=root / "view" / "components",
-        entry_component="App",
-        mount_id="app",
-    )
+    return SpaFramework.from_view_directory(root / "view")

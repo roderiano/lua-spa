@@ -1,0 +1,41 @@
+<python>
+def context(props):
+    return {
+        "label": props.get("label", "Counter"),
+    }
+
+
+def client():
+  return {
+    "state": {
+      "count": {
+        "from_prop": "start",
+        "default": 0,
+        "cast": "int",
+      }
+    },
+    "actions": {
+      "increment": {
+        "op": "add",
+        "state": "count",
+        "value": 1,
+      },
+      "decrement": {
+        "op": "sub",
+        "state": "count",
+        "value": 1,
+      },
+    },
+  }
+</python>
+
+<template>
+  <article class="counter">
+    <h2>{{ py.label }}</h2>
+    <p>Count: {{ state.count }}</p>
+    <div class="buttons">
+      <button on:click="decrement">-</button>
+      <button on:click="increment">+</button>
+    </div>
+  </article>
+</template>

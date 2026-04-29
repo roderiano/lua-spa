@@ -1,0 +1,24 @@
+@import Counter from "./Counter.lspa"
+
+<python>
+def context(props):
+    return {
+        "title": props.get("title", "Lua SPA Framework"),
+        "subtitle": props.get("subtitle", "Hydrated component tree with hook-based state."),
+    }
+
+
+def client():
+  return {
+    "state": {},
+    "actions": {},
+  }
+</python>
+
+<template>
+  <section class="shell">
+    <h1>{{ py.title }}</h1>
+    <p>{{ py.subtitle }}</p>
+    <Counter start="{{ props.start }}" label="Counter" />
+  </section>
+</template>

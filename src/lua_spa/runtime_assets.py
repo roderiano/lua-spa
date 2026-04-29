@@ -85,6 +85,23 @@ SPA_RUNTIME_JS = r"""
       });
   }
 
+  function resolveComponentName(tagName, registry) {
+    if (Object.prototype.hasOwnProperty.call(registry, tagName)) {
+      return tagName;
+    }
+
+    var lowerTag = String(tagName).toLowerCase();
+    var keys = Object.keys(registry);
+    for (var index = 0; index < keys.length; index += 1) {
+      var key = keys[index];
+      if (key.toLowerCase() === lowerTag) {
+        return key;
+      }
+    }
+
+    return null;
+  }
+
   function nodeToVNode(node, context, registry) {
     if (node.nodeType === Node.TEXT_NODE) {
       if (!node.textContent || node.textContent.trim() === "") {
@@ -102,14 +119,15 @@ SPA_RUNTIME_JS = r"""
     }
 
     var tagName = node.tagName;
-    if (Object.prototype.hasOwnProperty.call(registry, tagName)) {
+    var componentName = resolveComponentName(tagName, registry);
+    if (componentName !== null) {
       var componentProps = {};
       Array.from(node.attributes).forEach(function (attribute) {
         componentProps[attribute.name] = interpolate(attribute.value, context);
       });
       return {
         type: "component",
-        name: tagName,
+        name: componentName,
         props: componentProps,
         instance: null,
         el: null,
@@ -231,6 +249,7 @@ SPA_RUNTIME_JS = r"""
       props: instance.props,
       state: instance.state,
       actions: instance.actions,
+      py: instance.props,
     };
 
     return parseTemplate(componentDef.template, context, app.registry);
