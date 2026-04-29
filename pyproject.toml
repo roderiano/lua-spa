@@ -1,0 +1,37 @@
+[project]
+name = "lua-spa"
+version = "0.1.0"
+description = "Initial Python package scaffold for the lua-spa application"
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+authors = [{ name = "Gabriel da Rosa Silveira", email = "gabrielsilveirapro@gmail.com" }]
+dependencies = []
+
+[project.scripts]
+lua-spa = "lua_spa.main:main"
+
+[tool.poetry]
+packages = [{ include = "lua_spa", from = "src" }]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.0"
+ruff = "^0.6.9"
+mypy = "^1.11.2"
+pre-commit = "^4.6.0"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_configs = true
+
+[build-system]
+requires = ["poetry-core>=1.9.0"]
+build-backend = "poetry.core.masonry.api"
