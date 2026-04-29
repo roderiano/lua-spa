@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>lua-spa</title>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --ink: #10213d;
+        --surface: #ffffff;
+        --accent: #0f7aef;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", Tahoma, sans-serif;
+        background: radial-gradient(circle at top, #ffffff 0%, var(--bg) 60%);
+        color: var(--ink);
+      }
+
+      #app {
+        width: min(920px, 100% - 2rem);
+        margin: 2rem auto;
+      }
+
+      .shell,
+      .counter {
+        background: var(--surface);
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 12px 32px rgba(16, 33, 61, 0.08);
+      }
+
+      .counter {
+        margin-top: 1rem;
+      }
+
+      .buttons {
+        display: flex;
+        gap: 0.75rem;
+      }
+
+      button {
+        border: none;
+        border-radius: 8px;
+        padding: 0.55rem 0.8rem;
+        font-size: 1rem;
+        background: var(--accent);
+        color: #ffffff;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app">{{ SPA_OUTLET }}</main>
+    {{ SPA_BOOTSTRAP }}
+  </body>
+</html>

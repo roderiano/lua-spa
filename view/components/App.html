@@ -1,0 +1,18 @@
+@import Counter from "./Counter.html"
+
+<template>
+  <section class="shell">
+    <h1>{{ props.title }}</h1>
+    <p>{{ props.subtitle }}</p>
+    <Counter start="{{ props.start }}" label="Counter" />
+  </section>
+</template>
+
+<script>
+function setup() {
+  return {
+    state: {},
+    actions: {},
+  };
+}
+</script>

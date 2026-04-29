@@ -1,6 +1,14 @@
 # lua-spa
 
-Python project scaffold with Poetry for the `lua-spa` application.
+Backend-first SPA framework prototype in Python.
+
+This project now includes:
+
+- View file served by the backend
+- HTML components with component import support
+- Client hydration at component level
+- DOM diff renderer inspired by React's virtual DOM flow
+- `useState` hook-style state management
 
 ## Requirements
 
@@ -18,8 +26,14 @@ Python project scaffold with Poetry for the `lua-spa` application.
 2. Run the application:
 
    ```bash
-   poetry run lua-spa
+  poetry run lua-spa
    ```
+
+3. Open the browser:
+
+  ```text
+  http://127.0.0.1:8000
+  ```
 
 ## Structure
 
@@ -33,7 +47,14 @@ lua-spa/
       __init__.py
       __main__.py
       app.py
+      framework.py
       main.py
+      runtime_assets.py
+  view/
+    index.html
+    components/
+      App.html
+      Counter.html
   tests/
     test_app.py
 ```
@@ -43,6 +64,38 @@ lua-spa/
 ```bash
 poetry run pytest
 ```
+
+## Component format
+
+Components are HTML files with optional imports and script blocks.
+
+```html
+@import Counter from "./Counter.html"
+
+<template>
+  <section>
+    <Counter start="1" />
+  </section>
+</template>
+
+<script>
+function setup({ useState, props }) {
+  const [count, setCount] = useState(Number(props.start || 0));
+  return {
+    state: { count: count },
+    actions: {
+      increment: function () {
+        setCount(function (value) {
+          return value + 1;
+        });
+      },
+    },
+  };
+}
+</script>
+```
+
+Use `on:event="actionName"` in templates to bind events to actions returned by `setup`.
 
 ## Linting and typing
 

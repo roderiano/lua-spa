@@ -1,0 +1,32 @@
+<template>
+  <article class="counter">
+    <h2>{{ props.label }}</h2>
+    <p>Count: {{ state.count }}</p>
+    <div class="buttons">
+      <button on:click="decrement">-</button>
+      <button on:click="increment">+</button>
+    </div>
+  </article>
+</template>
+
+<script>
+function setup({ useState, props }) {
+  const [count, setCount] = useState(Number(props.start || 0));
+
+  return {
+    state: { count: count },
+    actions: {
+      increment: function () {
+        setCount(function (value) {
+          return value + 1;
+        });
+      },
+      decrement: function () {
+        setCount(function (value) {
+          return value - 1;
+        });
+      },
+    },
+  };
+}
+</script>
