@@ -1,24 +1,49 @@
 @import Counter from "./Counter.lspa"
 
 <python>
-def context(props):
-    return {
-        "title": props.get("title", "Lua SPA Framework"),
-        "subtitle": props.get("subtitle", "Hydrated component tree with hook-based state."),
-    }
+class AppContext:
+  def __init__(self, title, subtitle):
+    self.title = title
+    self.subtitle = subtitle
 
 
-def client():
-  return {
-    "state": {},
-    "actions": {},
-  }
+class AppClient:
+  title = "Lua SPA Framework"
+  subtitle = "Hydrated component tree with hook-based state."
+  start = 0
+  limit = 2
+
+  State = []
+  Methods = []
+
+  def created(self):
+    return []
+
+  def mounted(self):
+    return []
+
+  def updated(self):
+    return []
+
+  def unmounted(self):
+    return []
+
+
+class Component:
+  def context(self, props):
+    return AppContext(
+      props.get("title", "Lua SPA Framework"),
+      props.get("subtitle", "Hydrated component tree with hook-based state."),
+    )
+
+  def client(self):
+    return AppClient()
 </python>
 
 <template>
   <section class="shell">
-    <h1>{{ py.title }}</h1>
-    <p>{{ py.subtitle }}</p>
-    <Counter start="{{ props.start }}" label="Counter" />
+    <h1>{{ title }}</h1>
+    <p>{{ subtitle }}</p>
+    <Counter title="{{ title }}" limit="{{ limit }}" start="{{ start }}" />
   </section>
 </template>

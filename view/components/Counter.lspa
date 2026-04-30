@@ -1,41 +1,69 @@
 <python>
-def context(props):
-    return {
-        "label": props.get("label", "Counter"),
+class CounterClient(Client):
+    props = {
+        "title": "Contador",
+        "start": 0,
+        "limit": 5,
+        "step": 1,
     }
 
+    class CountState:
+        name = "count"
+        init = lambda self: int(self.props.start)
 
-def client():
-  return {
-    "state": {
-      "count": {
-        "from_prop": "start",
-        "default": 0,
-        "cast": "int",
-      }
-    },
-    "actions": {
-      "increment": {
-        "op": "add",
-        "state": "count",
-        "value": 1,
-      },
-      "decrement": {
-        "op": "sub",
-        "state": "count",
-        "value": 1,
-      },
-    },
-  }
+    state = [CountState]
+
+    def increment(self):
+        self.state.count += self.props.step
+        if self.state.count >= 10:
+            self.state.count = -1
+
+    def reset(self):
+        self.state.count = 0
+
+    def created(self):
+        print("created")
+
+    def mounted(self):
+        print("mounted")
+
+    def updated(self):
+        print("updated")
+
+    def unmounted(self):
+        print("unmounted")
+
+
+class Counter(Component):
+    client = CounterClient
 </python>
+
 
 <template>
   <article class="counter">
-    <h2>{{ py.label }}</h2>
-    <p>Count: {{ state.count }}</p>
+    <h2>{{ title }}</h2>
+
+    <p>Contador: {{ count }}</p>
+
     <div class="buttons">
-      <button on:click="decrement">-</button>
-      <button on:click="increment">+</button>
+      <button @click="increment">+1</button>
+      <button @click="reset">Reset</button>
     </div>
+
+    <p v-if="count > limit">Limite atingido!</p>
   </article>
 </template>
+
+
+<style>
+.counter {
+  padding: 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.buttons {
+  display: flex;
+  gap: 8px;
+}
+</style>

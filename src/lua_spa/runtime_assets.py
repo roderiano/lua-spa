@@ -36,15 +36,19 @@ SPA_RUNTIME_JS = r"""
     });
   }
 
-  function evaluateExpression(expression, context) {
+  function evaluateRawExpression(expression, context) {
     try {
       var evaluator = new Function("ctx", "with (ctx) { return (" + expression + "); }");
-      var value = evaluator(context);
-      return value == null ? "" : String(value);
+      return evaluator(context);
     } catch (error) {
       console.warn("[lua-spa] expression failed:", expression, error);
-      return "";
+      return undefined;
     }
+  }
+
+  function evaluateExpression(expression, context) {
+    var value = evaluateRawExpression(expression, context);
+    return value == null ? "" : String(value);
   }
 
   function interpolate(template, context) {
@@ -119,10 +123,24 @@ SPA_RUNTIME_JS = r"""
     }
 
     var tagName = node.tagName;
+    var conditionalExpression = node.getAttribute("v-if");
+    if (conditionalExpression !== null) {
+      var shouldRender = !!evaluateRawExpression(conditionalExpression, context);
+      if (!shouldRender) {
+        return null;
+      }
+    }
+
     var componentName = resolveComponentName(tagName, registry);
     if (componentName !== null) {
       var componentProps = {};
       Array.from(node.attributes).forEach(function (attribute) {
+        if (attribute.name === "v-if") {
+          return;
+        }
+        if (attribute.name.indexOf("on:") === 0 || attribute.name.indexOf("@") === 0) {
+          return;
+        }
         componentProps[attribute.name] = interpolate(attribute.value, context);
       });
       return {
@@ -137,8 +155,13 @@ SPA_RUNTIME_JS = r"""
     var props = {};
     var events = {};
     Array.from(node.attributes).forEach(function (attribute) {
+      if (attribute.name === "v-if") {
+        return;
+      }
       if (attribute.name.indexOf("on:") === 0) {
         events[attribute.name.slice(3)] = attribute.value;
+      } else if (attribute.name.indexOf("@") === 0) {
+        events[attribute.name.slice(1)] = attribute.value;
       } else {
         props[attribute.name] = interpolate(attribute.value, context);
       }
@@ -220,6 +243,23 @@ SPA_RUNTIME_JS = r"""
     };
   }
 
+  function invokeLifecycle(instance, hookName) {
+    if (!instance || !instance.lifecycle) {
+      return;
+    }
+
+    var hook = instance.lifecycle[hookName];
+    if (typeof hook !== "function") {
+      return;
+    }
+
+    try {
+      hook();
+    } catch (error) {
+      console.error("[lua-spa] lifecycle hook failed", hookName, error);
+    }
+  }
+
   function renderComponentSubtree(instance, app) {
     var componentDef = app.registry[instance.name];
     if (!componentDef) {
@@ -241,16 +281,23 @@ SPA_RUNTIME_JS = r"""
     if (setupResult.state && typeof setupResult.state === "object") {
       instance.state = setupResult.state;
     }
+    if (setupResult.props && typeof setupResult.props === "object") {
+      instance.props = setupResult.props;
+    }
     if (setupResult.actions && typeof setupResult.actions === "object") {
       instance.actions = setupResult.actions;
     }
+    if (setupResult.lifecycle && typeof setupResult.lifecycle === "object") {
+      instance.lifecycle = setupResult.lifecycle;
+    }
 
-    var context = {
+    var flatContext = Object.assign({}, instance.props || {}, instance.state || {}, instance.props || {});
+    var context = Object.assign({}, flatContext, {
       props: instance.props,
       state: instance.state,
       actions: instance.actions,
       py: instance.props,
-    };
+    });
 
     return parseTemplate(componentDef.template, context, app.registry);
   }
@@ -302,6 +349,8 @@ SPA_RUNTIME_JS = r"""
       setup: compileSetup(componentDef.script),
       state: {},
       actions: {},
+      lifecycle: {},
+      hasCreated: false,
       subTree: null,
       isMounted: false,
       container: container,
@@ -309,6 +358,11 @@ SPA_RUNTIME_JS = r"""
       hydrationNode: hydrationNode,
       update: function () {
         var nextTree = renderComponentSubtree(instance, app);
+
+        if (!instance.hasCreated) {
+          instance.hasCreated = true;
+          invokeLifecycle(instance, "onCreate");
+        }
 
         if (!instance.isMounted) {
           if (instance.hydrationNode) {
@@ -319,12 +373,14 @@ SPA_RUNTIME_JS = r"""
           instance.isMounted = true;
           instance.subTree = nextTree;
           vnode.el = nextTree.el;
+          invokeLifecycle(instance, "onMount");
           return;
         }
 
         patch(instance.subTree, nextTree, instance.container, instance.anchor, app, instance);
         instance.subTree = nextTree;
         vnode.el = nextTree.el;
+        invokeLifecycle(instance, "onUpdate");
       },
     };
 
@@ -461,6 +517,9 @@ SPA_RUNTIME_JS = r"""
 
   function unmount(vnode, container) {
     if (vnode.type === "component") {
+      if (vnode.instance) {
+        invokeLifecycle(vnode.instance, "onUnmount");
+      }
       if (vnode.instance && vnode.instance.subTree) {
         unmount(vnode.instance.subTree, container);
       }

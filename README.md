@@ -73,47 +73,77 @@ Components are `.lspa` files with optional imports and a `<python>` block.
 
 Inside `<python>`, use:
 
-- `context(props)` for server-side values used by template interpolation (`py.*`)
-- `client()` for declarative client state/actions (hydration + `useState` behavior)
+- `Component.context(props)` for server-side values used by template interpolation (`py.*`)
+- `Component.client()` returning an object with attributes:
+  - props as public variables on the client class (`start = 0`, `label = "Counter"`)
+  - `State` as a list of state classes (each class defines `name`, `from_prop`, `default`, `cast`)
+  - `Methods` as function names (Python methods returning operation configs)
+  - lifecycle as functions: `on_mount()`, `on_update()`, `on_unmount()`
+
+The Python code in `<python>` is executed by the backend during render/compile.
 
 ```html
 @import Counter from "./Counter.lspa"
 
 <python>
-def context(props):
-    return {
-        "title": props.get("title", "Lua SPA Framework"),
-    }
+class CounterClient(ClientMethods):
+  title = "Contador"
+  limit = 5
+  start = 0
+
+  class CountState:
+    name = "count"
+    from_prop = "start"
+    default = 0
+    cast = "int"
+
+  State = [CountState]
+
+  Methods = ["increment", "reset"]
+
+  def increment(self):
+    return self.add("count", 1)
+
+  def reset(self):
+    return self.set("count", 0)
+
+  def created(self):
+    return []
+
+  def mounted(self):
+    return []
+
+  def updated(self):
+    return []
+
+  def unmounted(self):
+    return []
 
 
-def client():
-  return {
-    "state": {
-      "count": {
-        "from_prop": "start",
-        "default": 0,
-        "cast": "int",
-      }
-    },
-    "actions": {
-      "increment": {
-        "op": "add",
-        "state": "count",
-        "value": 1,
-      },
-    },
-  }
+class Component:
+    def context(self, props):
+        return {
+            "title": props.get("title", "Lua SPA Framework"),
+        }
+
+    def client(self):
+        return CounterClient()
 </python>
 
 <template>
-  <section>
-    <h1>{{ py.title }}</h1>
-    <Counter start="1" />
-  </section>
+  <div>
+    <h2>{{ title }}</h2>
+    <p>Contador: {{ count }}</p>
+
+    <button @click="increment">+1</button>
+    <button @click="reset">Reset</button>
+
+    <p v-if="count > limit">Limite atingido!</p>
+  </div>
 </template>
 ```
 
-Use `on:event="actionName"` in templates to bind events to actions declared in `client()`.
+Use `on:event="actionName"` in templates to bind events to actions declared in client methods.
 
 ## View base definition
 
