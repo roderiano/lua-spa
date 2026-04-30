@@ -1,0 +1,74 @@
+---
+sidebar_position: 1
+---
+
+# Lua SPA
+
+Um framework **backend-first para SPA** leve escrito em Python que oferece um sistema de componentes moderno e reativo com renderização no servidor e hidratação no cliente.
+
+## Recursos Principais
+
+- **Arquitetura Backend-First**: Renderização no servidor com hidratação no cliente
+- **Baseado em Componentes**: Componentes `.lspa` reutilizáveis que combinam templates HTML com lógica Python
+- **Gerenciamento de Estado**: Hooks `useState` ao estilo Vue para estado reativo
+- **DOM Diffing**: Atualizações eficientes de DOM usando algoritmo de difusão de DOM virtual
+- **Hot Reload**: Reinicialização automática do servidor e atualização do navegador durante o desenvolvimento
+- **Type Safe**: Suporte completo a tipagem Python com modo estrito MyPy
+- **Zero Configuração**: Comece com configuração mínima
+
+## Início Rápido
+
+### Instalação
+
+```bash
+# Clone o repositório
+git clone https://github.com/lua-spa/lua-spa.git
+cd lua-spa
+
+# Instale as dependências
+poetry install
+```
+
+### Execute a Aplicação
+
+```bash
+# Inicie o servidor de desenvolvimento
+poetry run lua-spa
+```
+
+Abra seu navegador em `http://127.0.0.1:8000`
+
+## Estrutura do Projeto
+
+```
+lua-spa/
+├── src/lua_spa/              # Core do framework
+│   ├── framework.py          # Classe principal SpaFramework
+│   ├── loader.py             # Carregador de componentes
+│   ├── renderer.py           # Motor de renderização de templates
+│   ├── codegen.py            # Geração de código JavaScript
+│   ├── scope.py              # Execução de escopo de componentes
+│   ├── types.py              # Definições de tipo
+│   ├── runtime_assets.py     # Runtime do lado do cliente
+│   └── server.py             # Servidor HTTP
+├── lua_template/             # Definição da aplicação
+│   ├── spa.config.json       # Configuração da aplicação
+│   ├── index.lspa            # Template raiz
+│   └── components/           # Componentes reutilizáveis
+│       ├── App.lspa
+│       └── Counter.lspa
+└── tests/                    # Suite de testes
+```
+
+## O Que Você Aprenderá
+
+- [Começando](./getting-started.md) - Configuração básica e primeiro componente
+- [Visão Geral da Arquitetura](./architecture.md) - Design do sistema e fluxo de dados
+- [Componentes](./components/index.md) - Criando componentes `.lspa`
+- [Gerenciamento de Estado](./components/state.md) - Gerenciando estado do componente
+- [API do Framework](./api/framework.md) - Classes e métodos principais
+- [Sistema de Tipos](./api/index.md) - Definições de tipo e interfaces
+
+## Próximos Passos
+
+👉 **Comece com** [Começando](./getting-started.md) para uma introdução prática.

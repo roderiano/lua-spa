@@ -1,0 +1,8 @@
+{
+  "label": "Referência da API",
+  "position": 3,
+  "link": {
+    "type": "generated-index",
+    "description": "Referência completa da API do framework Lua SPA"
+  }
+}

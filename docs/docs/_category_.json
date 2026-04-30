@@ -1,0 +1,8 @@
+{
+  "label": "Documentation",
+  "position": 1,
+  "link": {
+    "type": "generated-index",
+    "description": "Lua SPA - A lightweight backend-first SPA framework"
+  }
+}

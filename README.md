@@ -36,6 +36,20 @@ This project now includes:
   http://127.0.0.1:8000
   ```
 
+## Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+- **English**: http://localhost:3000
+- **Português**: http://localhost:3000/pt-BR
+
+To start the documentation locally:
+
+```bash
+cd docs
+npm run start
+```
+
 ## Structure
 
 ```text
