@@ -29,6 +29,121 @@ COND_ATTR_PATTERN = re.compile(
 
 _EXPR_PATTERN = re.compile(r"{{\s*(.*?)\s*}}")
 
+_FOR_ATTR_PATTERN = re.compile(
+    r"\s(?P<for>i-for)\s*=\s*(?P<quote>\"|')(?P<expr>.*?)\2",
+    re.IGNORECASE,
+)
+
+def render_template_with_directives(template: str, context: Mapping[str, Any]) -> str:
+    """Processa i-for, l-if/l-else-if/l-else e interpolação em ordem correta."""
+    html = apply_server_loops(template, context)
+    html = apply_server_conditionals(html, context)
+    html = interpolate(html, context)
+    return html
+
+def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
+    """Aplica i-for para renderização de listas no template.
+
+    Procura por tags com i-for e expande para múltiplas instâncias, cada uma com contexto atualizado.
+    Sintaxe: <li i-for="item in items">{{ item }}</li>
+    """
+    opening_tag_pattern = re.compile(
+        rf"<(?P<tag>[A-Za-z][\w:\-]*)\b(?P<attrs>{_ATTRS_FRAGMENT})>",
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    def _find_balanced_block_end(html: str, tag: str, start_after_open: int) -> tuple[int, int] | None:
+        token_pattern = re.compile(
+            rf"</?{re.escape(tag)}\b{_ATTRS_FRAGMENT}>",
+            re.IGNORECASE | re.DOTALL,
+        )
+        depth = 1
+        for token in token_pattern.finditer(html, start_after_open):
+            token_text = token.group(0)
+            is_closing = token_text.startswith("</")
+            is_self_closing = token_text.rstrip().endswith("/>")
+            if is_closing:
+                depth -= 1
+                if depth == 0:
+                    return token.start(), token.end()
+            elif not is_self_closing:
+                depth += 1
+        return None
+
+    def _collect_for_matches(html: str) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
+        for match in opening_tag_pattern.finditer(html):
+            full_tag = match.group(0)
+            tag = match.group("tag")
+            attrs = match.group("attrs")
+            for_attr = _FOR_ATTR_PATTERN.search(attrs)
+            if not for_attr:
+                continue
+            is_self = full_tag.rstrip().endswith("/>")
+            if is_self:
+                continue  # Não suporta self-closing com i-for
+            balanced = _find_balanced_block_end(html, tag, match.end())
+            if balanced is None:
+                continue
+            close_start, close_end = balanced
+            items.append({
+                "start": match.start(),
+                "end": close_end,
+                "tag": tag,
+                "attrs": attrs,
+                "body": html[match.end():close_start],
+                "expr": for_attr.group("expr"),
+            })
+        items.sort(key=lambda i: int(i["start"]))
+        filtered: list[dict[str, Any]] = []
+        covered_until = -1
+        for item in items:
+            start = int(item["start"])
+            end = int(item["end"])
+            if start < covered_until:
+                continue
+            filtered.append(item)
+            covered_until = end
+        return filtered
+
+    rendered = template
+    while True:
+        previous = rendered
+        nodes = _collect_for_matches(rendered)
+        if not nodes:
+            break
+        for node in reversed(nodes):
+            start = int(node["start"])
+            end = int(node["end"])
+            expr = node["expr"]
+            # Suporta sintaxe: var in iterable
+            m = re.match(r"\s*(\w+)\s+in\s+(.+)", expr)
+            if not m:
+                continue
+            var_name, iter_expr = m.group(1), m.group(2)
+            items = evaluate_expression(iter_expr, context)
+            if not items:
+                replacement = ""
+            else:
+                parts = []
+                for idx, item in enumerate(items):
+                    loop_ctx = dict(context)
+                    loop_ctx[var_name] = item
+                    loop_ctx["loop"] = {"index": idx, "first": idx == 0, "last": idx == len(items)-1}
+                    # Remove o atributo i-for
+                    clean_attrs = _FOR_ATTR_PATTERN.sub("", node["attrs"]).strip()
+                    attrs_part = f" {clean_attrs}" if clean_attrs else ""
+                    html = f"<{node['tag']}{attrs_part}>{node['body']}</{node['tag']}>"
+                    # Recursivo: processa interpolação e outros i-for internos
+                    html = interpolate(html, loop_ctx)
+                    html = apply_server_loops(html, loop_ctx)
+                    html = apply_server_conditionals(html, loop_ctx)
+                    parts.append(html)
+                replacement = "".join(parts)
+            rendered = rendered[:start] + replacement + rendered[end:]
+        if rendered == previous:
+            break
+    return rendered
 
 def build_scoped_context(context: Mapping[str, Any]) -> dict[str, Any]:
     """Build a scoped dict for expression evaluation.

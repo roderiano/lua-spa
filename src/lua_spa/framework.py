@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from lua_spa.loader import ComponentLoader
-from lua_spa.renderer import build_python_context, build_server_state, interpolate, apply_server_conditionals
+from lua_spa.renderer import build_python_context, build_server_state, interpolate, render_template_with_directives
 from lua_spa.runtime_assets import SPA_RUNTIME_JS
 from lua_spa.server import SpaServer
 from lua_spa.types import ComponentDefinition, load_lua_template_config
@@ -229,7 +229,7 @@ class SpaFramework:
         }
 
         html_fragment = interpolate(component.template, context)
-        html_fragment = apply_server_conditionals(html_fragment, context)
+        html_fragment = render_template_with_directives(html_fragment, context)
         expanded = self._expand_child_components(html_fragment, context)
         return expanded
 

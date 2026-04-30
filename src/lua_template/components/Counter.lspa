@@ -44,7 +44,12 @@ class Counter(Component):
   <article class="counter">
     <h2>{{ title }}</h2>
 
+
     <p>Contador: {{ count }}</p>
+
+    <ul>
+      <li i-for="n in range(count + 1)">Item {{ n }}</li>
+    </ul>
 
     <div l-if="show_div" class="buttons">
       <button @click="increment">+1</button>
