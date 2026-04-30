@@ -170,7 +170,7 @@ SPA_RUNTIME_JS = r"""
 
   function parseTemplate(template, context, registry) {
     var holder = document.createElement("template");
-    holder.innerHTML = interpolate(template, context);
+    holder.innerHTML = template;
     var nodes = toVNodes(holder.content, context, registry);
 
     if (nodes.length === 0) {
@@ -332,9 +332,10 @@ SPA_RUNTIME_JS = r"""
       if (!node.textContent || node.textContent.trim() === "") {
         return null;
       }
+      var interpolatedText = interpolate(node.textContent, context);
       return {
         type: "text",
-        text: node.textContent,
+        text: interpolatedText,
         el: null,
       };
     }

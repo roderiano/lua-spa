@@ -179,7 +179,7 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
             start = int(node["start"])
             end = int(node["end"])
             expr = node["expr"]
-            # Suporta sintaxe: var in iterable | key, value in iterable
+            # Supports syntax: var in iterable | key, value in iterable
             m = re.match(r"\s*(.+?)\s+in\s+(.+)", expr)
             if not m:
                 continue
@@ -210,11 +210,11 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
                         "last": idx == total - 1,
                         "length": total,
                     }
-                    # Remove o atributo i-for
+                    # Remove the i-for attribute
                     clean_attrs = _FOR_ATTR_PATTERN.sub("", node["attrs"]).strip()
                     attrs_part = f" {clean_attrs}" if clean_attrs else ""
                     html = f"<{node['tag']}{attrs_part}>{node['body']}</{node['tag']}>"
-                    # Recursivo: processa interpolação e outros i-for internos
+                    # Recursive: process interpolation and other internal i-for
                     html = interpolate(html, loop_ctx)
                     html = apply_server_loops(html, loop_ctx)
                     html = apply_server_conditionals(html, loop_ctx)

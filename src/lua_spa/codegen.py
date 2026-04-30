@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from typing import Any, Mapping
 
 from lua_spa.scope import load_python_scope, resolve_component_callables, normalize_client_spec
-from lua_spa.trace import _CastReference, _PropReference
+from lua_spa.trace import _BinaryExpression, _CastReference, _PropReference
 
 
 def build_client_script(python_block: str) -> str:
@@ -42,6 +42,29 @@ def build_client_script(python_block: str) -> str:
     lines: list[str] = ["function setup({ useState, props }) {"]
     props_literal = _js_literal(props_spec)
     lines.append(f"  const resolvedProps = Object.assign({{}}, {props_literal}, props || {{}});")
+
+    for prop_name, default_value in props_spec.items():
+        prop_key = _js_literal(str(prop_name))
+        if isinstance(default_value, bool):
+            lines.append(
+                "  if (Object.prototype.hasOwnProperty.call(resolvedProps, "
+                + prop_key
+                + ")) { resolvedProps["
+                + prop_key
+                + "] = Boolean(resolvedProps["
+                + prop_key
+                + "]); }"
+            )
+        elif isinstance(default_value, (int, float)):
+            lines.append(
+                "  if (Object.prototype.hasOwnProperty.call(resolvedProps, "
+                + prop_key
+                + ")) { resolvedProps["
+                + prop_key
+                + "] = Number(resolvedProps["
+                + prop_key
+                + "]); }"
+            )
     setter_by_state: dict[str, str] = {}
     value_by_state: dict[str, str] = {}
 
@@ -181,6 +204,9 @@ def _normalize_action_operation(action_cfg: Any) -> dict[str, Any]:
             raise ValueError("multi action requires list field 'steps'")
         return {"op": "multi", "steps": steps}
 
+    if op_kind == "log":
+        return {"op": "log", "value": action_cfg.get("value")}
+
     state_name = action_cfg.get("state")
     if state_name is None:
         raise ValueError("Action config must include 'state'")
@@ -221,6 +247,10 @@ def _js_action_statement(operation: Mapping[str, Any], setter_by_state: Mapping[
                 raise ValueError("multi action step must be a mapping")
             statements.append(_js_action_statement(step, setter_by_state, value_by_state))
         return " ".join(statements)
+
+    if str(operation.get("op", "")) == "log":
+        value_literal = _js_runtime_value_expression(operation.get("value"), "resolvedProps")
+        return f"console.log('[lua-spa]', {value_literal});"
 
     state_name = str(operation["state"])
     if state_name not in setter_by_state:
@@ -283,6 +313,15 @@ def _js_runtime_value_expression(value: Any, prop_var_name: str) -> str:
         if value.cast == "bool":
             return f"Boolean({inner_expression})"
         return inner_expression
+
+    if isinstance(value, _BinaryExpression):
+        left_expr = _js_runtime_value_expression(value.left, prop_var_name)
+        right_expr = _js_runtime_value_expression(value.right, prop_var_name)
+        if value.op == "//":
+            return f"Math.floor(({left_expr}) / ({right_expr}))"
+        if value.op == "**":
+            return f"Math.pow({left_expr}, {right_expr})"
+        return f"({left_expr} {value.op} {right_expr})"
 
     return _js_literal(value)
 

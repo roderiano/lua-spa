@@ -34,6 +34,53 @@ class _PropReference:
     name: str
     default: Any = None
 
+    def _binary(self, op: str, other: Any, reverse: bool = False) -> "_BinaryExpression":
+        left = other if reverse else self
+        right = self if reverse else other
+        return _BinaryExpression(op=op, left=left, right=right)
+
+    def __add__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("+", other)
+
+    def __radd__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("+", other, reverse=True)
+
+    def __sub__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("-", other)
+
+    def __rsub__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("-", other, reverse=True)
+
+    def __mul__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("*", other)
+
+    def __rmul__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("*", other, reverse=True)
+
+    def __truediv__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("/", other)
+
+    def __rtruediv__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("/", other, reverse=True)
+
+    def __floordiv__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("//", other)
+
+    def __rfloordiv__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("//", other, reverse=True)
+
+    def __mod__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("%", other)
+
+    def __rmod__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("%", other, reverse=True)
+
+    def __pow__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("**", other)
+
+    def __rpow__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("**", other, reverse=True)
+
 
 @dataclass(frozen=True)
 class _CastReference:
@@ -45,6 +92,62 @@ class _CastReference:
 
     cast: str
     value: Any
+
+    def _binary(self, op: str, other: Any, reverse: bool = False) -> "_BinaryExpression":
+        left = other if reverse else self
+        right = self if reverse else other
+        return _BinaryExpression(op=op, left=left, right=right)
+
+    def __add__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("+", other)
+
+    def __radd__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("+", other, reverse=True)
+
+    def __sub__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("-", other)
+
+    def __rsub__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("-", other, reverse=True)
+
+    def __mul__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("*", other)
+
+    def __rmul__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("*", other, reverse=True)
+
+    def __truediv__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("/", other)
+
+    def __rtruediv__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("/", other, reverse=True)
+
+    def __floordiv__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("//", other)
+
+    def __rfloordiv__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("//", other, reverse=True)
+
+    def __mod__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("%", other)
+
+    def __rmod__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("%", other, reverse=True)
+
+    def __pow__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("**", other)
+
+    def __rpow__(self, other: Any) -> "_BinaryExpression":
+        return self._binary("**", other, reverse=True)
+
+
+@dataclass(frozen=True)
+class _BinaryExpression:
+    """Represents a binary expression captured during tracing."""
+
+    op: str
+    left: Any
+    right: Any
 
 
 class _TraceProps:
@@ -165,6 +268,10 @@ class _TraceState:
             }
             super().__setattr__("_pending_condition", None)
         self._operations.append(operation)
+
+    def add_log(self, message: Any) -> None:
+        """Append a log operation without consuming pending conditions."""
+        self._operations.append({"op": "log", "value": message})
 
     def __getattr__(self, name: str) -> _TraceStateValue:
         """Return a trace state value when accessed."""

@@ -15,6 +15,7 @@ class CounterClient(Client):
     state = [CountState]
 
     def increment(self):
+        print("teste")
         self.state.count += self.props.step
         if self.state.count >= self.props.limit + 1:
             self.state.count = -1
@@ -47,15 +48,6 @@ class Counter(Component):
 
     <p>Contador: {{ count }}</p>
 
-    <ul>
-      <li i-for="outer in range(1, 4)">
-        Grupo {{ outer }}
-        <ol>
-          <li i-for="inner in range(outer)">Item {{ outer }}.{{ inner }}</li>
-        </ol>
-      </li>
-    </ul>
-
     <div l-if="show_div" class="buttons">
       <button @click="increment">+1</button>
       <button @click="reset">Reset</button>
@@ -66,6 +58,16 @@ class Counter(Component):
     <div l-else-if="count > 5">Count is greater than 5 and less than or equal to {{ limit }}</div>
     <div l-else-if="count > 0">Count is positive and less than or equal to 5</div>
     <div l-else>Count is zero or negative, limit: {{ limit }}</div>
+
+
+    <ul>
+      <li i-for="outer in range(1, 4)">
+        Grupo {{ outer }}
+        <ol>
+          <li i-for="inner in range(outer)">Item {{ outer }}.{{ inner }}</li>
+        </ol>
+      </li>
+    </ul>
   </article>
 </template>
 

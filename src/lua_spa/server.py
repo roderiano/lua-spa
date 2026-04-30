@@ -39,6 +39,7 @@ class _SpaHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+
     def log_message(self, format: str, *args: Any) -> None:
         """Suppress HTTP server logging."""
         return

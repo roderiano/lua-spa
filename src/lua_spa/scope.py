@@ -451,7 +451,25 @@ def invoke_method_callable(action_name: str, method_callable: Any, owner: Any | 
     restore_state = swap_attribute(owner, "state", trace_state) if owner is not None else None
 
     result = None
+    trace_logs: list[Any] = []
+    original_print = builtins.print
+    original_globals_print = None
+    globals_builtins = None
+
+    def _trace_print(*args: Any, **kwargs: Any) -> None:
+        sep = kwargs.get("sep", " ")
+        message = sep.join(str(item) for item in args)
+        trace_logs.append(message)
+
     try:
+        builtins.print = _trace_print
+        globals_builtins = getattr(method_callable, "__globals__", {}).get("__builtins__")
+        if isinstance(globals_builtins, dict):
+            original_globals_print = globals_builtins.get("print", builtins.print)
+            globals_builtins["print"] = _trace_print
+        elif globals_builtins is not None:
+            original_globals_print = getattr(globals_builtins, "print", builtins.print)
+            setattr(globals_builtins, "print", _trace_print)
         # Try calling without arguments first (for unbound functions)
         try:
             result = method_callable()
@@ -463,15 +481,26 @@ def invoke_method_callable(action_name: str, method_callable: Any, owner: Any | 
                 # If both fail, just skip (method might be bound already)
                 pass
     finally:
+        builtins.print = original_print
+        if globals_builtins is not None and original_globals_print is not None:
+            if isinstance(globals_builtins, dict):
+                globals_builtins["print"] = original_globals_print
+            else:
+                setattr(globals_builtins, "print", original_globals_print)
         if restore_state is not None:
             restore_state()
         if restore_props is not None:
             restore_props()
 
+    for message in trace_logs:
+        trace_state.add_log(message)
+
     # If method returns a mapping, use it as the operation
     if result is not None:
         if isinstance(result, Mapping):
-            return result
+            if len(trace_state.operations) == 0:
+                return result
+            return {"op": "multi", "steps": [*trace_state.operations, result]}
         # If result is truthy but not a mapping, treat as no-op
         return {"op": "set", "state": "__noop__", "value": None}
 
