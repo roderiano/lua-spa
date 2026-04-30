@@ -50,7 +50,7 @@ class Counter(Component):
       <button @click="reset">Reset</button>
     </div>
 
-    <p v-if="count > limit">Limite atingido!</p>
+    <p l-if="count > limit">Limite atingido!</p>
   </article>
 </template>
 

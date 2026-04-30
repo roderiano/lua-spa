@@ -123,7 +123,7 @@ SPA_RUNTIME_JS = r"""
     }
 
     var tagName = node.tagName;
-    var conditionalExpression = node.getAttribute("v-if");
+    var conditionalExpression = node.getAttribute("l-if");
     if (conditionalExpression !== null) {
       var shouldRender = !!evaluateRawExpression(conditionalExpression, context);
       if (!shouldRender) {
@@ -135,7 +135,7 @@ SPA_RUNTIME_JS = r"""
     if (componentName !== null) {
       var componentProps = {};
       Array.from(node.attributes).forEach(function (attribute) {
-        if (attribute.name === "v-if") {
+        if (attribute.name === "l-if") {
           return;
         }
         if (attribute.name.indexOf("on:") === 0 || attribute.name.indexOf("@") === 0) {
@@ -155,7 +155,7 @@ SPA_RUNTIME_JS = r"""
     var props = {};
     var events = {};
     Array.from(node.attributes).forEach(function (attribute) {
-      if (attribute.name === "v-if") {
+      if (attribute.name === "l-if") {
         return;
       }
       if (attribute.name.indexOf("on:") === 0) {

@@ -152,7 +152,7 @@ class Component:
     <button @click="increment">+1</button>
     <button @click="reset">Reset</button>
 
-    <p v-if="count > limit">Limite atingido!</p>
+    <p l-if="count > limit">Limite atingido!</p>
   </div>
 </template>
 ```

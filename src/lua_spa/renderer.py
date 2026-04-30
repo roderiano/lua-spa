@@ -1,6 +1,6 @@
 """Server-side template rendering, interpolation, and conditional evaluation.
 
-Converts component templates with {{ }} expressions and v-if attributes
+Converts component templates with {{ }} expressions and l-if attributes
 into HTML by evaluating expressions in the context of props, state, and py objects.
 """
 
@@ -114,24 +114,24 @@ def interpolate(template: str, context: Mapping[str, Any]) -> str:
 
 
 def apply_server_conditionals(template: str, context: Mapping[str, Any]) -> str:
-    """Remove or keep tags with v-if conditions based on expression evaluation.
+    """Remove or keep tags with l-if conditions based on expression evaluation.
 
-    Supports both paired <tag v-if="...">content</tag> and self-closing <tag v-if="..."/>.
+    Supports both paired <tag l-if="...">content</tag> and self-closing <tag l-if="..."/>.
     Recursively processes until no more conditionals are found (for nested conditions).
 
     Args:
-        template: HTML with v-if attributes.
+        template: HTML with l-if attributes.
         context: Dict with "props", "state", "py" keys.
 
     Returns:
         HTML with conditional tags removed/kept based on evaluated expressions.
     """
     pair_pattern = re.compile(
-        r"<(?P<tag>[A-Za-z][A-Za-z0-9:_\-]*)\b(?P<before>[^>]*)\sv-if\s*=\s*(?P<quote>\"|')(?P<expr>.*?)(?P=quote)(?P<after>[^>]*)>(?P<body>.*?)</(?P=tag)>",
+        r"<(?P<tag>[A-Za-z][A-Za-z0-9:_\-]*)\b(?P<before>[^>]*)\sl-if\s*=\s*(?P<quote>\"|')(?P<expr>.*?)(?P=quote)(?P<after>[^>]*)>(?P<body>.*?)</(?P=tag)>",
         re.IGNORECASE | re.DOTALL,
     )
     self_closing_pattern = re.compile(
-        r"<(?P<tag>[A-Za-z][A-Za-z0-9:_\-]*)\b(?P<before>[^>]*)\sv-if\s*=\s*(?P<quote>\"|')(?P<expr>.*?)(?P=quote)(?P<after>[^>]*)/>",
+        r"<(?P<tag>[A-Za-z][A-Za-z0-9:_\-]*)\b(?P<before>[^>]*)\sl-if\s*=\s*(?P<quote>\"|')(?P<expr>.*?)(?P=quote)(?P<after>[^>]*)/>",
         re.IGNORECASE | re.DOTALL,
     )
 
@@ -152,11 +152,11 @@ def _replace_conditional_tag(match: re.Match[str], context: Mapping[str, Any]) -
     """Replace a pair conditional tag, removing it if the condition is false.
 
     Args:
-        match: Regex match object for a <tag v-if="expr">body</tag> tag.
+        match: Regex match object for a <tag l-if="expr">body</tag> tag.
         context: Dict with "props", "state", "py" keys.
 
     Returns:
-        The tag without the v-if attribute, or empty string if condition is false.
+        The tag without the l-if attribute, or empty string if condition is false.
     """
     expression = match.group("expr")
     try:
@@ -180,11 +180,11 @@ def _replace_conditional_self_closing_tag(match: re.Match[str], context: Mapping
     """Replace a self-closing conditional tag, removing it if the condition is false.
 
     Args:
-        match: Regex match object for a <tag v-if="expr"/> tag.
+        match: Regex match object for a <tag l-if="expr"/> tag.
         context: Dict with "props", "state", "py" keys.
 
     Returns:
-        The tag without the v-if attribute, or empty string if condition is false.
+        The tag without the l-if attribute, or empty string if condition is false.
     """
     expression = match.group("expr")
     try:

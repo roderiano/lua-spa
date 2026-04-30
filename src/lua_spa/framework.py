@@ -204,7 +204,7 @@ class SpaFramework:
         """Render a component to HTML with the given props.
 
         Calls component.context() for server state, evaluates {{ }} expressions,
-        applies v-if conditionals, and recursively expands child components.
+        applies l-if conditionals, and recursively expands child components.
 
         Args:
             name: Component name.
