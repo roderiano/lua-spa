@@ -34,18 +34,60 @@ _FOR_ATTR_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_SAFE_EVAL_GLOBALS: dict[str, Any] = {
+    "__builtins__": {},
+    "range": range,
+    "len": len,
+    "enumerate": enumerate,
+}
+
 def render_template_with_directives(template: str, context: Mapping[str, Any]) -> str:
-    """Processa i-for, l-if/l-else-if/l-else e interpolação em ordem correta."""
+    """Process i-for, l-if/l-else-if/l-else, and interpolation in the correct order.
+
+    Args:
+        template: The HTML template string.
+        context: The evaluation context (props, state, py).
+
+    Returns:
+        The rendered HTML string with all directives processed.
+    """
     html = apply_server_loops(template, context)
     html = apply_server_conditionals(html, context)
     html = interpolate(html, context)
     return html
 
-def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
-    """Aplica i-for para renderização de listas no template.
+def _normalize_iterable(value: Any) -> list[Any]:
+    """Convert a value to a list for iteration, supporting dicts, lists, and iterables.
 
-    Procura por tags com i-for e expande para múltiplas instâncias, cada uma com contexto atualizado.
-    Sintaxe: <li i-for="item in items">{{ item }}</li>
+    Args:
+        value: Any value to be normalized as an iterable.
+
+    Returns:
+        A list of items for iteration.
+    """
+    if value is None:
+        return []
+    if isinstance(value, Mapping):
+        return list(value.items())
+    try:
+        return list(value)
+    except TypeError:
+        return []
+
+
+def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
+    """Apply i-for for list rendering in the template.
+
+    Finds tags with i-for and expands them into multiple instances, each with an updated context.
+    Supports nested and multi-target unpacking.
+    Example: <li i-for="item in items">{{ item }}</li>
+
+    Args:
+        template: The HTML template string.
+        context: The evaluation context (props, state, py).
+
+    Returns:
+        The HTML string with i-for loops expanded.
     """
     opening_tag_pattern = re.compile(
         rf"<(?P<tag>[A-Za-z][\w:\-]*)\b(?P<attrs>{_ATTRS_FRAGMENT})>",
@@ -53,6 +95,16 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
     )
 
     def _find_balanced_block_end(html: str, tag: str, start_after_open: int) -> tuple[int, int] | None:
+        """Find the closing tag span for an opening tag using depth balancing.
+
+        Args:
+            html: The HTML string.
+            tag: The tag name to balance.
+            start_after_open: The index after the opening tag.
+
+        Returns:
+            A tuple (start, end) of the closing tag span, or None if not found.
+        """
         token_pattern = re.compile(
             rf"</?{re.escape(tag)}\b{_ATTRS_FRAGMENT}>",
             re.IGNORECASE | re.DOTALL,
@@ -71,6 +123,17 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
         return None
 
     def _collect_for_matches(html: str) -> list[dict[str, Any]]:
+        """Collect all i-for nodes in source order for one processing pass.
+
+        Only non-overlapping nodes are returned per pass so nested nodes can be
+        processed safely in subsequent passes with fresh string indices.
+
+        Args:
+            html: The HTML string.
+
+        Returns:
+            A list of dicts describing each i-for node.
+        """
         items: list[dict[str, Any]] = []
         for match in opening_tag_pattern.finditer(html):
             full_tag = match.group(0)
@@ -81,7 +144,7 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
                 continue
             is_self = full_tag.rstrip().endswith("/>")
             if is_self:
-                continue  # Não suporta self-closing com i-for
+                continue  # Self-closing with i-for is not supported
             balanced = _find_balanced_block_end(html, tag, match.end())
             if balanced is None:
                 continue
@@ -116,20 +179,37 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
             start = int(node["start"])
             end = int(node["end"])
             expr = node["expr"]
-            # Suporta sintaxe: var in iterable
-            m = re.match(r"\s*(\w+)\s+in\s+(.+)", expr)
+            # Suporta sintaxe: var in iterable | key, value in iterable
+            m = re.match(r"\s*(.+?)\s+in\s+(.+)", expr)
             if not m:
                 continue
-            var_name, iter_expr = m.group(1), m.group(2)
-            items = evaluate_expression(iter_expr, context)
+            target_expr, iter_expr = m.group(1), m.group(2)
+            targets = [target.strip() for target in target_expr.split(",") if target.strip()]
+            if not targets:
+                continue
+            items = _normalize_iterable(evaluate_expression(iter_expr, context))
             if not items:
                 replacement = ""
             else:
                 parts = []
+                total = len(items)
                 for idx, item in enumerate(items):
                     loop_ctx = dict(context)
-                    loop_ctx[var_name] = item
-                    loop_ctx["loop"] = {"index": idx, "first": idx == 0, "last": idx == len(items)-1}
+                    if len(targets) == 1:
+                        loop_ctx[targets[0]] = item
+                    elif isinstance(item, (list, tuple)):
+                        for target_index, target_name in enumerate(targets):
+                            loop_ctx[target_name] = item[target_index] if target_index < len(item) else None
+                    else:
+                        loop_ctx[targets[0]] = item
+                        for target_name in targets[1:]:
+                            loop_ctx[target_name] = None
+                    loop_ctx["loop"] = {
+                        "index": idx,
+                        "first": idx == 0,
+                        "last": idx == total - 1,
+                        "length": total,
+                    }
                     # Remove o atributo i-for
                     clean_attrs = _FOR_ATTR_PATTERN.sub("", node["attrs"]).strip()
                     attrs_part = f" {clean_attrs}" if clean_attrs else ""
@@ -146,16 +226,16 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
     return rendered
 
 def build_scoped_context(context: Mapping[str, Any]) -> dict[str, Any]:
-    """Build a scoped dict for expression evaluation.
+    """Build a scoped dictionary for expression evaluation.
 
     Combines props, state, and py into a flat namespace and nested objects.
-    This allows {{ count }} and {{ state.count }} to both work.
+    This allows both {{ count }} and {{ state.count }} to work.
 
     Args:
-        context: Dict with "props", "state", "py" keys (each a mapping).
+        context: Dictionary with "props", "state", "py" keys (each a mapping).
 
     Returns:
-        A dict for use in eval() with all accessible variables.
+        A dictionary for use in eval() with all accessible variables.
     """
     props_map = dict(context.get("props", {}))
     state_map = dict(context.get("state", {}))
@@ -208,14 +288,14 @@ def evaluate_expression(expression: str, context: Mapping[str, Any]) -> Any:
 
     Args:
         expression: A Python expression string, e.g. "count > 5".
-        context: Dict with "props", "state", "py" keys.
+        context: Dictionary with "props", "state", "py" keys.
 
     Returns:
         The result of eval(), or None if evaluation fails.
     """
     scoped = build_scoped_context(context)
     try:
-        return eval(expression, {"__builtins__": {}}, scoped)  # noqa: S307
+        return eval(expression, _SAFE_EVAL_GLOBALS, scoped)  # noqa: S307
     except Exception:
         return None
 
@@ -225,7 +305,7 @@ def interpolate(template: str, context: Mapping[str, Any]) -> str:
 
     Args:
         template: HTML with {{ }} interpolations.
-        context: Dict with "props", "state", "py" keys.
+        context: Dictionary with "props", "state", "py" keys.
 
     Returns:
         HTML with expressions replaced by their string values.
@@ -235,7 +315,7 @@ def interpolate(template: str, context: Mapping[str, Any]) -> str:
     def replace_expression(match: re.Match[str]) -> str:
         expression = match.group(1)
         try:
-            value = eval(expression, {"__builtins__": {}}, scoped)  # noqa: S307
+            value = eval(expression, _SAFE_EVAL_GLOBALS, scoped)  # noqa: S307
         except Exception:
             return ""
         if value is None:
@@ -248,14 +328,12 @@ def interpolate(template: str, context: Mapping[str, Any]) -> str:
 def apply_server_conditionals(template: str, context: Mapping[str, Any]) -> str:
     """Apply server-side l-if/l-else-if/l-else chains to rendered HTML.
 
-    The function scans conditional tags, groups adjacent chains that start with
-    ``l-if``, and keeps only the first truthy branch for each chain. It is
-    resilient to nested conditionals and to expressions that contain ``>``
-    inside quoted attribute values.
+    Scans conditional tags, groups adjacent chains that start with l-if, and keeps only the first truthy branch for each chain.
+    Handles nested conditionals and expressions with > inside quoted attribute values.
 
     Args:
         template: HTML fragment after interpolation.
-        context: Dict with "props", "state", and "py" evaluation scopes.
+        context: Dictionary with "props", "state", and "py" evaluation scopes.
 
     Returns:
         HTML with conditional directives resolved and directive attributes removed.
@@ -266,7 +344,14 @@ def apply_server_conditionals(template: str, context: Mapping[str, Any]) -> str:
     )
 
     def _render_match(node: dict[str, Any]) -> str:
-        """Render a conditional node back to HTML without directive attributes."""
+        """Render a conditional node back to HTML without directive attributes.
+
+        Args:
+            node: The node dictionary.
+
+        Returns:
+            The HTML string for the node without directive attributes.
+        """
         tag = str(node["tag"])
         attrs = str(node["attrs"])
         clean_attrs = COND_ATTR_PATTERN.sub("", attrs).strip()
@@ -276,7 +361,16 @@ def apply_server_conditionals(template: str, context: Mapping[str, Any]) -> str:
         return f"<{tag}{attrs_part}>{node['body']}</{tag}>"
 
     def _find_balanced_block_end(html: str, tag: str, start_after_open: int) -> tuple[int, int] | None:
-        """Find the closing tag span for an opening tag using depth balancing."""
+        """Find the closing tag span for an opening tag using depth balancing.
+
+        Args:
+            html: The HTML string.
+            tag: The tag name to balance.
+            start_after_open: The index after the opening tag.
+
+        Returns:
+            A tuple (start, end) of the closing tag span, or None if not found.
+        """
         token_pattern = re.compile(
             rf"</?{re.escape(tag)}\b{_ATTRS_FRAGMENT}>",
             re.IGNORECASE | re.DOTALL,
@@ -301,6 +395,12 @@ def apply_server_conditionals(template: str, context: Mapping[str, Any]) -> str:
 
         Only non-overlapping nodes are returned per pass so nested nodes can be
         processed safely in subsequent passes with fresh string indices.
+
+        Args:
+            html: The HTML string.
+
+        Returns:
+            A list of dicts describing each conditional node.
         """
         items: list[dict[str, Any]] = []
         for match in opening_tag_pattern.finditer(html):

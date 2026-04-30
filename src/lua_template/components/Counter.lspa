@@ -48,7 +48,12 @@ class Counter(Component):
     <p>Contador: {{ count }}</p>
 
     <ul>
-      <li i-for="n in range(count + 1)">Item {{ n }}</li>
+      <li i-for="outer in range(1, 4)">
+        Grupo {{ outer }}
+        <ol>
+          <li i-for="inner in range(outer)">Item {{ outer }}.{{ inner }}</li>
+        </ol>
+      </li>
     </ul>
 
     <div l-if="show_div" class="buttons">

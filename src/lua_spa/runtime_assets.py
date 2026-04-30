@@ -57,6 +57,117 @@ SPA_RUNTIME_JS = r"""
     });
   }
 
+  function normalizeIterable(value) {
+    if (value == null) {
+      return [];
+    }
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value === "string") {
+      return value.split("");
+    }
+    if (value && typeof value[Symbol.iterator] === "function") {
+      return Array.from(value);
+    }
+    if (typeof value === "object") {
+      return Object.entries(value);
+    }
+    return [];
+  }
+
+  function parseForExpression(expression) {
+    if (!expression) {
+      return null;
+    }
+    var match = expression.match(/^\s*(.+?)\s+in\s+(.+?)\s*$/);
+    if (!match) {
+      return null;
+    }
+    var targets = match[1]
+      .split(",")
+      .map(function (item) {
+        return item.trim();
+      })
+      .filter(Boolean);
+    if (targets.length === 0) {
+      return null;
+    }
+    return {
+      targets: targets,
+      iterable: match[2],
+    };
+  }
+
+  function assignLoopTargets(targets, item, context) {
+    if (targets.length === 1) {
+      context[targets[0]] = item;
+      return;
+    }
+    if (Array.isArray(item)) {
+      targets.forEach(function (target, index) {
+        context[target] = index < item.length ? item[index] : undefined;
+      });
+      return;
+    }
+    context[targets[0]] = item;
+    targets.slice(1).forEach(function (target) {
+      context[target] = undefined;
+    });
+  }
+
+  function range(start, end, step) {
+    var args = Array.prototype.slice.call(arguments);
+    var rangeStart = 0;
+    var rangeEnd = 0;
+    var rangeStep = 1;
+
+    if (args.length === 1) {
+      rangeEnd = Number(args[0]) || 0;
+    } else {
+      rangeStart = Number(args[0]) || 0;
+      rangeEnd = Number(args[1]) || 0;
+      rangeStep = args.length > 2 ? Number(args[2]) || 1 : 1;
+    }
+
+    if (rangeStep === 0) {
+      return [];
+    }
+
+    var values = [];
+    if (rangeStep > 0) {
+      for (var i = rangeStart; i < rangeEnd; i += rangeStep) {
+        values.push(i);
+      }
+    } else {
+      for (var j = rangeStart; j > rangeEnd; j += rangeStep) {
+        values.push(j);
+      }
+    }
+
+    return values;
+  }
+
+  function len(value) {
+    if (value == null) {
+      return 0;
+    }
+    if (typeof value === "string" || Array.isArray(value)) {
+      return value.length;
+    }
+    if (typeof value === "object") {
+      return Object.keys(value).length;
+    }
+    return 0;
+  }
+
+  function enumerate(value) {
+    var items = normalizeIterable(value);
+    return items.map(function (item, index) {
+      return [index, item];
+    });
+  }
+
   function parseTemplate(template, context, registry) {
     var holder = document.createElement("template");
     holder.innerHTML = interpolate(template, context);
@@ -98,9 +209,38 @@ SPA_RUNTIME_JS = r"""
         continue;
       }
 
+      var hasFor = node.hasAttribute("i-for");
       var hasIf = node.hasAttribute("l-if");
       var hasElseIf = node.hasAttribute("l-else-if");
       var hasElse = node.hasAttribute("l-else");
+
+      if (hasFor) {
+        var forSpec = parseForExpression(node.getAttribute("i-for"));
+        if (forSpec) {
+          var iterableValue = evaluateRawExpression(forSpec.iterable, context);
+          var items = normalizeIterable(iterableValue);
+          var total = items.length;
+
+          for (var loopIndex = 0; loopIndex < total; loopIndex += 1) {
+            var loopContext = Object.assign({}, context);
+            assignLoopTargets(forSpec.targets, items[loopIndex], loopContext);
+            loopContext.loop = {
+              index: loopIndex,
+              first: loopIndex === 0,
+              last: loopIndex === total - 1,
+              length: total,
+            };
+
+            var clone = node.cloneNode(true);
+            clone.removeAttribute("i-for");
+            var loopVNode = nodeToVNode(clone, loopContext, registry);
+            if (loopVNode !== null) {
+              result.push(loopVNode);
+            }
+          }
+        }
+        continue;
+      }
 
       if (hasIf) {
         var selectedNode = null;
@@ -216,7 +356,12 @@ SPA_RUNTIME_JS = r"""
     if (componentName !== null) {
       var componentProps = {};
       Array.from(node.attributes).forEach(function (attribute) {
-        if (attribute.name === "l-if" || attribute.name === "l-else-if" || attribute.name === "l-else") {
+        if (
+          attribute.name === "l-if" ||
+          attribute.name === "l-else-if" ||
+          attribute.name === "l-else" ||
+          attribute.name === "i-for"
+        ) {
           return;
         }
         if (attribute.name.indexOf("on:") === 0 || attribute.name.indexOf("@") === 0) {
@@ -236,7 +381,12 @@ SPA_RUNTIME_JS = r"""
     var props = {};
     var events = {};
     Array.from(node.attributes).forEach(function (attribute) {
-      if (attribute.name === "l-if" || attribute.name === "l-else-if" || attribute.name === "l-else") {
+      if (
+        attribute.name === "l-if" ||
+        attribute.name === "l-else-if" ||
+        attribute.name === "l-else" ||
+        attribute.name === "i-for"
+      ) {
         return;
       }
       if (attribute.name.indexOf("on:") === 0) {
@@ -373,7 +523,15 @@ SPA_RUNTIME_JS = r"""
     }
 
     var flatContext = Object.assign({}, instance.props || {}, instance.state || {}, instance.props || {});
+    var helpers = {
+      range: range,
+      enumerate: enumerate,
+      len: len,
+    };
     var context = Object.assign({}, flatContext, {
+      range: helpers.range,
+      enumerate: helpers.enumerate,
+      len: helpers.len,
       props: instance.props,
       state: instance.state,
       actions: instance.actions,
