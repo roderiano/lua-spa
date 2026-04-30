@@ -26,6 +26,11 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Docusaurus
+docs/node_modules/
+docs/.docusaurus/
+docs/build/
+
 # Environment variables
 .env
 .env.*

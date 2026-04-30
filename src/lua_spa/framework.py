@@ -17,7 +17,7 @@ from lua_spa.loader import ComponentLoader
 from lua_spa.renderer import build_python_context, build_server_state, interpolate, apply_server_conditionals
 from lua_spa.runtime_assets import SPA_RUNTIME_JS
 from lua_spa.server import SpaServer
-from lua_spa.types import ComponentDefinition, load_view_config
+from lua_spa.types import ComponentDefinition, load_lua_template_config
 
 _ATTR_PATTERN = re.compile(
     r"([:@A-Za-z_][A-Za-z0-9_:\-]*)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')"
@@ -32,26 +32,26 @@ class SpaFramework:
     """
 
     @classmethod
-    def from_view_directory(cls, view_dir: Path) -> SpaFramework:
-        """Create a framework instance using only definitions under view/.
+    def from_lua_template_directory(cls, lua_template_dir: Path) -> SpaFramework:
+        """Create a framework instance using only definitions under lua_template/.
 
-        Loads spa.config.json from view_dir and creates a framework configured
+        Loads spa.config.json from lua_template_dir and creates a framework configured
         with that settings.
 
         Args:
-            view_dir: Path to the view directory containing spa.config.json
+            lua_template_dir: Path to the lua_template directory containing spa.config.json
                      and a components/ subdirectory.
 
         Returns:
             A configured SpaFramework instance.
 
         Raises:
-            FileNotFoundError: If spa.config.json or the view file doesn't exist.
+            FileNotFoundError: If spa.config.json or the lua_template file doesn't exist.
         """
-        config = load_view_config(view_dir / "spa.config.json")
+        config = load_lua_template_config(lua_template_dir / "spa.config.json")
         return cls(
-            view_file=view_dir / "index.lspa",
-            components_dir=view_dir / "components",
+            view_file=lua_template_dir / "index.lspa",
+            components_dir=lua_template_dir / "components",
             entry_component=config.entry_component,
             mount_id=config.mount_id,
             default_props=config.initial_props,

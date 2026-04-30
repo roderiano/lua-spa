@@ -9,8 +9,9 @@ from typing import Any, Mapping
 
 
 @dataclass(frozen=True)
-class ViewConfig:
-    """Configuration loaded from view/spa.config.json.
+
+class LuaTemplateConfig:
+    """Configuration loaded from lua_template/spa.config.json.
 
     Stores the entry component, mount ID, initial props, and server settings
     for the SPA application.
@@ -85,15 +86,15 @@ class Component:
     """
 
 
-def load_view_config(config_file: Path) -> ViewConfig:
+def load_lua_template_config(config_file: Path) -> LuaTemplateConfig:
     """Load SPA configuration from a JSON file.
 
-    Reads view/spa.config.json and returns a ViewConfig with entry_component,
+    Reads lua_template/spa.config.json and returns a LuaTemplateConfig with entry_component,
     mount_id, initial_props, host, and port. Raises FileNotFoundError if the
     file doesn't exist, ValueError if fields are malformed.
     """
     if not config_file.exists():
-        raise FileNotFoundError(f"View config file not found: {config_file}")
+        raise FileNotFoundError(f"LuaTemplate config file not found: {config_file}")
 
     raw = config_file.read_text(encoding="utf-8")
     data = json.loads(raw)
@@ -103,22 +104,22 @@ def load_view_config(config_file: Path) -> ViewConfig:
 
     initial_props = data.get("initial_props", {})
     if not isinstance(initial_props, dict):
-        raise ValueError("view config field 'initial_props' must be an object")
+        raise ValueError("lua_template config field 'initial_props' must be an object")
 
     server = data.get("server", {})
     if server is None:
         server = {}
     if not isinstance(server, dict):
-        raise ValueError("view config field 'server' must be an object")
+        raise ValueError("lua_template config field 'server' must be an object")
 
     host = str(server.get("host", "127.0.0.1"))
     raw_port = server.get("port", 8000)
     try:
         port = int(raw_port)
     except (TypeError, ValueError) as error:
-        raise ValueError("view config field 'server.port' must be an integer") from error
+        raise ValueError("lua_template config field 'server.port' must be an integer") from error
 
-    return ViewConfig(
+    return LuaTemplateConfig(
         entry_component=entry_component,
         mount_id=mount_id,
         initial_props=initial_props,

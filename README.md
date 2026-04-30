@@ -4,12 +4,12 @@ Backend-first SPA framework prototype in Python.
 
 This project now includes:
 
-- View file served by the backend
+- LuaTemplate file served by the backend
 - `.lspa` components (HTML + Python) with component import support
 - Client hydration at component level
 - DOM diff renderer inspired by React's virtual DOM flow
 - `useState` hook-style state management
-- Base app definitions isolated in `view/spa.config.json`
+- Base app definitions isolated in `lua_template/spa.config.json`
 
 ## Requirements
 
@@ -51,7 +51,7 @@ lua-spa/
       framework.py
       main.py
       runtime_assets.py
-  view/
+  lua_template/
     index.lspa
     spa.config.json
     components/
@@ -145,16 +145,16 @@ class Component:
 
 Use `on:event="actionName"` in templates to bind events to actions declared in client methods.
 
-## View base definition
+## LuaTemplate base definition
 
-All base app definitions are centralized in `view/spa.config.json`:
+All base app definitions are centralized in `lua_template/spa.config.json`:
 
 - Entry component (`entry_component`)
 - Mount id (`mount_id`)
 - Initial props (`initial_props`)
 - Server host/port (`server`)
 
-This keeps `lua_spa` isolated and generic while the view directory defines the app behavior.
+This keeps `lua_spa` isolated and generic while the lua_template directory defines the app behavior.
 
 ## Linting and typing
 

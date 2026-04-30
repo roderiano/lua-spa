@@ -1,0 +1,1 @@
+{"entry_component": "App", "mount_id": "app", "initial_props": {"title": "Lua SPA Framework", "subtitle": "Hydrated component tree with hook-based state.", "start": 0}, "server": {"host": "127.0.0.1", "port": 8000}}
