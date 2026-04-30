@@ -11,7 +11,7 @@ class AppClient:
   title = "Lua SPA Framework"
   subtitle = "Hydrated component tree with hook-based state."
   start = 0
-  limit = 2
+  limit = 15
 
   State = []
   Methods = []

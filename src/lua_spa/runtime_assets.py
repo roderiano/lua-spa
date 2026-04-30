@@ -80,13 +80,94 @@ SPA_RUNTIME_JS = r"""
   }
 
   function toVNodes(parent, context, registry) {
-    return Array.from(parent.childNodes)
-      .map(function (node) {
-        return nodeToVNode(node, context, registry);
-      })
-      .filter(function (node) {
-        return node !== null;
-      });
+    var sourceNodes = Array.from(parent.childNodes);
+    var result = [];
+
+    for (var index = 0; index < sourceNodes.length; index += 1) {
+      var node = sourceNodes[index];
+
+      if (isIgnorableText(node)) {
+        continue;
+      }
+
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        var plainVNode = nodeToVNode(node, context, registry);
+        if (plainVNode !== null) {
+          result.push(plainVNode);
+        }
+        continue;
+      }
+
+      var hasIf = node.hasAttribute("l-if");
+      var hasElseIf = node.hasAttribute("l-else-if");
+      var hasElse = node.hasAttribute("l-else");
+
+      if (hasIf) {
+        var selectedNode = null;
+        var cursor = index;
+
+        while (cursor < sourceNodes.length) {
+          var candidate = sourceNodes[cursor];
+          if (candidate.nodeType === Node.TEXT_NODE && (!candidate.textContent || candidate.textContent.trim() === "")) {
+            cursor += 1;
+            continue;
+          }
+          if (candidate.nodeType === Node.COMMENT_NODE) {
+            cursor += 1;
+            continue;
+          }
+          if (candidate.nodeType !== Node.ELEMENT_NODE) {
+            break;
+          }
+
+          var candidateHasIf = candidate.hasAttribute("l-if");
+          var candidateHasElseIf = candidate.hasAttribute("l-else-if");
+          var candidateHasElse = candidate.hasAttribute("l-else");
+          if (!(candidateHasIf || candidateHasElseIf || candidateHasElse)) {
+            break;
+          }
+          if (cursor > index && candidateHasIf) {
+            break;
+          }
+
+          var shouldRender = false;
+          if (candidateHasIf) {
+            shouldRender = !!evaluateRawExpression(candidate.getAttribute("l-if") || "", context);
+          } else if (candidateHasElseIf) {
+            shouldRender = !!evaluateRawExpression(candidate.getAttribute("l-else-if") || "", context);
+          } else {
+            shouldRender = true;
+          }
+
+          if (shouldRender && selectedNode === null) {
+            selectedNode = candidate;
+          }
+
+          cursor += 1;
+        }
+
+        if (selectedNode !== null) {
+          var selectedVNode = nodeToVNode(selectedNode, context, registry, true);
+          if (selectedVNode !== null) {
+            result.push(selectedVNode);
+          }
+        }
+
+        index = cursor - 1;
+        continue;
+      }
+
+      if (hasElseIf || hasElse) {
+        continue;
+      }
+
+      var vnode = nodeToVNode(node, context, registry);
+      if (vnode !== null) {
+        result.push(vnode);
+      }
+    }
+
+    return result;
   }
 
   function resolveComponentName(tagName, registry) {
@@ -106,7 +187,7 @@ SPA_RUNTIME_JS = r"""
     return null;
   }
 
-  function nodeToVNode(node, context, registry) {
+  function nodeToVNode(node, context, registry, skipConditionalCheck) {
     if (node.nodeType === Node.TEXT_NODE) {
       if (!node.textContent || node.textContent.trim() === "") {
         return null;
@@ -124,7 +205,7 @@ SPA_RUNTIME_JS = r"""
 
     var tagName = node.tagName;
     var conditionalExpression = node.getAttribute("l-if");
-    if (conditionalExpression !== null) {
+    if (!skipConditionalCheck && conditionalExpression !== null) {
       var shouldRender = !!evaluateRawExpression(conditionalExpression, context);
       if (!shouldRender) {
         return null;
@@ -135,7 +216,7 @@ SPA_RUNTIME_JS = r"""
     if (componentName !== null) {
       var componentProps = {};
       Array.from(node.attributes).forEach(function (attribute) {
-        if (attribute.name === "l-if") {
+        if (attribute.name === "l-if" || attribute.name === "l-else-if" || attribute.name === "l-else") {
           return;
         }
         if (attribute.name.indexOf("on:") === 0 || attribute.name.indexOf("@") === 0) {
@@ -155,7 +236,7 @@ SPA_RUNTIME_JS = r"""
     var props = {};
     var events = {};
     Array.from(node.attributes).forEach(function (attribute) {
-      if (attribute.name === "l-if") {
+      if (attribute.name === "l-if" || attribute.name === "l-else-if" || attribute.name === "l-else") {
         return;
       }
       if (attribute.name.indexOf("on:") === 0) {

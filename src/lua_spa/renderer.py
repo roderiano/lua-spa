@@ -10,6 +10,23 @@ import re
 from types import SimpleNamespace
 from typing import Any, Mapping
 
+_ATTRS_FRAGMENT = r"(?:[^\"'<>]|\"[^\"]*\"|'[^']*')*"
+
+PAIR_PATTERN = re.compile(
+    rf"<(?P<tag>[A-Za-z][\w:\-]*)\b(?P<attrs>{_ATTRS_FRAGMENT})>(?P<body>.*?)</(?P=tag)>",
+    re.IGNORECASE | re.DOTALL,
+)
+
+SELF_PATTERN = re.compile(
+    rf"<(?P<tag>[A-Za-z][\w:\-]*)\b(?P<attrs>{_ATTRS_FRAGMENT})/>",
+    re.IGNORECASE | re.DOTALL,
+)
+
+COND_ATTR_PATTERN = re.compile(
+    r"\s(?P<cond>l-if|l-else-if|l-else)(?:\s*=\s*(?P<quote>\"|')(?P<expr>.*?)(?P=quote))?",
+    re.IGNORECASE,
+)
+
 _EXPR_PATTERN = re.compile(r"{{\s*(.*?)\s*}}")
 
 
@@ -114,39 +131,179 @@ def interpolate(template: str, context: Mapping[str, Any]) -> str:
 
 
 def apply_server_conditionals(template: str, context: Mapping[str, Any]) -> str:
-    """Remove or keep tags with l-if conditions based on expression evaluation.
+    """Apply server-side l-if/l-else-if/l-else chains to rendered HTML.
 
-    Supports both paired <tag l-if="...">content</tag> and self-closing <tag l-if="..."/>.
-    Recursively processes until no more conditionals are found (for nested conditions).
+    The function scans conditional tags, groups adjacent chains that start with
+    ``l-if``, and keeps only the first truthy branch for each chain. It is
+    resilient to nested conditionals and to expressions that contain ``>``
+    inside quoted attribute values.
 
     Args:
-        template: HTML with l-if attributes.
-        context: Dict with "props", "state", "py" keys.
+        template: HTML fragment after interpolation.
+        context: Dict with "props", "state", and "py" evaluation scopes.
 
     Returns:
-        HTML with conditional tags removed/kept based on evaluated expressions.
+        HTML with conditional directives resolved and directive attributes removed.
     """
-    pair_pattern = re.compile(
-        r"<(?P<tag>[A-Za-z][A-Za-z0-9:_\-]*)\b(?P<before>[^>]*)\sl-if\s*=\s*(?P<quote>\"|')(?P<expr>.*?)(?P=quote)(?P<after>[^>]*)>(?P<body>.*?)</(?P=tag)>",
+    opening_tag_pattern = re.compile(
+        rf"<(?P<tag>[A-Za-z][\w:\-]*)\b(?P<attrs>{_ATTRS_FRAGMENT})>",
         re.IGNORECASE | re.DOTALL,
     )
-    self_closing_pattern = re.compile(
-        r"<(?P<tag>[A-Za-z][A-Za-z0-9:_\-]*)\b(?P<before>[^>]*)\sl-if\s*=\s*(?P<quote>\"|')(?P<expr>.*?)(?P=quote)(?P<after>[^>]*)/>",
-        re.IGNORECASE | re.DOTALL,
-    )
+
+    def _render_match(node: dict[str, Any]) -> str:
+        """Render a conditional node back to HTML without directive attributes."""
+        tag = str(node["tag"])
+        attrs = str(node["attrs"])
+        clean_attrs = COND_ATTR_PATTERN.sub("", attrs).strip()
+        attrs_part = f" {clean_attrs}" if clean_attrs else ""
+        if bool(node["is_self"]):
+            return f"<{tag}{attrs_part}/>"
+        return f"<{tag}{attrs_part}>{node['body']}</{tag}>"
+
+    def _find_balanced_block_end(html: str, tag: str, start_after_open: int) -> tuple[int, int] | None:
+        """Find the closing tag span for an opening tag using depth balancing."""
+        token_pattern = re.compile(
+            rf"</?{re.escape(tag)}\b{_ATTRS_FRAGMENT}>",
+            re.IGNORECASE | re.DOTALL,
+        )
+        depth = 1
+        for token in token_pattern.finditer(html, start_after_open):
+            token_text = token.group(0)
+            is_closing = token_text.startswith("</")
+            is_self_closing = token_text.rstrip().endswith("/>")
+
+            if is_closing:
+                depth -= 1
+                if depth == 0:
+                    return token.start(), token.end()
+            elif not is_self_closing:
+                depth += 1
+
+        return None
+
+    def _collect_conditional_matches(html: str) -> list[dict[str, Any]]:
+        """Collect conditional nodes in source order for one processing pass.
+
+        Only non-overlapping nodes are returned per pass so nested nodes can be
+        processed safely in subsequent passes with fresh string indices.
+        """
+        items: list[dict[str, Any]] = []
+        for match in opening_tag_pattern.finditer(html):
+            full_tag = match.group(0)
+            tag = match.group("tag")
+            attrs = match.group("attrs")
+            cond = COND_ATTR_PATTERN.search(attrs)
+            if not cond:
+                continue
+
+            is_self = full_tag.rstrip().endswith("/>")
+            if is_self:
+                items.append(
+                    {
+                        "start": match.start(),
+                        "end": match.end(),
+                        "tag": tag,
+                        "attrs": attrs,
+                        "body": "",
+                        "is_self": True,
+                        "cond": cond.group("cond"),
+                        "expr": cond.group("expr"),
+                    }
+                )
+                continue
+
+            balanced = _find_balanced_block_end(html, tag, match.end())
+            if balanced is None:
+                continue
+
+            close_start, close_end = balanced
+            items.append(
+                {
+                    "start": match.start(),
+                    "end": close_end,
+                    "tag": tag,
+                    "attrs": attrs,
+                    "body": html[match.end():close_start],
+                    "is_self": False,
+                    "cond": cond.group("cond"),
+                    "expr": cond.group("expr"),
+                }
+            )
+
+        items.sort(key=lambda i: int(i["start"]))
+
+        # Process only non-overlapping nodes per pass. Nested nodes are handled
+        # in subsequent passes after their parent conditional is resolved.
+        filtered: list[dict[str, Any]] = []
+        covered_until = -1
+        for item in items:
+            start = int(item["start"])
+            end = int(item["end"])
+            if start < covered_until:
+                continue
+            filtered.append(item)
+            covered_until = end
+
+        return filtered
 
     rendered = template
     while True:
         previous = rendered
-        rendered = pair_pattern.sub(lambda match: _replace_conditional_tag(match, context), rendered)
-        rendered = self_closing_pattern.sub(
-            lambda match: _replace_conditional_self_closing_tag(match, context), rendered
-        )
+        nodes = _collect_conditional_matches(rendered)
+        if not nodes:
+            break
+
+        chains: list[list[dict[str, Any]]] = []
+        i = 0
+        n = len(nodes)
+        while i < n:
+            node = nodes[i]
+            if node["cond"] != "l-if":
+                i += 1
+                continue
+            chain = [node]
+            j = i + 1
+            while j < n:
+                prev_node = nodes[j - 1]
+                next_node = nodes[j]
+                gap = rendered[int(prev_node["end"]):int(next_node["start"])]
+                if gap.strip() != "":
+                    break
+                if next_node["cond"] in ("l-else-if", "l-else"):
+                    chain.append(next_node)
+                    j += 1
+                    continue
+                break
+            chains.append(chain)
+            i = j
+
+        if not chains:
+            break
+
+        for chain in reversed(chains):
+            start = int(chain[0]["start"])
+            end = int(chain[-1]["end"])
+            replacement = ""
+
+            for node in chain:
+                cond = node["cond"]
+                expr = node["expr"]
+                should_render = False
+                if cond in ("l-if", "l-else-if"):
+                    should_render = bool(evaluate_expression(expr or "", context))
+                elif cond == "l-else":
+                    should_render = True
+
+                if should_render:
+                    replacement = _render_match(node)
+                    break
+
+            rendered = rendered[:start] + replacement + rendered[end:]
+
         if rendered == previous:
             break
 
     return rendered
-
 
 def _replace_conditional_tag(match: re.Match[str], context: Mapping[str, Any]) -> str:
     """Replace a pair conditional tag, removing it if the condition is false.

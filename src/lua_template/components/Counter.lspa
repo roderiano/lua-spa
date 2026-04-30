@@ -5,6 +5,7 @@ class CounterClient(Client):
         "start": 0,
         "limit": 5,
         "step": 1,
+        "show_div": True,
     }
 
     class CountState:
@@ -15,7 +16,7 @@ class CounterClient(Client):
 
     def increment(self):
         self.state.count += self.props.step
-        if self.state.count >= 10:
+        if self.state.count >= self.props.limit + 1:
             self.state.count = -1
 
     def reset(self):
@@ -45,12 +46,16 @@ class Counter(Component):
 
     <p>Contador: {{ count }}</p>
 
-    <div class="buttons">
+    <div l-if="show_div" class="buttons">
       <button @click="increment">+1</button>
       <button @click="reset">Reset</button>
+      <div l-if="show_div">show test :)</div>
     </div>
 
-    <p l-if="count > limit">Limite atingido!</p>
+    <div l-if="count > limit">Count is greater than {{ limit }}</div>
+    <div l-else-if="count > 5">Count is greater than 5 and less than or equal to {{ limit }}</div>
+    <div l-else-if="count > 0">Count is positive and less than or equal to 5</div>
+    <div l-else>Count is zero or negative, limit: {{ limit }}</div>
   </article>
 </template>
 
