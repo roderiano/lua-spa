@@ -87,6 +87,35 @@ class Component:
     """
 
 
+def _infer_entry_component_from_router(router: Mapping[str, Any] | None) -> str | None:
+    """Infer the root component from router.routes.
+
+    Picks the first configured route component when available.
+    """
+    if not isinstance(router, Mapping):
+        return None
+    routes = router.get("routes")
+    if not isinstance(routes, list) or not routes:
+        return None
+    first = routes[0]
+    if not isinstance(first, Mapping):
+        return None
+    component = first.get("component")
+    if component is None:
+        return None
+    return str(component)
+
+
+def _infer_mount_id_from_router(router: Mapping[str, Any] | None) -> str | None:
+    """Infer mount id from router block when provided."""
+    if not isinstance(router, Mapping):
+        return None
+    mount_id = router.get("mount_id")
+    if mount_id is None:
+        return None
+    return str(mount_id)
+
+
 def load_lua_template_config(config_file: Path) -> LuaTemplateConfig:
     """Load SPA configuration from a JSON file.
 
@@ -100,8 +129,15 @@ def load_lua_template_config(config_file: Path) -> LuaTemplateConfig:
     raw = config_file.read_text(encoding="utf-8")
     data = json.loads(raw)
 
-    entry_component = str(data.get("entry_component", "App"))
-    mount_id = str(data.get("mount_id", "app"))
+    router = data.get("router")
+    if router is not None and not isinstance(router, Mapping):
+        raise ValueError("lua_template config field 'router' must be an object")
+
+    inferred_entry = _infer_entry_component_from_router(router)
+    inferred_mount = _infer_mount_id_from_router(router)
+
+    entry_component = str(data.get("entry_component") or inferred_entry or "App")
+    mount_id = str(data.get("mount_id") or inferred_mount or "app")
 
     initial_props = data.get("initial_props", {})
     if not isinstance(initial_props, dict):
@@ -126,5 +162,5 @@ def load_lua_template_config(config_file: Path) -> LuaTemplateConfig:
         initial_props=initial_props,
         host=host,
         port=port,
-        router=data.get("router"),
+        router=router,
     )

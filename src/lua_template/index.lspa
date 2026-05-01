@@ -65,23 +65,6 @@
           return Boolean(window.localStorage.getItem("auth"));
         },
       };
-
-      document.addEventListener("click", function (event) {
-        var target = event.target;
-        while (target && target !== document.body) {
-          if (target.hasAttribute("data-lua-auth-login")) {
-            window.localStorage.setItem("auth", "1");
-            return;
-          }
-          if (target.hasAttribute("data-lua-auth-logout")) {
-            event.preventDefault();
-            window.localStorage.removeItem("auth");
-            window.location.hash = "#/login";
-            return;
-          }
-          target = target.parentElement;
-        }
-      });
     </script>
     {{ SPA_BOOTSTRAP }}
   </body>

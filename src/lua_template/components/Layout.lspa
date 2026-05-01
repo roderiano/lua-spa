@@ -1,3 +1,12 @@
+@import HomePage from "./HomePage.lspa"
+@import AboutPage from "./AboutPage.lspa"
+@import DashboardPage from "./DashboardPage.lspa"
+@import AnalyticsPage from "./AnalyticsPage.lspa"
+@import SettingsPage from "./SettingsPage.lspa"
+@import UserDetailPage from "./UserDetailPage.lspa"
+@import LoginPage from "./LoginPage.lspa"
+@import NotFoundPage from "./NotFoundPage.lspa"
+
 <python>
 class LayoutClient(Client):
     props = {
