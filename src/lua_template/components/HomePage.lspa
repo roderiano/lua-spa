@@ -1,0 +1,12 @@
+<template>
+  <section class="page">
+    <h2>Home</h2>
+    <p>Welcome to the Lua SPA router starter.</p>
+  </section>
+</template>
+
+<style>
+.page {
+  padding: 0.5rem 0;
+}
+</style>

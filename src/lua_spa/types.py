@@ -22,6 +22,7 @@ class LuaTemplateConfig:
     initial_props: Mapping[str, Any]
     host: str
     port: int
+    router: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -125,4 +126,5 @@ def load_lua_template_config(config_file: Path) -> LuaTemplateConfig:
         initial_props=initial_props,
         host=host,
         port=port,
+        router=data.get("router"),
     )

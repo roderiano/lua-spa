@@ -1,0 +1,12 @@
+<template>
+  <section class="page">
+    <h2>Settings</h2>
+    <p>Section: {{ section }}</p>
+  </section>
+</template>
+
+<style>
+.page {
+  padding: 0.5rem 0;
+}
+</style>

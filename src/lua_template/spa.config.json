@@ -1,1 +1,72 @@
-{"entry_component": "App", "mount_id": "app", "initial_props": {"title": "Lua SPA Framework", "subtitle": "Hydrated component tree with hook-based state.", "start": 0}, "server": {"host": "127.0.0.1", "port": 8000}}
+{
+	"entry_component": "App",
+	"mount_id": "app",
+	"initial_props": {
+		"title": "Lua SPA Framework",
+		"subtitle": "Hydrated component tree with hook-based state.",
+		"start": 0
+	},
+	"server": {
+		"host": "127.0.0.1",
+		"port": 8000
+	},
+	"router": {
+		"initial_path": "/",
+		"guard_fallback": "/login",
+		"routes": [
+			{
+				"path": "/",
+				"component": "Layout",
+				"props": {
+					"theme": "light"
+				},
+				"children": [
+					{
+						"index": true,
+						"component": "HomePage"
+					},
+					{
+						"path": "about",
+						"component": "AboutPage"
+					},
+					{
+						"path": "dashboard",
+						"component": "DashboardPage",
+						"guard": "auth",
+						"children": [
+							{
+								"path": "analytics",
+								"component": "AnalyticsPage"
+							},
+							{
+								"path": "settings",
+								"component": "SettingsPage",
+								"props": {
+									"section": "profile"
+								}
+							}
+						]
+					},
+					{
+						"path": "users/:id",
+						"component": "UserDetailPage",
+						"props": {
+							"loadStrategy": "server"
+						}
+					}
+				]
+			},
+			{
+				"path": "/login",
+				"component": "LoginPage",
+				"meta": {
+					"public": true
+				}
+			},
+			{
+				"path": "*",
+				"component": "NotFoundPage"
+			}
+		]
+	}
+}

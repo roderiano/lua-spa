@@ -59,6 +59,13 @@
   </head>
   <body>
     <main id="{{ SPA_MOUNT_ID }}">{{ SPA_OUTLET }}</main>
+    <script>
+      window.LuaSpaGuards = {
+        auth: function () {
+          return Boolean(window.localStorage.getItem("auth"));
+        },
+      };
+    </script>
     {{ SPA_BOOTSTRAP }}
   </body>
 </html>

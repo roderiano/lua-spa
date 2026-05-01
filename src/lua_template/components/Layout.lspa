@@ -1,0 +1,55 @@
+<python>
+class LayoutClient(Client):
+    props = {
+        "theme": "light",
+    }
+
+
+class Layout(Component):
+    client = LayoutClient
+</python>
+
+<template>
+  <section class="layout" data-theme="{{ theme }}">
+    <header class="layout__header">
+      <h1>Lua SPA Router</h1>
+      <nav class="layout__nav">
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/dashboard/analytics">Analytics</a>
+        <a href="/dashboard/settings">Settings</a>
+        <a href="/users/42">User 42</a>
+      </nav>
+    </header>
+    <main class="layout__content">
+      {{ children }}
+    </main>
+  </section>
+</template>
+
+<style>
+.layout {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 12px 32px rgba(16, 33, 61, 0.08);
+}
+
+.layout__header {
+  margin-bottom: 1rem;
+}
+
+.layout__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.layout__nav a {
+  text-decoration: none;
+  color: #0f7aef;
+  font-weight: 600;
+}
+</style>

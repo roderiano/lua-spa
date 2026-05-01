@@ -1,0 +1,12 @@
+<template>
+  <section class="page">
+    <h2>Analytics</h2>
+    <p>Metrics and charts live here.</p>
+  </section>
+</template>
+
+<style>
+.page {
+  padding: 0.5rem 0;
+}
+</style>

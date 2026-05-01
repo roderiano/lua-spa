@@ -368,8 +368,23 @@ SPA_RUNTIME_JS = r"""
         if (attribute.name.indexOf("on:") === 0 || attribute.name.indexOf("@") === 0) {
           return;
         }
-        componentProps[attribute.name] = interpolate(attribute.value, context);
+        var rawValue = interpolate(attribute.value, context);
+        if (typeof rawValue === "string" && rawValue.indexOf("__json__:") === 0) {
+          try {
+            componentProps[attribute.name] = JSON.parse(rawValue.slice(9));
+          } catch (error) {
+            componentProps[attribute.name] = rawValue;
+          }
+        } else {
+          componentProps[attribute.name] = rawValue;
+        }
       });
+      if (node.childNodes && node.childNodes.length > 0) {
+        var innerHtml = node.innerHTML;
+        if (innerHtml && innerHtml.trim() !== "") {
+          componentProps.children = innerHtml;
+        }
+      }
       return {
         type: "component",
         name: componentName,
@@ -410,6 +425,197 @@ SPA_RUNTIME_JS = r"""
   }
 
   function createApp(config, registry) {
+    function normalizePath(path) {
+      if (!path) {
+        return "/";
+      }
+      if (path.charAt(0) !== "/") {
+        path = "/" + path;
+      }
+      if (path.length > 1 && path.charAt(path.length - 1) === "/") {
+        path = path.slice(0, -1);
+      }
+      return path;
+    }
+
+    function splitPath(path) {
+      var normalized = normalizePath(path);
+      if (normalized === "/") {
+        return [];
+      }
+      return normalized.replace(/^\//, "").split("/").filter(Boolean);
+    }
+
+    function matchPath(routePath, segments, isRoot) {
+      if (!routePath || routePath === "") {
+        return { consumed: 0, params: {} };
+      }
+      if (routePath === "*" || routePath === "/*") {
+        return { consumed: segments.length, params: {} };
+      }
+      if (routePath.charAt(0) === "/" && !isRoot) {
+        return null;
+      }
+      var normalized = routePath.charAt(0) === "/" ? routePath.slice(1) : routePath;
+      var routeSegments = normalized.split("/").filter(Boolean);
+      if (routeSegments.length > segments.length) {
+        return null;
+      }
+      var params = {};
+      for (var i = 0; i < routeSegments.length; i += 1) {
+        var routeSeg = routeSegments[i];
+        var current = segments[i];
+        if (routeSeg.charAt(0) === ":") {
+          params[routeSeg.slice(1)] = current;
+          continue;
+        }
+        if (routeSeg !== current) {
+          return null;
+        }
+      }
+      return { consumed: routeSegments.length, params: params };
+    }
+
+    function buildStackEntry(route, params) {
+      if (!route.component) {
+        return null;
+      }
+      var props = Object.assign({}, route.props || {});
+      if (!props.routeParams) {
+        props.routeParams = params;
+      }
+      if (route.meta && !props.routeMeta) {
+        props.routeMeta = route.meta;
+      }
+      return {
+        name: String(route.component),
+        props: props,
+        guard: route.guard || null,
+        meta: route.meta || {},
+        path: route.path || "",
+      };
+    }
+
+    function matchRoutes(routes, segments, params, stack, isRoot) {
+      for (var i = 0; i < routes.length; i += 1) {
+        var route = routes[i];
+        if (route.index === true) {
+          if (segments.length === 0) {
+            var indexEntry = buildStackEntry(route, params);
+            var indexStack = stack.slice();
+            if (indexEntry) {
+              indexStack.push(indexEntry);
+            }
+            return { stack: indexStack, params: params };
+          }
+          continue;
+        }
+
+        var match = matchPath(route.path, segments, isRoot);
+        if (!match) {
+          continue;
+        }
+        var mergedParams = Object.assign({}, params, match.params);
+        var remaining = segments.slice(match.consumed);
+        var nextStack = stack.slice();
+        var entry = buildStackEntry(route, mergedParams);
+        if (entry) {
+          nextStack.push(entry);
+        }
+
+        if (Array.isArray(route.children) && route.children.length > 0) {
+          var childMatch = matchRoutes(route.children, remaining, mergedParams, nextStack, false);
+          if (childMatch) {
+            return childMatch;
+          }
+        }
+
+        if (remaining.length === 0 || route.path === "*" || route.path === "/*") {
+          return { stack: nextStack, params: mergedParams };
+        }
+      }
+      return null;
+    }
+
+    function renderComponentTag(component, innerHtml) {
+      var props = "";
+      Object.keys(component.props || {}).forEach(function (key) {
+        var value = component.props[key];
+        var textValue = value;
+        if (value && typeof value === "object") {
+          try {
+            textValue = "__json__:" + JSON.stringify(value);
+          } catch (error) {
+            textValue = String(value);
+          }
+        }
+        props += " " + key + '="' + String(textValue)
+          .replace(/&/g, "&amp;")
+          .replace(/\"/g, "&quot;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;") + '"';
+      });
+      if (innerHtml) {
+        return "<" + component.name + props + ">\n" + innerHtml + "\n</" + component.name + ">";
+      }
+      return "<" + component.name + props + " />";
+    }
+
+    function renderStack(stack) {
+      var inner = "";
+      for (var i = stack.length - 1; i >= 0; i -= 1) {
+        inner = renderComponentTag(stack[i], inner);
+      }
+      return inner;
+    }
+
+    function currentPath() {
+      var hash = window.location.hash || "";
+      var cleaned = hash.replace(/^#/, "");
+      var path = cleaned.split("?")[0];
+      return normalizePath(path || "/");
+    }
+
+    function parseRoutesConfig(routerConfig) {
+      var routes = routerConfig && routerConfig.routes ? routerConfig.routes : [];
+      if (!Array.isArray(routes)) {
+        return [];
+      }
+      return routes.map(function (route) {
+        var children = Array.isArray(route.children) ? route.children : [];
+        return {
+          path: route.path,
+          component: route.component,
+          props: route.props || {},
+          index: route.index === true,
+          guard: route.guard || null,
+          meta: route.meta || {},
+          children: parseRoutesConfig({ routes: children }),
+        };
+      });
+    }
+
+    function canActivate(stack, params, fallback) {
+      for (var i = 0; i < stack.length; i += 1) {
+        var guardName = stack[i].guard;
+        if (!guardName) {
+          continue;
+        }
+        var guards = window.LuaSpaGuards || {};
+        var guardFn = guards[guardName];
+        if (typeof guardFn !== "function") {
+          window.location.hash = "#" + normalizePath(fallback);
+          return false;
+        }
+        var ok = guardFn({ params: params, path: stack[i].path });
+        if (!ok) {
+          window.location.hash = "#" + normalizePath(fallback);
+          return false;
+        }
+      }
+      return true;
+    }
+
     var app = {
       config: config,
       registry: registry,
@@ -417,6 +623,77 @@ SPA_RUNTIME_JS = r"""
         var container = document.getElementById(config.mountId);
         if (!container) {
           throw new Error("Mount point not found: #" + config.mountId);
+        }
+
+        if (config.router && typeof config.router === "object") {
+          var routes = parseRoutesConfig(config.router);
+          var initialPath = normalizePath(config.router.initial_path || "/");
+          var guardFallback = normalizePath(config.router.guard_fallback || "/login");
+          if (!window.location.hash || window.location.hash === "#") {
+            window.location.hash = "#" + initialPath;
+          }
+
+          var routerContext = {
+            range: range,
+            enumerate: enumerate,
+            len: len,
+            props: (config && config.props) || {},
+            state: {},
+            actions: {},
+            py: (config && config.props) || {},
+          };
+
+          var renderRoute = function () {
+            var path = currentPath();
+            var segments = splitPath(path);
+            var match = matchRoutes(routes, segments, {}, [], true);
+            if (!match) {
+              return;
+            }
+            if (!canActivate(match.stack, match.params, guardFallback)) {
+              return;
+            }
+            var template = renderStack(match.stack);
+            var vnode = parseTemplate(template, routerContext, app.registry);
+            if (!app.routerVNode) {
+              var hydrationNode = firstRenderableChild(container);
+              if (hydrationNode) {
+                hydrate(vnode, hydrationNode, container, app, null);
+              } else {
+                mount(vnode, container, null, app, null);
+              }
+              app.routerVNode = vnode;
+              return;
+            }
+            patch(app.routerVNode, vnode, container, null, app, null);
+            app.routerVNode = vnode;
+          };
+
+          window.addEventListener("hashchange", function () {
+            renderRoute();
+          });
+
+          document.addEventListener("click", function (event) {
+            var target = event.target;
+            while (target && target !== document.body) {
+              if (target.tagName && target.tagName.toLowerCase() === "a") {
+                var href = target.getAttribute("href");
+                if (href && href.indexOf("#") === 0) {
+                  return;
+                }
+                if (href && href.indexOf("/") === 0) {
+                  event.preventDefault();
+                  window.location.hash = "#" + normalizePath(href);
+                  renderRoute();
+                  return;
+                }
+              }
+              target = target.parentElement;
+            }
+          });
+
+          renderRoute();
+          return;
         }
 
         var vnode = {
@@ -523,6 +800,10 @@ SPA_RUNTIME_JS = r"""
       instance.lifecycle = setupResult.lifecycle;
     }
 
+    var templateSource = componentDef.template;
+    if (instance.props && typeof instance.props.children === "string") {
+      templateSource = templateSource.replace(/{{\s*children\s*}}/g, instance.props.children);
+    }
     var flatContext = Object.assign({}, instance.props || {}, instance.state || {}, instance.props || {});
     var helpers = {
       range: range,
@@ -539,7 +820,7 @@ SPA_RUNTIME_JS = r"""
       py: instance.props,
     });
 
-    return parseTemplate(componentDef.template, context, app.registry);
+    return parseTemplate(templateSource, context, app.registry);
   }
 
   function mount(vnode, container, anchor, app, currentComponent) {

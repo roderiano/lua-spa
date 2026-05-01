@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from lua_spa.loader import ComponentLoader
+from lua_spa.router import Router
 from lua_spa.renderer import build_python_context, build_server_state, interpolate, render_template_with_directives
 from lua_spa.runtime_assets import SPA_RUNTIME_JS
 from lua_spa.server import SpaServer
@@ -57,6 +58,7 @@ class SpaFramework:
             default_props=config.initial_props,
             host=config.host,
             port=config.port,
+            router=config.router,
         )
 
     def __init__(
@@ -68,6 +70,7 @@ class SpaFramework:
         default_props: Mapping[str, Any] | None = None,
         host: str = "127.0.0.1",
         port: int = 8000,
+        router: Mapping[str, Any] | None = None,
     ) -> None:
         """Initialize a SPA framework instance.
 
@@ -91,6 +94,7 @@ class SpaFramework:
         self._default_props = dict(default_props or {})
         self._host = host
         self._port = port
+        self._router_config = dict(router) if isinstance(router, Mapping) else None
 
         if not self._view_file.exists():
             raise FileNotFoundError(f"View file not found: {self._view_file}")
@@ -126,7 +130,10 @@ class SpaFramework:
         initial_props = dict(self._default_props)
         initial_props.update(dict(props or {}))
 
-        spa_outlet = self._render_component(self.entry_component, initial_props)
+        if self._router_config is not None:
+            spa_outlet = self._render_router_outlet(initial_props)
+        else:
+            spa_outlet = self._render_component(self.entry_component, initial_props)
         bootstrap = self._build_bootstrap_block(initial_props)
 
         page = page_shell.replace("{{ SPA_MOUNT_ID }}", html.escape(self.mount_id, quote=True))
@@ -171,6 +178,7 @@ class SpaFramework:
             "mountId": self.mount_id,
             "entry": self.entry_component,
             "props": dict(props),
+            "router": self._router_config,
         }
 
         registry_payload = self._serialize_json_payload(registry)
@@ -232,6 +240,23 @@ class SpaFramework:
         html_fragment = render_template_with_directives(html_fragment, context)
         expanded = self._expand_child_components(html_fragment, context)
         return expanded
+
+    def _render_router_outlet(self, props: Mapping[str, Any]) -> str:
+        if self._router_config is None:
+            return self._render_component(self.entry_component, props)
+        router = Router.from_config(self._router_config)
+        initial_path = str(self._router_config.get("initial_path", "/"))
+        try:
+            match = router.resolve(initial_path)
+        except KeyError:
+            match = router.resolve("/")
+        route_template = router.render(match)
+        context: dict[str, Any] = {
+            "props": dict(props),
+            "state": {},
+            "py": {},
+        }
+        return self._expand_child_components(route_template, context)
 
     def _expand_child_components(self, template: str, context: Mapping[str, Any]) -> str:
         """Recursively expand custom component tags into their rendered HTML.
@@ -307,5 +332,12 @@ class SpaFramework:
         for match in _ATTR_PATTERN.finditer(attrs_raw):
             name = match.group(1)
             value = match.group(2) if match.group(2) is not None else match.group(3)
-            parsed[name] = interpolate(value, context)
+            resolved = interpolate(value, context)
+            if isinstance(resolved, str) and resolved.startswith("__json__:"):
+                try:
+                    parsed[name] = json.loads(resolved[9:])
+                except json.JSONDecodeError:
+                    parsed[name] = resolved
+            else:
+                parsed[name] = resolved
         return parsed
