@@ -1,0 +1,88 @@
+/* index.lspa global styles (root, body, layout) */
+:root {
+    color-scheme: dark;
+    --c-bg: #232733;
+    --c-bg2: #353a47;
+    --c-lunar: #e6eaf0;
+    --c-accent: #bfc6d1;
+    --c-text: #f4f6fa;
+    --c-muted: #bfc6d1;
+    --c-shadow: #181a20;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, var(--c-bg) 0%, var(--c-bg2) 50%, var(--c-shadow) 100%);
+    background-attachment: fixed;
+    background-image:
+        radial-gradient(ellipse 70% 45% at 50% 0%, rgba(230, 234, 240, 0.10), transparent),
+        radial-gradient(ellipse 55% 35% at 90% 100%, rgba(191, 198, 209, 0.08), transparent);
+    color: var(--c-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+    position: relative;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image:
+        radial-gradient(2px 2px at 20px 30px, #e6eaf0, rgba(230, 234, 240, 0)),
+        radial-gradient(2px 2px at 60px 70px, #bfc6d1, rgba(191, 198, 209, 0)),
+        radial-gradient(1px 1px at 50px 50px, #f4f6fa, rgba(244, 246, 250, 0));
+    background-repeat: repeat;
+    background-size: 200px 200px;
+    opacity: 0.02;
+    pointer-events: none;
+    z-index: 1;
+}
+
+#app {
+    min-height: 100dvh;
+}
+
+.page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    color: var(--c-text);
+}
+
+.stars {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.s {
+    position: absolute;
+    border-radius: 50%;
+    background: #e6eaf0;
+    opacity: 0.6;
+    animation: twinkle 3.2s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+
+    0%,
+    100% {
+        opacity: 0.25;
+    }
+
+    50% {
+        opacity: 0.9;
+    }
+}

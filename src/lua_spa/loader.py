@@ -16,6 +16,10 @@ from lua_spa.types import ComponentDefinition
 _IMPORT_PATTERN = re.compile(r"^\s*@import\s+([A-Za-z_][A-Za-z0-9_]*)\s+from\s+['\"](.+?)['\"]\s*$")
 _TEMPLATE_PATTERN = re.compile(r"<template>(.*?)</template>", re.IGNORECASE | re.DOTALL)
 _PYTHON_PATTERN = re.compile(r"<python>(.*?)</python>", re.IGNORECASE | re.DOTALL)
+_STYLE_SRC_PATTERN = re.compile(
+    r"<style\s+[^>]*src\s*=\s*(?:\"([^\"]+)\"|'([^']+)')[^>]*>\s*</style>",
+    re.IGNORECASE,
+)
 
 
 class ComponentLoader:
@@ -82,6 +86,10 @@ class ComponentLoader:
             )
 
         template = self._extract_template(body)
+        template = self._inline_style_src_tags(template, normalized.parent)
+        external_styles = self._extract_external_styles(body, normalized.parent)
+        if external_styles:
+            template = self._inject_styles_into_template_root(template, external_styles)
         python_block = self._extract_python(body)
         client_script = build_client_script(python_block)
 
@@ -152,3 +160,51 @@ class ComponentLoader:
         if match is None:
             return ""
         return match.group(1).strip()
+
+    def _extract_external_styles(self, body: str, base_dir: Path) -> str:
+        """Extract and inline <style src="..."> blocks outside <template>."""
+        template_match = _TEMPLATE_PATTERN.search(body)
+        if template_match is None:
+            outside_template = body
+        else:
+            outside_template = body[: template_match.start()] + body[template_match.end() :]
+        style_tags = [match.group(0) for match in _STYLE_SRC_PATTERN.finditer(outside_template)]
+        if not style_tags:
+            return ""
+        return self._inline_style_src_tags("\n".join(style_tags), base_dir)
+
+    def _inline_style_src_tags(self, markup: str, base_dir: Path) -> str:
+        """Replace <style src="..."> with inline CSS loaded from disk."""
+
+        def replace(match: re.Match[str]) -> str:
+            relative_src = match.group(1) or match.group(2)
+            if relative_src is None:
+                return match.group(0)
+            css_path = (base_dir / relative_src).resolve()
+            if not css_path.exists() or not css_path.is_file():
+                raise FileNotFoundError(f"Style file not found: {css_path}")
+            css_content = css_path.read_text(encoding="utf-8")
+            return f"<style>\n{css_content}\n</style>"
+
+        return _STYLE_SRC_PATTERN.sub(replace, markup)
+
+    def _inject_styles_into_template_root(self, template: str, styles: str) -> str:
+        """Inject external style markup as first child of template root.
+
+        This preserves a single root node for hydration and avoids wrapper insertion
+        on the client runtime when components import CSS outside <template>.
+        """
+        style_markup = styles.strip()
+        if style_markup == "":
+            return template
+
+        root_open = re.search(r"<([A-Za-z][\w:\-]*)(?:\s[^>]*)?>", template)
+        if root_open is None:
+            return f"{style_markup}\n{template}"
+
+        start, end = root_open.span()
+        open_tag = template[start:end]
+        if open_tag.endswith("/>"):
+            return f"{style_markup}\n{template}"
+
+        return f"{template[:end]}\n{style_markup}\n{template[end:]}"

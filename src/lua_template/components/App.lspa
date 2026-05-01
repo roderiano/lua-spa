@@ -1,7 +1,10 @@
+
 <python>
 class App(Component):
-    pass
+  pass
 </python>
+
+<style src="./App.css"></style>
 
 <template>
   <div class="page">

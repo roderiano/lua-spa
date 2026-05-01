@@ -27,6 +27,10 @@ from lua_spa.server import SpaServer
 from lua_spa.types import ComponentDefinition, load_lua_template_config
 
 _ATTR_PATTERN = re.compile(r"([:@A-Za-z_][A-Za-z0-9_:\-]*)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')")
+_STYLE_SRC_PATTERN = re.compile(
+    r"<style\s+[^>]*src\s*=\s*(?:\"([^\"]+)\"|'([^']+)')[^>]*>\s*</style>",
+    re.IGNORECASE,
+)
 
 
 class SpaFramework:
@@ -137,6 +141,7 @@ class SpaFramework:
             Complete HTML page as a string.
         """
         page_shell = self._view_file.read_text(encoding="utf-8")
+        page_shell = self._inline_style_src_tags(page_shell, self._view_file.parent)
         initial_props = dict(self._default_props)
         initial_props.update(dict(props or {}))
 
@@ -151,6 +156,21 @@ class SpaFramework:
         page = page.replace("{{ SPA_OUTLET }}", spa_outlet)
         page = page.replace("{{ SPA_BOOTSTRAP }}", bootstrap)
         return page
+
+    def _inline_style_src_tags(self, markup: str, base_dir: Path) -> str:
+        """Replace <style src="..."> with inline CSS loaded from disk."""
+
+        def replace(match: re.Match[str]) -> str:
+            relative_src = match.group(1) or match.group(2)
+            if relative_src is None:
+                return match.group(0)
+            css_path = (base_dir / relative_src).resolve()
+            if not css_path.exists() or not css_path.is_file():
+                raise FileNotFoundError(f"Style file not found: {css_path}")
+            css_content = css_path.read_text(encoding="utf-8")
+            return f"<style>\n{css_content}\n</style>"
+
+        return _STYLE_SRC_PATTERN.sub(replace, markup)
 
     def get_static_asset(self, request_path: str) -> tuple[bytes, str] | None:
         """Resolve and read a static asset by HTTP path.
