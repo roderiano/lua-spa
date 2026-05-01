@@ -7,8 +7,8 @@ server-side rendering and client-side hydration.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import json
+from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping
 
 
@@ -192,10 +192,7 @@ def _normalize_path(path: str) -> str:
 def _escape_attr(value: Any) -> str:
     text = str(value)
     return (
-        text.replace("&", "&amp;")
-        .replace('"', "&quot;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
+        text.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;").replace(">", "&gt;")
     )
 
 

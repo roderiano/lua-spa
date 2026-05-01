@@ -10,7 +10,11 @@ import json
 from types import SimpleNamespace
 from typing import Any, Mapping
 
-from lua_spa.scope import load_python_scope, resolve_component_callables, normalize_client_spec
+from lua_spa.scope import (
+    load_python_scope,
+    normalize_client_spec,
+    resolve_component_callables,
+)
 from lua_spa.trace import _BinaryExpression, _CastReference, _PropReference
 
 
@@ -81,8 +85,8 @@ def build_client_script(python_block: str) -> str:
 
     for action_name_raw, action_cfg in actions_spec.items():
         action_name = str(action_name_raw)
-        operation = _normalize_action_operation(action_cfg)
-        action_body = _js_action_statement(operation, setter_by_state, value_by_state)
+        action_operation = _normalize_action_operation(action_cfg)
+        action_body = _js_action_statement(action_operation, setter_by_state, value_by_state)
         lines.append(f"      {action_name}: function () {{")
         lines.append(f"        {action_body}")
         lines.append("      },")
@@ -99,12 +103,14 @@ def build_client_script(python_block: str) -> str:
     for hook_name in ["onCreate", "onMount", "onUpdate", "onUnmount"]:
         operations = lifecycle_spec.get(hook_name, [])
         lines.append(f"    {hook_name}: function () {{")
-        for operation in operations:
-            if isinstance(operation, Mapping):
-                statement = _js_action_statement(operation, setter_by_state, value_by_state)
+        for lifecycle_operation in operations:
+            if isinstance(lifecycle_operation, Mapping):
+                statement = _js_action_statement(
+                    lifecycle_operation, setter_by_state, value_by_state
+                )
                 lines.append(f"      {statement}")
             else:
-                lines.append(f"      __callAction({_js_literal(operation)});")
+                lines.append(f"      __callAction({_js_literal(lifecycle_operation)});")
         lines.append("    },")
     lines.append("  };")
 
@@ -148,7 +154,9 @@ def _js_initial_state_expression(config: Any, prop_var_name: str) -> str:
 
         prop_expr = f"{prop_var_name}[{_js_literal(str(from_prop))}]"
         fallback = _js_literal(default_value)
-        base_expr = f"(({prop_expr}) !== undefined && ({prop_expr}) !== null ? ({prop_expr}) : {fallback})"
+        base_expr = (
+            f"(({prop_expr}) !== undefined && ({prop_expr}) !== null ? ({prop_expr}) : {fallback})"
+        )
 
         if cast_kind == "int":
             return f"Number({base_expr})"
@@ -225,7 +233,11 @@ def _normalize_action_operation(action_cfg: Any) -> dict[str, Any]:
     return operation
 
 
-def _js_action_statement(operation: Mapping[str, Any], setter_by_state: Mapping[str, str], value_by_state: Mapping[str, str] | None = None) -> str:
+def _js_action_statement(
+    operation: Mapping[str, Any],
+    setter_by_state: Mapping[str, str],
+    value_by_state: Mapping[str, str] | None = None,
+) -> str:
     """Generate a JavaScript statement for an action operation.
 
     Converts Python operation dicts into JS setter calls, with optional conditional wrapper.
@@ -255,6 +267,12 @@ def _js_action_statement(operation: Mapping[str, Any], setter_by_state: Mapping[
     if str(operation.get("op", "")) == "log":
         value_literal = _js_runtime_value_expression(operation.get("value"), "resolvedProps")
         return f"console.log('[lua-spa]', {value_literal});"
+
+    if str(operation.get("op", "")) == "js":
+        js_code = operation.get("value")
+        if not isinstance(js_code, str):
+            raise ValueError("js action requires string field 'value'")
+        return js_code
 
     state_name = str(operation["state"])
     if state_name not in setter_by_state:

@@ -18,6 +18,7 @@ class _TraceCondition:
 
     Used to associate conditionals with state operations for JavaScript generation.
     """
+
     left: str
     op: str
     right: Any
@@ -243,6 +244,9 @@ class _TraceState:
     instead of modifying actual state, allowing inference of method behavior
     without executing the logic.
     """
+
+    _operations: list[dict[str, Any]]
+    _pending_condition: _TraceCondition | None
 
     def __init__(self) -> None:
         super().__setattr__("_operations", [])

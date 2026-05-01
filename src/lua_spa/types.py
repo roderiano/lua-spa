@@ -9,7 +9,6 @@ from typing import Any, Mapping
 
 
 @dataclass(frozen=True)
-
 class LuaTemplateConfig:
     """Configuration loaded from lua_template/spa.config.json.
 

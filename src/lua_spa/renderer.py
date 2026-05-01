@@ -41,6 +41,7 @@ _SAFE_EVAL_GLOBALS: dict[str, Any] = {
     "enumerate": enumerate,
 }
 
+
 def render_template_with_directives(template: str, context: Mapping[str, Any]) -> str:
     """Process i-for, l-if/l-else-if/l-else, and interpolation in the correct order.
 
@@ -55,6 +56,7 @@ def render_template_with_directives(template: str, context: Mapping[str, Any]) -
     html = apply_server_conditionals(html, context)
     html = interpolate(html, context)
     return html
+
 
 def _normalize_iterable(value: Any) -> list[Any]:
     """Convert a value to a list for iteration, supporting dicts, lists, and iterables.
@@ -94,7 +96,9 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
         re.IGNORECASE | re.DOTALL,
     )
 
-    def _find_balanced_block_end(html: str, tag: str, start_after_open: int) -> tuple[int, int] | None:
+    def _find_balanced_block_end(
+        html: str, tag: str, start_after_open: int
+    ) -> tuple[int, int] | None:
         """Find the closing tag span for an opening tag using depth balancing.
 
         Args:
@@ -149,14 +153,16 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
             if balanced is None:
                 continue
             close_start, close_end = balanced
-            items.append({
-                "start": match.start(),
-                "end": close_end,
-                "tag": tag,
-                "attrs": attrs,
-                "body": html[match.end():close_start],
-                "expr": for_attr.group("expr"),
-            })
+            items.append(
+                {
+                    "start": match.start(),
+                    "end": close_end,
+                    "tag": tag,
+                    "attrs": attrs,
+                    "body": html[match.end() : close_start],
+                    "expr": for_attr.group("expr"),
+                }
+            )
         items.sort(key=lambda i: int(i["start"]))
         filtered: list[dict[str, Any]] = []
         covered_until = -1
@@ -199,7 +205,9 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
                         loop_ctx[targets[0]] = item
                     elif isinstance(item, (list, tuple)):
                         for target_index, target_name in enumerate(targets):
-                            loop_ctx[target_name] = item[target_index] if target_index < len(item) else None
+                            loop_ctx[target_name] = (
+                                item[target_index] if target_index < len(item) else None
+                            )
                     else:
                         loop_ctx[targets[0]] = item
                         for target_name in targets[1:]:
@@ -224,6 +232,7 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
         if rendered == previous:
             break
     return rendered
+
 
 def build_scoped_context(context: Mapping[str, Any]) -> dict[str, Any]:
     """Build a scoped dictionary for expression evaluation.
@@ -360,7 +369,9 @@ def apply_server_conditionals(template: str, context: Mapping[str, Any]) -> str:
             return f"<{tag}{attrs_part}/>"
         return f"<{tag}{attrs_part}>{node['body']}</{tag}>"
 
-    def _find_balanced_block_end(html: str, tag: str, start_after_open: int) -> tuple[int, int] | None:
+    def _find_balanced_block_end(
+        html: str, tag: str, start_after_open: int
+    ) -> tuple[int, int] | None:
         """Find the closing tag span for an opening tag using depth balancing.
 
         Args:
@@ -438,7 +449,7 @@ def apply_server_conditionals(template: str, context: Mapping[str, Any]) -> str:
                     "end": close_end,
                     "tag": tag,
                     "attrs": attrs,
-                    "body": html[match.end():close_start],
+                    "body": html[match.end() : close_start],
                     "is_self": False,
                     "cond": cond.group("cond"),
                     "expr": cond.group("expr"),
@@ -481,7 +492,7 @@ def apply_server_conditionals(template: str, context: Mapping[str, Any]) -> str:
             while j < n:
                 prev_node = nodes[j - 1]
                 next_node = nodes[j]
-                gap = rendered[int(prev_node["end"]):int(next_node["start"])]
+                gap = rendered[int(prev_node["end"]) : int(next_node["start"])]
                 if gap.strip() != "":
                     break
                 if next_node["cond"] in ("l-else-if", "l-else"):
@@ -519,6 +530,7 @@ def apply_server_conditionals(template: str, context: Mapping[str, Any]) -> str:
             break
 
     return rendered
+
 
 def _replace_conditional_tag(match: re.Match[str], context: Mapping[str, Any]) -> str:
     """Replace a pair conditional tag, removing it if the condition is false.
@@ -585,7 +597,11 @@ def build_python_context(python_block: str, props: Mapping[str, Any]) -> dict[st
     Returns:
         The dict returned by context(props), or empty dict if no context() found.
     """
-    from lua_spa.scope import load_python_scope, resolve_component_callables, normalize_context_result
+    from lua_spa.scope import (
+        load_python_scope,
+        normalize_context_result,
+        resolve_component_callables,
+    )
 
     local_scope = load_python_scope(python_block)
 
@@ -607,7 +623,11 @@ def build_server_state(python_block: str, props: Mapping[str, Any]) -> dict[str,
     Returns:
         A dict mapping state names to their initial values.
     """
-    from lua_spa.scope import load_python_scope, resolve_component_callables, normalize_client_spec
+    from lua_spa.scope import (
+        load_python_scope,
+        normalize_client_spec,
+        resolve_component_callables,
+    )
 
     local_scope = load_python_scope(python_block)
     _, client_factory = resolve_component_callables(local_scope)
@@ -621,7 +641,9 @@ def build_server_state(python_block: str, props: Mapping[str, Any]) -> dict[str,
 
     server_state: dict[str, Any] = {}
     for state_name, state_cfg in state_spec.items():
-        server_state[str(state_name)] = resolve_python_state_initial_value(state_cfg, resolved_props)
+        server_state[str(state_name)] = resolve_python_state_initial_value(
+            state_cfg, resolved_props
+        )
     return server_state
 
 

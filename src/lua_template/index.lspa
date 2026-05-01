@@ -3,69 +3,249 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>lua-spa</title>
+    <meta name="theme-color" content="#2a1f0f" />
+    <title>lua-spa — Python Framework for Single Page Applications</title>
     <style>
-      :root {
-        --bg: #f5f7fb;
-        --ink: #10213d;
-        --surface: #ffffff;
-        --accent: #0f7aef;
+      /* ── reset ─────────────────────────────────────────────────── */
+      *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
 
-      * {
-        box-sizing: border-box;
+      :root {
+        color-scheme: dark;
+        --c-bg:       #2a1f0f;
+        --c-bg2:      #3d2817;
+        --c-lunar:    #f4d03f;
+        --c-accent:   #d4a017;
+        --c-text:     #d9c699;
+        --c-muted:    #b8956a;
+        --c-shadow:   #1a0f05;
+      }
+
+      html, body {
+        height: 100%;
       }
 
       body {
-        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Helvetica, Arial, sans-serif;
+        background: linear-gradient(135deg, var(--c-bg) 0%, var(--c-bg2) 50%, var(--c-shadow) 100%);
+        background-attachment: fixed;
+        background-image:
+          radial-gradient(ellipse 70% 45% at 50% 0%, rgba(244, 208, 63, 0.12), transparent),
+          radial-gradient(ellipse 55% 35% at 90% 100%, rgba(212, 160, 23, 0.09), transparent);
+        color: var(--c-text);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        overflow-x: hidden;
+        position: relative;
+      }
+
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: 
+          radial-gradient(2px 2px at 20px 30px, #fef5c3, rgba(254, 245, 195, 0)),
+          radial-gradient(2px 2px at 60px 70px, #f4d03f, rgba(244, 208, 63, 0)),
+          radial-gradient(1px 1px at 50px 50px, #d9c699, rgba(217, 198, 153, 0));
+        background-repeat: repeat;
+        background-size: 200px 200px;
+        opacity: 0.02;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      #app { min-height: 100vh; }
+
+      .page {
         min-height: 100vh;
-        font-family: "Segoe UI", Tahoma, sans-serif;
-        background: radial-gradient(circle at top, #ffffff 0%, var(--bg) 60%);
-        color: var(--ink);
-      }
-
-      #app {
-        width: min(920px, 100% - 2rem);
-        margin: 2rem auto;
-      }
-
-      .shell,
-      .counter {
-        background: var(--surface);
-        border-radius: 12px;
-        padding: 1.25rem;
-        box-shadow: 0 12px 32px rgba(16, 33, 61, 0.08);
-      }
-
-      .counter {
-        margin-top: 1rem;
-      }
-
-      .buttons {
         display: flex;
-        gap: 0.75rem;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+        color: var(--c-text);
       }
 
-      button {
-        border: none;
-        border-radius: 8px;
-        padding: 0.55rem 0.8rem;
-        font-size: 1rem;
-        background: var(--accent);
-        color: #ffffff;
-        cursor: pointer;
+      .stars {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .s {
+        position: absolute;
+        border-radius: 50%;
+        background: #fef5c3;
+        opacity: 0.6;
+        animation: twinkle 3.2s ease-in-out infinite;
+      }
+
+      @keyframes twinkle {
+        0%, 100% { opacity: 0.25; }
+        50% { opacity: 0.9; }
+      }
+
+      .nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 72px;
+        padding: 0 42px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(42, 31, 15, 0.72);
+        border-bottom: 1px solid rgba(244, 208, 63, 0.18);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        z-index: 20;
+      }
+
+      .nav__brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        font-weight: 700;
+      }
+
+      .nav__moon {
+        font-size: 1.2rem;
+        line-height: 1;
+      }
+
+      .nav__name {
+        font-size: 1.14rem;
+        color: var(--c-lunar);
+        letter-spacing: -0.02em;
+      }
+
+      .nav__links {
+        display: inline-flex;
+        align-items: center;
+        gap: 1.5rem;
+      }
+
+      .nav__links a {
+        color: var(--c-lunar);
+        text-decoration: none;
+        font-size: 0.92rem;
+        font-weight: 600;
+        transition: color 0.25s ease, text-shadow 0.25s ease;
+      }
+
+      .nav__links a:hover {
+        color: #fff3bf;
+        text-shadow: 0 0 10px rgba(244, 208, 63, 0.55);
+      }
+
+      .hero {
+        min-height: calc(100vh - 72px - 68px);
+        margin-top: 72px;
+        padding: 24px 1.5rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        z-index: 10;
+      }
+
+      .hero__logo {
+        width: 170px;
+        height: 170px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1.3rem;
+        border: 1px solid rgba(244, 208, 63, 0.4);
+        background: radial-gradient(circle at 30% 30%, #fef5c3 0%, #f4d03f 48%, #d4a017 100%);
+        box-shadow: 0 0 28px rgba(244, 208, 63, 0.35), inset -10px -10px 20px rgba(26, 15, 5, 0.28);
+      }
+
+      .hero__logo-icon {
+        font-size: 2.4rem;
+        color: #2a1f0f;
+      }
+
+      .hero__title {
+        font-size: clamp(2.8rem, 8vw, 4.4rem);
+        font-weight: 800;
+        margin-bottom: 0.65rem;
+        letter-spacing: -0.04em;
+        background: linear-gradient(135deg, #fff5cc, #d4a017);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .hero__subtitle {
+        font-size: clamp(1.02rem, 2.8vw, 1.35rem);
+        color: var(--c-muted);
+        margin-bottom: 1rem;
+        letter-spacing: 0.03em;
+      }
+
+      .hero__tagline {
+        max-width: 760px;
+        font-size: clamp(0.96rem, 2.4vw, 1.08rem);
+        line-height: 1.7;
+        color: var(--c-lunar);
+      }
+
+      .footer {
+        height: 68px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-top: 1px solid rgba(244, 208, 63, 0.16);
+        color: var(--c-accent);
+        font-size: 0.88rem;
+        text-align: center;
+        padding: 0 1rem;
+        z-index: 10;
+      }
+
+      @media (max-width: 760px) {
+        .nav {
+          height: auto;
+          padding: 14px 16px;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .nav__links {
+          gap: 1rem;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+
+        .hero {
+          margin-top: 108px;
+          min-height: calc(100vh - 108px - 68px);
+          padding-top: 18px;
+        }
+
+        .hero__logo {
+          width: 140px;
+          height: 140px;
+        }
+
+        .hero__logo-icon {
+          font-size: 2rem;
+        }
       }
     </style>
   </head>
   <body>
-    <main id="{{ SPA_MOUNT_ID }}">{{ SPA_OUTLET }}</main>
-    <script>
-      window.LuaSpaGuards = {
-        auth: function () {
-          return Boolean(window.localStorage.getItem("auth"));
-        },
-      };
-    </script>
+    <div id="{{ SPA_MOUNT_ID }}">{{ SPA_OUTLET }}</div>
     {{ SPA_BOOTSTRAP }}
   </body>
 </html>

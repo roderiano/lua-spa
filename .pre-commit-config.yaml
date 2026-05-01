@@ -1,54 +1,17 @@
 default_stages: [pre-commit]
 
+# Exclude .venv and .env from all hooks
+exclude: '(^\.venv/|^\.env/)'
+
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+  - repo: local
     hooks:
-      - id: ruff
-        name: ruff-fix-and-sort-imports
+      - id: python-quality-gate
+        name: python-quality-gate
+        entry: python scripts/precommit_quality_gate.py
+        language: python
         always_run: true
         pass_filenames: false
-        args:
-          [
-            "--fix",
-            "--extend-select=I",
-            ".",
-          ]
-
-      - id: ruff
-        name: ruff-check
-        always_run: true
-        pass_filenames: false
-        args: ["."]
-
-  - repo: https://github.com/psf/black
-    rev: 24.8.0
-    hooks:
-      - id: black
-        name: black-format
-        always_run: true
-        pass_filenames: false
-        args: ["."]
-
-      - id: black
-        name: black-check
-        always_run: true
-        pass_filenames: false
-        args: ["--check", "."]
-
-  - repo: https://github.com/pycqa/flake8
-    rev: 7.1.1
-    hooks:
-      - id: flake8
-        always_run: true
-        pass_filenames: false
-        args: ["."]
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
-    hooks:
-      - id: mypy
-        name: mypy-strict
-        always_run: true
-        pass_filenames: false
-        args: ["--strict", "src", "tests"]
+        additional_dependencies:
+          - mypy==1.11.2
+          - ruff==0.6.9

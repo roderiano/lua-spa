@@ -9,8 +9,15 @@ from __future__ import annotations
 import builtins
 from typing import Any, Mapping
 
-from lua_spa.types import Component, ComponentDefinition, StateField
-from lua_spa.trace import _CastReference, _PropReference, _TraceProps, _TraceState, _py_bool, _py_float, _py_int, _py_str
+from lua_spa.trace import (
+    _py_bool,
+    _py_float,
+    _py_int,
+    _py_str,
+    _TraceProps,
+    _TraceState,
+)
+from lua_spa.types import Component, StateField
 
 _CLIENT_RESERVED_NAMES = {
     "Props",
@@ -162,7 +169,9 @@ def normalize_context_result(result: Any) -> dict[str, Any]:
     raise ValueError("context(props) must return a mapping or object with attributes")
 
 
-def normalize_client_spec(raw_spec: Any) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, list[str]]]:
+def normalize_client_spec(
+    raw_spec: Any,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, list[Any]]]:
     """Normalize a client spec into (props, state, actions, lifecycle) dicts.
 
     Inspects a client instance or class and extracts:
@@ -174,29 +183,38 @@ def normalize_client_spec(raw_spec: Any) -> tuple[dict[str, Any], dict[str, Any]
     Returns empty dicts if raw_spec is None. Raises ValueError if format is invalid.
     """
     if raw_spec is None:
-        return {}, {}, {}, {"onCreate": [], "onMount": [], "onUpdate": [], "onUnmount": []}
+        return (
+            {},
+            {},
+            {},
+            {"onCreate": [], "onMount": [], "onUpdate": [], "onUnmount": []},
+        )
 
     if isinstance(raw_spec, Mapping):
-        props_spec = normalize_props_source(_extract_mapping_value(raw_spec, ["props", "Props"], {}))
-        state_spec = normalize_state_source(_extract_mapping_value(raw_spec, ["state", "State"], {}), owner=None)
-        actions_spec = _extract_mapping_value(raw_spec, ["actions", "methods"], {})
+        mapping_props_spec = normalize_props_source(
+            _extract_mapping_value(raw_spec, ["props", "Props"], {})
+        )
+        mapping_state_spec = normalize_state_source(
+            _extract_mapping_value(raw_spec, ["state", "State"], {}), owner=None
+        )
+        mapping_actions_spec = _extract_mapping_value(raw_spec, ["actions", "methods"], {})
         methods_spec = _extract_mapping_value(raw_spec, ["Methods"], None)
         lifecycle_spec_raw = _extract_mapping_value(raw_spec, ["lifecycle", "Lifecycle"], {})
 
-        if not isinstance(actions_spec, Mapping):
+        if not isinstance(mapping_actions_spec, Mapping):
             raise ValueError("client().actions must be a mapping")
 
-        normalized_actions = dict(actions_spec)
+        normalized_actions = dict(mapping_actions_spec)
         if methods_spec is not None:
             normalized_actions.update(resolve_methods_actions(methods_spec, owner=None))
 
-        lifecycle_spec = normalize_lifecycle_spec(lifecycle_spec_raw)
-        return props_spec, state_spec, normalized_actions, lifecycle_spec
+        mapping_lifecycle_spec = normalize_lifecycle_spec(lifecycle_spec_raw)
+        return mapping_props_spec, mapping_state_spec, normalized_actions, mapping_lifecycle_spec
 
     props_spec: dict[str, Any] = {}
     state_spec: dict[str, Any] = {}
     actions_spec: dict[str, Any] = {}
-    lifecycle_spec: dict[str, list[str]] = {
+    lifecycle_spec: dict[str, list[Any]] = {
         "onCreate": [],
         "onMount": [],
         "onUpdate": [],
@@ -426,7 +444,9 @@ def _normalize_method_callable(action_name: str, candidate: Any, owner: Any | No
 
     if isinstance(candidate, str):
         if owner is None:
-            raise ValueError(f"Methods entry '{action_name}' references a name without client instance")
+            raise ValueError(
+                f"Methods entry '{action_name}' references a name without client instance"
+            )
         method_ref = getattr(owner, candidate, None)
         if callable(method_ref):
             return method_ref
@@ -580,14 +600,14 @@ def infer_action_methods(owner: Any) -> list[str]:
     return result
 
 
-def normalize_lifecycle_spec(raw_lifecycle: Any) -> dict[str, list[str]]:
+def normalize_lifecycle_spec(raw_lifecycle: Any) -> dict[str, list[Any]]:
     """Normalize a lifecycle mapping into canonical hook names and action lists.
 
     Accepts a mapping with keys like "onCreate", "created", "on_create" etc.,
     normalizing them to the canonical forms: onCreate, onMount, onUpdate, onUnmount.
     Raises ValueError if not a mapping.
     """
-    normalized: dict[str, list[str]] = {
+    normalized: dict[str, list[Any]] = {
         "onCreate": [],
         "onMount": [],
         "onUpdate": [],

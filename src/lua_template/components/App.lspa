@@ -1,58 +1,46 @@
-@import Counter from "./Counter.lspa"
-@import Layout from "./Layout.lspa"
-@import HomePage from "./HomePage.lspa"
-@import AboutPage from "./AboutPage.lspa"
-@import DashboardPage from "./DashboardPage.lspa"
-@import AnalyticsPage from "./AnalyticsPage.lspa"
-@import SettingsPage from "./SettingsPage.lspa"
-@import UserDetailPage from "./UserDetailPage.lspa"
-@import LoginPage from "./LoginPage.lspa"
-@import NotFoundPage from "./NotFoundPage.lspa"
-
 <python>
-class AppContext:
-  def __init__(self, title, subtitle):
-    self.title = title
-    self.subtitle = subtitle
-
-
-class AppClient:
-  title = "Lua SPA Framework"
-  subtitle = "Hydrated component tree with hook-based state."
-  start = 0
-  limit = 15
-
-  State = []
-  Methods = []
-
-  def created(self):
-    return []
-
-  def mounted(self):
-    return []
-
-  def updated(self):
-    return []
-
-  def unmounted(self):
-    return []
-
-
-class Component:
-  def context(self, props):
-    return AppContext(
-      props.get("title", "Lua SPA Framework"),
-      props.get("subtitle", "Hydrated component tree with hook-based state."),
-    )
-
-  def client(self):
-    return AppClient()
+class App(Component):
+    pass
 </python>
 
 <template>
-  <section class="shell">
-    <h1>{{ title }}</h1>
-    <p>{{ subtitle }}</p>
-    <Counter title="{{ title }}" limit="{{ limit }}" start="{{ start }}" />
-  </section>
+  <div class="page">
+    <div class="stars" aria-hidden="true">
+      <span class="s" style="top:4%;left:12%;width:2px;height:2px;animation-delay:.3s"></span>
+      <span class="s" style="top:8%;left:78%;width:1px;height:1px;animation-delay:1.2s"></span>
+      <span class="s" style="top:16%;left:30%;width:1.5px;height:1.5px;animation-delay:2.1s"></span>
+      <span class="s" style="top:24%;left:90%;width:2px;height:2px;animation-delay:.7s"></span>
+      <span class="s" style="top:38%;left:8%;width:1px;height:1px;animation-delay:1.8s"></span>
+      <span class="s" style="top:52%;left:65%;width:1.5px;height:1.5px;animation-delay:2.8s"></span>
+      <span class="s" style="top:67%;left:22%;width:2px;height:2px;animation-delay:1s"></span>
+      <span class="s" style="top:82%;left:84%;width:1px;height:1px;animation-delay:.4s"></span>
+    </div>
+
+    <nav class="nav">
+      <div class="nav__brand">
+        <span class="nav__moon">🌙</span>
+        <span class="nav__name">lua-spa</span>
+      </div>
+
+      <div class="nav__links">
+        <a href="#">Get Started</a>
+        <a href="https://github.com/lua-spa/lua-spa/wiki" target="_blank" rel="noopener">Docs</a>
+        <a href="https://github.com/lua-spa/lua-spa" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </nav>
+
+    <main class="hero">
+      <div class="hero__logo" aria-hidden="true">
+        <span class="hero__logo-icon">🌙</span>
+      </div>
+
+      <h1 class="hero__title">lua-spa</h1>
+      <p class="hero__subtitle">Python Framework for Single Page Applications</p>
+      <p class="hero__tagline">Combine the power of Server Rendering with Client Hydration — build modern, fast SPAs with pure Python.</p>
+    </main>
+
+    <footer class="footer">
+      <p>lua-spa — Open Source · MIT License · Made with 🌙 and Python</p>
+    </footer>
+  </div>
 </template>

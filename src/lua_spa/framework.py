@@ -14,15 +14,18 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from lua_spa.loader import ComponentLoader
+from lua_spa.renderer import (
+    build_python_context,
+    build_server_state,
+    interpolate,
+    render_template_with_directives,
+)
 from lua_spa.router import Router
-from lua_spa.renderer import build_python_context, build_server_state, interpolate, render_template_with_directives
 from lua_spa.runtime_assets import SPA_RUNTIME_JS
 from lua_spa.server import SpaServer
 from lua_spa.types import ComponentDefinition, load_lua_template_config
 
-_ATTR_PATTERN = re.compile(
-    r"([:@A-Za-z_][A-Za-z0-9_:\-]*)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')"
-)
+_ATTR_PATTERN = re.compile(r"([:@A-Za-z_][A-Za-z0-9_:\-]*)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')")
 
 
 class SpaFramework:
@@ -285,7 +288,9 @@ class SpaFramework:
             )
 
             rendered = open_close_pattern.sub(
-                lambda match: self._render_tag_match(component_name, match.group(1), match.group(2), context),
+                lambda match: self._render_tag_match(
+                    component_name, match.group(1), match.group(2), context
+                ),
                 rendered,
             )
             rendered = self_closing_pattern.sub(
