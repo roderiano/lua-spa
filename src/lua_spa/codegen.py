@@ -97,10 +97,14 @@ def build_client_script(python_block: str) -> str:
 
     lines.append("  const lifecycle = {")
     for hook_name in ["onCreate", "onMount", "onUpdate", "onUnmount"]:
-        action_names = lifecycle_spec.get(hook_name, [])
+        operations = lifecycle_spec.get(hook_name, [])
         lines.append(f"    {hook_name}: function () {{")
-        for action_name in action_names:
-            lines.append(f"      __callAction({_js_literal(action_name)});")
+        for operation in operations:
+            if isinstance(operation, Mapping):
+                statement = _js_action_statement(operation, setter_by_state, value_by_state)
+                lines.append(f"      {statement}")
+            else:
+                lines.append(f"      __callAction({_js_literal(operation)});")
         lines.append("    },")
     lines.append("  };")
 

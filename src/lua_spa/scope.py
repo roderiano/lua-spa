@@ -606,34 +606,48 @@ def normalize_lifecycle_spec(raw_lifecycle: Any) -> dict[str, list[str]]:
     return normalized
 
 
-def normalize_lifecycle_methods(owner: Any) -> dict[str, list[str]]:
+def normalize_lifecycle_methods(owner: Any) -> dict[str, list[dict[str, Any]]]:
     """Extract lifecycle method names from a client instance.
 
     Looks for methods like created(), mounted(), on_create(), etc.,
     normalizing to onCreate, onMount, onUpdate, onUnmount.
-    Returns a dict mapping hook name to list of action names returned by the method.
+    Returns a dict mapping hook name to traced operation dicts (including log operations).
     """
-    mapping = {
-        "created": "onCreate",
-        "on_create": "onCreate",
-        "onCreate": "onCreate",
-        "mounted": "onMount",
-        "on_mount": "onMount",
-        "onMount": "onMount",
-        "updated": "onUpdate",
-        "on_update": "onUpdate",
-        "onUpdate": "onUpdate",
-        "unmounted": "onUnmount",
-        "on_unmount": "onUnmount",
-        "onUnmount": "onUnmount",
+    method_order = [
+        ("onCreate", "onCreate"),
+        ("on_create", "onCreate"),
+        ("created", "onCreate"),
+        ("onMount", "onMount"),
+        ("on_mount", "onMount"),
+        ("mounted", "onMount"),
+        ("onUpdate", "onUpdate"),
+        ("on_update", "onUpdate"),
+        ("updated", "onUpdate"),
+        ("onUnmount", "onUnmount"),
+        ("on_unmount", "onUnmount"),
+        ("unmounted", "onUnmount"),
+    ]
+    normalized: dict[str, list[dict[str, Any]]] = {
+        "onCreate": [],
+        "onMount": [],
+        "onUpdate": [],
+        "onUnmount": [],
     }
-    normalized: dict[str, list[str]] = {}
+    seen_hooks: set[str] = set()
 
-    for method_name, hook_name in mapping.items():
+    for method_name, hook_name in method_order:
+        if hook_name in seen_hooks:
+            continue
         candidate = getattr(owner, method_name, None)
         if not callable(candidate):
             continue
-        normalized[hook_name] = normalize_action_names(candidate())
+        operation = invoke_method_callable(method_name, candidate, owner)
+        if isinstance(operation, Mapping):
+            if operation.get("op") == "set" and operation.get("state") == "__noop__":
+                seen_hooks.add(hook_name)
+                continue
+            normalized[hook_name].append(dict(operation))
+        seen_hooks.add(hook_name)
 
     return normalized
 
@@ -648,11 +662,11 @@ def canonical_lifecycle_name(name: str) -> str:
     lowered = name.replace("_", "").replace("-", "").lower()
     if lowered in {"oncreate", "create", "created"}:
         return "onCreate"
-    if lowered in {"onmount", "mount"}:
+    if lowered in {"onmount", "mount", "mounted"}:
         return "onMount"
-    if lowered in {"onupdate", "update"}:
+    if lowered in {"onupdate", "update", "updated"}:
         return "onUpdate"
-    if lowered in {"onunmount", "unmount", "destroy"}:
+    if lowered in {"onunmount", "unmount", "unmounted", "destroy"}:
         return "onUnmount"
     raise ValueError(f"Unknown lifecycle hook: {name}")
 
