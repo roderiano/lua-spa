@@ -2,7 +2,7 @@
   <section class="page">
     <h2>Login</h2>
     <p>Please authenticate to access the dashboard.</p>
-    <a class="login-link" href="/dashboard">Try Dashboard</a>
+    <a class="login-link" data-lua-auth-login="1" href="/dashboard">Sign in and continue</a>
   </section>
 </template>
 

@@ -165,9 +165,8 @@ def _render_component_stack(components: list[RouteComponent], params: dict[str, 
 
 
 def _render_component_tag(name: str, props: Mapping[str, Any], inner_html: str) -> str:
-    attrs = "".join(
-        f" {key}=\"{_escape_attr(_encode_attr_value(value))}\"" for key, value in props.items()
-    )
+    payload = "__json__:" + json.dumps(dict(props), ensure_ascii=True)
+    attrs = f' __props="{_escape_attr(payload)}"'
     if inner_html:
         return f"<{name}{attrs}>\n{inner_html}\n</{name}>"
     return f"<{name}{attrs} />"

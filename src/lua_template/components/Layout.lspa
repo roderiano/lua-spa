@@ -20,6 +20,7 @@ class Layout(Component):
         <a href="/dashboard/analytics">Analytics</a>
         <a href="/dashboard/settings">Settings</a>
         <a href="/users/42">User 42</a>
+        <a href="/login" data-lua-auth-logout="1">Logout</a>
       </nav>
     </header>
     <main class="layout__content">

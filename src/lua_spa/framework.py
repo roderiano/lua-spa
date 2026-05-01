@@ -333,6 +333,15 @@ class SpaFramework:
             name = match.group(1)
             value = match.group(2) if match.group(2) is not None else match.group(3)
             resolved = interpolate(value, context)
+            if name == "__props" and isinstance(resolved, str):
+                payload = resolved[9:] if resolved.startswith("__json__:") else resolved
+                try:
+                    parsed_payload = json.loads(payload)
+                except json.JSONDecodeError:
+                    parsed_payload = {}
+                if isinstance(parsed_payload, Mapping):
+                    parsed.update(dict(parsed_payload))
+                continue
             if isinstance(resolved, str) and resolved.startswith("__json__:"):
                 try:
                     parsed[name] = json.loads(resolved[9:])

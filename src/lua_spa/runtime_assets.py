@@ -368,6 +368,23 @@ SPA_RUNTIME_JS = r"""
         if (attribute.name.indexOf("on:") === 0 || attribute.name.indexOf("@") === 0) {
           return;
         }
+        if (attribute.name === "__props") {
+          var payload = interpolate(attribute.value, context);
+          if (typeof payload === "string" && payload.indexOf("__json__:") === 0) {
+            payload = payload.slice(9);
+          }
+          try {
+            var parsedPayload = JSON.parse(payload);
+            if (parsedPayload && typeof parsedPayload === "object") {
+              Object.keys(parsedPayload).forEach(function (key) {
+                componentProps[key] = parsedPayload[key];
+              });
+            }
+          } catch (error) {
+            componentProps.__props = payload;
+          }
+          return;
+        }
         var rawValue = interpolate(attribute.value, context);
         if (typeof rawValue === "string" && rawValue.indexOf("__json__:") === 0) {
           try {
@@ -538,23 +555,17 @@ SPA_RUNTIME_JS = r"""
     }
 
     function renderComponentTag(component, innerHtml) {
-      var props = "";
-      Object.keys(component.props || {}).forEach(function (key) {
-        var value = component.props[key];
-        var textValue = value;
-        if (value && typeof value === "object") {
-          try {
-            textValue = "__json__:" + JSON.stringify(value);
-          } catch (error) {
-            textValue = String(value);
-          }
-        }
-        props += " " + key + '="' + String(textValue)
-          .replace(/&/g, "&amp;")
-          .replace(/\"/g, "&quot;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;") + '"';
-      });
+      var payload = "{}";
+      try {
+        payload = "__json__:" + JSON.stringify(component.props || {});
+      } catch (error) {
+        payload = "__json__:{}";
+      }
+      var props = ' __props="' + String(payload)
+        .replace(/&/g, "&amp;")
+        .replace(/\"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;") + '"';
       if (innerHtml) {
         return "<" + component.name + props + ">\n" + innerHtml + "\n</" + component.name + ">";
       }
