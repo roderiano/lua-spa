@@ -1,0 +1,25 @@
+.stars {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.s {
+  position: absolute;
+  border-radius: 50%;
+  background: #e6eaf0;
+  opacity: 0.6;
+  animation: twinkle 3.2s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+}

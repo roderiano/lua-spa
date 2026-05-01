@@ -168,9 +168,31 @@ SPA_RUNTIME_JS = r"""
     });
   }
 
+  function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function normalizeSelfClosingComponentTags(template, registry) {
+    var normalized = template;
+    var componentNames = Object.keys(registry || {}).sort(function (left, right) {
+      return right.length - left.length;
+    });
+
+    componentNames.forEach(function (name) {
+      var escapedName = escapeRegExp(name);
+      var selfClosingPattern = new RegExp("<\\s*" + escapedName + "\\b([^>]*)\\/>", "gi");
+      normalized = normalized.replace(selfClosingPattern, function (_, attrs) {
+        return "<" + name + attrs + "></" + name + ">";
+      });
+    });
+
+    return normalized;
+  }
+
   function parseTemplate(template, context, registry) {
     var holder = document.createElement("template");
-    holder.innerHTML = template;
+    var normalizedTemplate = normalizeSelfClosingComponentTags(template, registry);
+    holder.innerHTML = normalizedTemplate;
     var nodes = toVNodes(holder.content, context, registry);
 
     if (nodes.length === 0) {

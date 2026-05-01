@@ -1,0 +1,18 @@
+.footer {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: var(--footer-height);
+  background: rgba(35, 39, 51, 0.82);
+  border-top: 1px solid rgba(191, 198, 209, 0.13);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid rgba(191, 198, 209, 0.10);
+  color: var(--c-muted);
+  font-size: 0.88rem;
+  text-align: center;
+  padding: 0 1rem;
+  z-index: 30;
+}

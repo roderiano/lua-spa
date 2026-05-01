@@ -1,0 +1,15 @@
+<style src="./Nav.css"></style>
+
+<template>
+  <nav class="nav">
+    <div class="nav__brand">
+      <span class="nav__name">lua-spa</span>
+    </div>
+
+    <div class="nav__links">
+      <a href="#">Get Started</a>
+      <a href="https://github.com/lua-spa/lua-spa/wiki" target="_blank" rel="noopener">Docs</a>
+      <a href="https://github.com/lua-spa/lua-spa" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </nav>
+</template>

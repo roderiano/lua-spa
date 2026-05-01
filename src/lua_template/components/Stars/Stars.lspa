@@ -1,0 +1,14 @@
+<style src="./Stars.css"></style>
+
+<template>
+  <div class="stars" aria-hidden="true">
+    <span class="s" style="top:4%;left:12%;width:2px;height:2px;animation-delay:.3s"></span>
+    <span class="s" style="top:8%;left:78%;width:1px;height:1px;animation-delay:1.2s"></span>
+    <span class="s" style="top:16%;left:30%;width:1.5px;height:1.5px;animation-delay:2.1s"></span>
+    <span class="s" style="top:24%;left:90%;width:2px;height:2px;animation-delay:.7s"></span>
+    <span class="s" style="top:38%;left:8%;width:1px;height:1px;animation-delay:1.8s"></span>
+    <span class="s" style="top:52%;left:65%;width:1.5px;height:1.5px;animation-delay:2.8s"></span>
+    <span class="s" style="top:67%;left:22%;width:2px;height:2px;animation-delay:1s"></span>
+    <span class="s" style="top:82%;left:84%;width:1px;height:1px;animation-delay:.4s"></span>
+  </div>
+</template>

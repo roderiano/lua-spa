@@ -1,0 +1,7 @@
+<style src="./Footer.css"></style>
+
+<template>
+  <footer class="footer">
+    <p>Open Source - MIT License - Made with lua-spa</p>
+  </footer>
+</template>

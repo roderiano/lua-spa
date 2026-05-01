@@ -1,0 +1,97 @@
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--nav-height);
+  padding: 0 clamp(10px, 3vw, 42px);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  overflow: hidden;
+  background: rgba(35, 39, 51, 0.82);
+  border-bottom: 1px solid rgba(191, 198, 209, 0.13);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 20;
+}
+
+.nav__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.nav__moon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.nav__name {
+  font-size: 1.14rem;
+  color: var(--c-lunar);
+  letter-spacing: -0.02em;
+}
+
+.nav__links {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.3rem, 1.6vw, 1.2rem);
+  flex-wrap: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-end;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.nav__links::-webkit-scrollbar {
+  display: none;
+}
+
+.nav__links a {
+  color: var(--c-lunar);
+  text-decoration: none;
+  font-size: clamp(0.82rem, 1.6vw, 0.92rem);
+  font-weight: 600;
+  transition: color 0.25s ease, text-shadow 0.25s ease;
+  white-space: nowrap;
+  padding: 0 0.2rem;
+}
+
+.nav__links a:hover {
+  color: #f4f6fa;
+  text-shadow: 0 0 10px rgba(191, 198, 209, 0.35);
+}
+
+@media (max-width: 760px) {
+  .nav {
+    height: var(--nav-height);
+    padding: 10px 8px;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .nav__links {
+    gap: 0.8rem;
+    flex-wrap: nowrap;
+    width: 100%;
+    justify-content: center;
+    max-width: 96vw;
+    overflow-x: auto;
+  }
+
+  .nav__links a {
+    font-size: 0.92rem;
+    padding: 0 0.3rem;
+  }
+}
