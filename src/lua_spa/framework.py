@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import html
 import json
+import mimetypes
 import re
 from pathlib import Path
 from typing import Any, Mapping
@@ -56,11 +57,13 @@ class SpaFramework:
         return cls(
             view_file=lua_template_dir / "index.lspa",
             components_dir=lua_template_dir / "components",
+            static_dir=lua_template_dir / "static",
             entry_component=config.entry_component,
             mount_id=config.mount_id,
             default_props=config.initial_props,
             host=config.host,
             port=config.port,
+            page_title=config.page_title,
             router=config.router,
         )
 
@@ -68,11 +71,13 @@ class SpaFramework:
         self,
         view_file: Path,
         components_dir: Path,
+        static_dir: Path | None = None,
         entry_component: str = "App",
         mount_id: str = "app",
         default_props: Mapping[str, Any] | None = None,
         host: str = "127.0.0.1",
         port: int = 8000,
+        page_title: str = "lua-spa",
         router: Mapping[str, Any] | None = None,
     ) -> None:
         """Initialize a SPA framework instance.
@@ -92,8 +97,10 @@ class SpaFramework:
         """
         self._view_file = view_file
         self._components_dir = components_dir
+        self._static_dir = static_dir if static_dir is not None else view_file.parent / "static"
         self.entry_component = entry_component
         self.mount_id = mount_id
+        self.page_title = page_title
         self._default_props = dict(default_props or {})
         self._host = host
         self._port = port
@@ -140,9 +147,48 @@ class SpaFramework:
         bootstrap = self._build_bootstrap_block(initial_props)
 
         page = page_shell.replace("{{ SPA_MOUNT_ID }}", html.escape(self.mount_id, quote=True))
+        page = page.replace("{{ SPA_PAGE_TITLE }}", html.escape(self.page_title, quote=False))
         page = page.replace("{{ SPA_OUTLET }}", spa_outlet)
         page = page.replace("{{ SPA_BOOTSTRAP }}", bootstrap)
         return page
+
+    def get_static_asset(self, request_path: str) -> tuple[bytes, str] | None:
+        """Resolve and read a static asset by HTTP path.
+
+        Args:
+            request_path: Request path such as "/static/logo.svg" or "/favicon.ico".
+
+        Returns:
+            A tuple of (file bytes, MIME type) if found; otherwise None.
+        """
+        if request_path == "/favicon.ico":
+            for candidate_name in ("favicon.ico", "favicon.png", "favicon.svg"):
+                candidate = self._static_dir / candidate_name
+                if candidate.exists() and candidate.is_file():
+                    mime_type, _ = mimetypes.guess_type(str(candidate))
+                    return candidate.read_bytes(), (mime_type or "application/octet-stream")
+            return None
+
+        if not request_path.startswith("/static/"):
+            return None
+
+        relative_path = request_path[len("/static/") :]
+        if relative_path == "":
+            return None
+
+        candidate = (self._static_dir / relative_path).resolve()
+        static_root = self._static_dir.resolve()
+
+        try:
+            candidate.relative_to(static_root)
+        except ValueError:
+            return None
+
+        if not candidate.exists() or not candidate.is_file():
+            return None
+
+        mime_type, _ = mimetypes.guess_type(str(candidate))
+        return candidate.read_bytes(), (mime_type or "application/octet-stream")
 
     def serve(self, host: str | None = None, port: int | None = None) -> None:
         """Start the HTTP server.

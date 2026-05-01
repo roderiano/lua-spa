@@ -18,7 +18,6 @@ class App(Component):
 
     <nav class="nav">
       <div class="nav__brand">
-        <span class="nav__moon">🌙</span>
         <span class="nav__name">lua-spa</span>
       </div>
 
@@ -31,7 +30,7 @@ class App(Component):
 
     <main class="hero">
       <div class="hero__logo" aria-hidden="true">
-        <span class="hero__logo-icon">🌙</span>
+        <img src="/static/logo.png" alt="lua-spa logo" />
       </div>
 
       <h1 class="hero__title">lua-spa</h1>
@@ -40,7 +39,7 @@ class App(Component):
     </main>
 
     <footer class="footer">
-      <p>lua-spa — Open Source · MIT License · Made with 🌙 and Python</p>
+      <p>Open Source · MIT License · Made with lua-spa</p>
     </footer>
   </div>
 </template>

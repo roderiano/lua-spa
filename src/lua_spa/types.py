@@ -21,6 +21,7 @@ class LuaTemplateConfig:
     initial_props: Mapping[str, Any]
     host: str
     port: int
+    page_title: str = "lua-spa"
     router: Mapping[str, Any] | None = None
 
 
@@ -150,6 +151,9 @@ def load_lua_template_config(config_file: Path) -> LuaTemplateConfig:
 
     host = str(server.get("host", "127.0.0.1"))
     raw_port = server.get("port", 8000)
+    page_title = str(
+        data.get("page_title", "lua-spa — Python Framework for Single Page Applications")
+    )
     try:
         port = int(raw_port)
     except (TypeError, ValueError) as error:
@@ -161,5 +165,6 @@ def load_lua_template_config(config_file: Path) -> LuaTemplateConfig:
         initial_props=initial_props,
         host=host,
         port=port,
+        page_title=page_title,
         router=router,
     )

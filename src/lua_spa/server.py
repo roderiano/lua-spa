@@ -9,6 +9,7 @@ from __future__ import annotations
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
+from urllib.parse import urlparse
 
 
 class _SpaHandler(BaseHTTPRequestHandler):
@@ -25,8 +26,19 @@ class _SpaHandler(BaseHTTPRequestHandler):
         Returns 404 for all other paths.
         """
         framework = self.server.lua_framework  # type: ignore
+        request_path = urlparse(self.path).path
 
-        if self.path not in {"/", "/index.html"}:
+        static_asset = framework.get_static_asset(request_path)
+        if static_asset is not None:
+            payload, content_type = static_asset
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
+
+        if request_path not in {"/", "/index.html"}:
             self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
             return
 
