@@ -12,6 +12,7 @@ lua-spa = "lua_spa.main:main"
 
 [tool.poetry]
 packages = [{ include = "lua_spa", from = "src" }]
+include = [{ path = "src/lua_template", format = ["sdist", "wheel"] }]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"

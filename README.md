@@ -1,6 +1,10 @@
-# lua-spa
 
-Backend-first SPA framework prototype in Python.
+<div align="center">
+  <img src="src/lua_template/static/logo.png" alt="lua-spa logo" width="120" height="120" />
+  <h1><strong>LUA-SPA</strong></h1>
+</div>
+
+Backend-first SPA framework in Python.
 
 This project now includes:
 
@@ -18,19 +22,43 @@ This project now includes:
 
 ## How to use
 
-1. Install dependencies:
+1. Install locally (development):
 
    ```bash
    poetry install
    ```
 
-2. Run the application:
+2. Install CLI globally or in a venv:
+
+  ```bash
+  pip install .
+  ```
+
+  This exposes the `lua-spa` command in the active environment.
+
+3. Create a new project from the built-in template:
+
+  ```bash
+  lua-spa create my_project
+  lua-spa create my_project ./apps
+  ```
+
+  Rules for `my_project`:
+  - only letters, numbers, and underscore
+  - no spaces or special characters
+  - destination path is optional (default is `.`)
+
+  The command copies `lua_template` into a new folder named after your project.
+
+4. Run the application:
 
    ```bash
-  poetry run lua-spa
+  poetry run lua-spa serve
    ```
 
-3. Open the browser:
+  Tip: `poetry run lua-spa` shows CLI help.
+
+5. Open the browser:
 
   ```text
   http://127.0.0.1:8000
