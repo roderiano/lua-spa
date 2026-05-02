@@ -1,0 +1,67 @@
+/* lua-spa docs — styled to match the lua_template aesthetic */
+
+/* lua-spa palette (from lua_template/index.css) */
+:root {
+  --c-bg: #232733;
+  --c-bg2: #353a47;
+  --c-lunar: #e6eaf0;
+  --c-accent: #bfc6d1;
+  --c-text: #f4f6fa;
+  --c-muted: #bfc6d1;
+  --c-shadow: #181a20;
+
+  /* Infima overrides — muted blue-silver tone */
+  --ifm-color-primary: #8fa8c8;
+  --ifm-color-primary-dark: #7393b8;
+  --ifm-color-primary-darker: #6787ae;
+  --ifm-color-primary-darkest: #4d6e95;
+  --ifm-color-primary-light: #abbdd8;
+  --ifm-color-primary-lighter: #b7c7de;
+  --ifm-color-primary-lightest: #cfd9e8;
+  --ifm-code-font-size: 93%;
+  --ifm-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, Helvetica, Arial, sans-serif;
+  --docusaurus-highlighted-code-line-bg: rgba(191, 198, 209, 0.12);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #bfc6d1;
+  --ifm-color-primary-dark: #a8b1be;
+  --ifm-color-primary-darker: #9ca6b4;
+  --ifm-color-primary-darkest: #7d8fa0;
+  --ifm-color-primary-light: #d6dbe3;
+  --ifm-color-primary-lighter: #e0e4ea;
+  --ifm-color-primary-lightest: #eaecf0;
+  --ifm-background-color: #232733;
+  --ifm-background-surface-color: #2a2f3e;
+  --ifm-navbar-background-color: #1d2130;
+  --ifm-footer-background-color: #181a20;
+  --docusaurus-highlighted-code-line-bg: rgba(230, 234, 240, 0.08);
+}
+
+/* Navbar polish */
+.navbar {
+  box-shadow: 0 1px 0 rgba(191, 198, 209, 0.1);
+}
+
+[data-theme='dark'] .navbar__brand {
+  color: var(--c-lunar);
+}
+
+/* Subtle star-field texture on the main docs area (dark only) */
+[data-theme='dark'] .main-wrapper {
+  background-image:
+    radial-gradient(2px 2px at 40px 60px, rgba(230, 234, 240, 0.025), transparent),
+    radial-gradient(1px 1px at 80px 120px, rgba(191, 198, 209, 0.025), transparent);
+  background-size: 200px 200px;
+}
+
+/* Code blocks */
+[data-theme='dark'] pre {
+  background: #1d2130 !important;
+  border: 1px solid rgba(191, 198, 209, 0.12);
+}
+
+/* Mermaid tweaks in dark */
+[data-theme='dark'] .docusaurus-mermaid-container svg {
+  filter: brightness(0.92) contrast(1.05);
+}

@@ -1,0 +1,91 @@
+---
+sidebar_position: 7
+title: Templating
+---
+
+# Templating
+
+lua-spa templates are HTML files with a concise set of directives. Templates are processed **server-side first**, then hydrated client-side.
+
+## Interpolation `{{ }}`
+
+Evaluate any Python/JavaScript expression:
+
+```html
+<p>{{ state.count }}</p>
+<p>{{ props.name.upper() }}</p>
+<p>{{ 2 + 2 }}</p>
+```
+
+The context available inside `{{ }}`:
+- `state` — reactive state object
+- `props` — component props
+- `py` — namespace populated by `context()` return value
+
+## Conditional rendering
+
+### `l-if` / `l-else-if` / `l-else`
+
+```html
+<div l-if="state.count > 10">High</div>
+<div l-else-if="state.count > 0">Low</div>
+<div l-else>Zero</div>
+```
+
+Rules:
+- Attributes on **any** HTML element
+- `l-else` / `l-else-if` must immediately follow the sibling element with `l-if` / `l-else-if`
+- The expression is evaluated in the full context (`state`, `props`, `py`)
+
+## List rendering `i-for`
+
+```html
+<ul>
+  <li i-for="item in props.items">{{ item }}</li>
+</ul>
+```
+
+Multi-target unpacking:
+
+```html
+<tr i-for="key, value in props.data">
+  <td>{{ key }}</td>
+  <td>{{ value }}</td>
+</tr>
+```
+
+## Event binding `@event`
+
+```html
+<button @click="increment">+</button>
+<input @input="updateName" />
+<form @submit="handleSubmit">...</form>
+```
+
+The value must be the name of an action declared in `client()`.
+
+## Dynamic attributes `:attr`
+
+```html
+<div :class="state.visible ? 'show' : 'hide'">...</div>
+<img :src="props.imageUrl" />
+```
+
+## Processing order (server-side)
+
+```mermaid
+flowchart TD
+    A[Raw template] --> B["Apply i-for loops"]
+    B --> C["Apply l-if / l-else conditionals"]
+    C --> D["Interpolate {{ }} expressions"]
+    D --> E[Rendered HTML string]
+    E --> F[Client hydration]
+```
+
+## Template context reference
+
+| Variable | Type | Source |
+|---|---|---|
+| `state` | object | `client()` → `state` section |
+| `props` | object | Parent or `spa.config.json` |
+| `py.*` | any | `context(props)` return dict |

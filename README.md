@@ -68,7 +68,7 @@ Run locally:
 
 ``` bash
 cd docs
-npm run start
+npx docusaurus start
 ```
 
 
