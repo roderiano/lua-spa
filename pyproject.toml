@@ -3,7 +3,7 @@ name = "lua-spa"
 version = "0.1.0"
 description = "Initial Python package scaffold for the lua-spa application"
 readme = "README.md"
-requires-python = ">=3.11,<4.0"
+requires-python = ">=3.10,<4.0"
 authors = [{ name = "Gabriel da Rosa Silveira", email = "gabrielsilveirapro@gmail.com" }]
 dependencies = ["mkdocs-material (>=9.7.6,<10.0.0)", "pymdown-extensions (>=10.21.2,<11.0.0)"]
 
@@ -30,7 +30,7 @@ line-length = 100
 target-version = "py311"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.10"
 strict = true
 warn_unused_configs = true
 
