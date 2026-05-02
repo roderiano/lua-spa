@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CHECK_PATHS = ["src"]
+CHECK_PATHS = ["src", "tests"]
 
 
 def run_step(*args: str) -> int:
@@ -16,9 +16,11 @@ def run_step(*args: str) -> int:
 
 
 def run_quality_checks() -> tuple[int, int, int, int]:
-    ruff_code = run_step("ruff", "check", *CHECK_PATHS)
-    ruff_format_check_code = run_step("ruff", "format", "--check", *CHECK_PATHS)
-    mypy_code = run_step("mypy", "--strict", *CHECK_PATHS)
+    src_only = CHECK_PATHS.copy()
+    src_only.remove("tests")
+    ruff_code = run_step("ruff", "check", *src_only)
+    ruff_format_check_code = run_step("ruff", "format", "--check", *src_only)
+    mypy_code = run_step("mypy", "--strict", *src_only)
     return ruff_code, ruff_format_check_code, mypy_code
 
 
