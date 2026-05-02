@@ -58,10 +58,11 @@ def test_cli_validation_and_create_errors(tmp_path: Path) -> None:
 
 def test_serve_command_dispatches_to_server(monkeypatch: pytest.MonkeyPatch) -> None:
     # Given: a monkeypatched _serve function
-    called = {"serve": False}
+    called = {"serve": False, "reload": None}
 
-    def _fake_serve() -> None:
+    def _fake_serve(reload: bool = False) -> None:
         called["serve"] = True
+        called["reload"] = reload
 
     monkeypatch.setattr("lua_spa.main._serve", _fake_serve)
 
@@ -70,6 +71,7 @@ def test_serve_command_dispatches_to_server(monkeypatch: pytest.MonkeyPatch) -> 
 
     # Then: the _serve function is called
     assert called["serve"] is True
+    assert called["reload"] is False
 
 
 def test_default_command_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
@@ -85,13 +87,14 @@ def test_default_command_prints_help(capsys: pytest.CaptureFixture[str]) -> None
 
 def test_internal_serve_uses_framework(monkeypatch: pytest.MonkeyPatch) -> None:
     # Given: a fake framework that records serve calls
-    called = {"serve": False}
+    called = {"serve": False, "reload": None}
 
     class FakeFramework:
         server_address = ("127.0.0.1", 8000)
 
-        def serve(self) -> None:
+        def serve(self, reload: bool = False) -> None:
             called["serve"] = True
+            called["reload"] = reload
 
     monkeypatch.setattr("lua_spa.main.create_default_framework", lambda: FakeFramework())
 
@@ -100,3 +103,4 @@ def test_internal_serve_uses_framework(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # Then: the framework's serve method is invoked
     assert called["serve"] is True
+    assert called["reload"] is False

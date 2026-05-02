@@ -113,9 +113,8 @@ class SpaFramework:
         if not self._view_file.exists():
             raise FileNotFoundError(f"View file not found: {self._view_file}")
 
-        loader = ComponentLoader(self._components_dir)
-        loaded = loader.load_entry(entry_component)
-        self._components: dict[str, ComponentDefinition] = dict(loaded)
+        self._components: dict[str, ComponentDefinition] = {}
+        self.reload_components()
 
     @property
     def component_names(self) -> tuple[str, ...]:
@@ -126,6 +125,16 @@ class SpaFramework:
     def server_address(self) -> tuple[str, int]:
         """Get the (host, port) tuple for the server."""
         return (self._host, self._port)
+
+    def reload_components(self) -> None:
+        """Reload all component definitions from disk.
+
+        This is used by hot reload so file changes in .lspa components are
+        reflected without restarting the server process.
+        """
+        loader = ComponentLoader(self._components_dir)
+        loaded = loader.load_entry(self.entry_component)
+        self._components = dict(loaded)
 
     def build_view(self, props: Mapping[str, Any] | None = None) -> str:
         """Build the complete HTML page with embedded SPA data and runtime.
@@ -210,7 +219,7 @@ class SpaFramework:
         mime_type, _ = mimetypes.guess_type(str(candidate))
         return candidate.read_bytes(), (mime_type or "application/octet-stream")
 
-    def serve(self, host: str | None = None, port: int | None = None) -> None:
+    def serve(self, host: str | None = None, port: int | None = None, reload: bool = False) -> None:
         """Start the HTTP server.
 
         Blocks indefinitely, serving the SPA on the specified host and port.
@@ -221,7 +230,7 @@ class SpaFramework:
         """
         resolved_host = host if host is not None else self._host
         resolved_port = port if port is not None else self._port
-        SpaServer.serve(self, resolved_host, resolved_port)
+        SpaServer.serve(self, resolved_host, resolved_port, reload)
 
     def _build_bootstrap_block(self, props: Mapping[str, Any]) -> str:
         """Build the bootstrap JSON payloads and runtime script.

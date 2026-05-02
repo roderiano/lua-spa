@@ -5,6 +5,8 @@ from http import HTTPStatus
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 import lua_spa.server as server_module
 from lua_spa.server import SpaServer, _SpaHandler
 
@@ -97,3 +99,175 @@ def test_handler_log_message_noop_call() -> None:
 
     # Then: it returns None (silenced)
     assert handler.log_message("x") is None  # type: ignore[func-returns-value]
+
+
+def test_spa_handler_injects_reload_script_only_when_enabled() -> None:
+    # Given: a fake framework that always returns HTML with a closing body tag
+    class _FakeFramework:
+        def get_static_asset(self, _path: str) -> None:
+            return None
+
+        def build_view(self) -> str:
+            return "<html><body>ok</body></html>"
+
+    handler = object.__new__(_SpaHandler)
+    handler.server = SimpleNamespace(lua_framework=_FakeFramework(), reload_enabled=True)  # type: ignore[assignment]
+    handler.path = "/"
+    handler.wfile = io.BytesIO()
+    handler.send_response = lambda _code: None  # type: ignore[method-assign,assignment]
+    handler.send_header = lambda _key, _value: None  # type: ignore[method-assign,assignment]
+    handler.end_headers = lambda: None  # type: ignore[method-assign]
+
+    # When: GET / is handled with reload enabled
+    handler.do_GET()
+
+    # Then: the payload includes the EventSource script
+    body = handler.wfile.getvalue().decode("utf-8")
+    assert "new EventSource('/__reload__')" in body
+
+
+def test_spa_handler_skips_reload_script_when_disabled() -> None:
+    # Given: a fake framework and reload disabled in server state
+    class _FakeFramework:
+        def get_static_asset(self, _path: str) -> None:
+            return None
+
+        def build_view(self) -> str:
+            return "<html><body>ok</body></html>"
+
+    handler = object.__new__(_SpaHandler)
+    handler.server = SimpleNamespace(lua_framework=_FakeFramework(), reload_enabled=False)  # type: ignore[assignment]
+    handler.path = "/"
+    handler.wfile = io.BytesIO()
+    handler.send_response = lambda _code: None  # type: ignore[method-assign,assignment]
+    handler.send_header = lambda _key, _value: None  # type: ignore[method-assign,assignment]
+    handler.end_headers = lambda: None  # type: ignore[method-assign]
+
+    # When: GET / is handled with reload disabled
+    handler.do_GET()
+
+    # Then: no EventSource injection is present
+    body = handler.wfile.getvalue().decode("utf-8")
+    assert "new EventSource('/__reload__')" not in body
+
+
+def test_watch_files_rebuilds_before_notifying(monkeypatch: Any) -> None:
+    # Given: mtime changes across loops and a framework that rebuilds successfully
+    class _StopWatch(Exception):
+        pass
+
+    events: list[str] = []
+    state = {"mtime_calls": 0, "sleep_calls": 0}
+
+    def fake_walk(_path: str) -> list[tuple[str, list[str], list[str]]]:
+        return [("/tmp", [], ["App.lspa"])]
+
+    def fake_getmtime(_path: str) -> float:
+        state["mtime_calls"] += 1
+        return 1.0 if state["mtime_calls"] == 1 else 2.0
+
+    def fake_sleep(_seconds: float) -> None:
+        state["sleep_calls"] += 1
+        if state["sleep_calls"] >= 2:
+            raise _StopWatch()
+
+    class _FakeFramework:
+        def reload_components(self) -> None:
+            events.append("reload")
+
+        def build_view(self) -> str:
+            events.append("build")
+            return "<html><body>ok</body></html>"
+
+    monkeypatch.setattr(server_module.os, "walk", fake_walk)
+    monkeypatch.setattr(server_module.os.path, "getmtime", fake_getmtime)
+    monkeypatch.setattr(server_module.time, "sleep", fake_sleep)
+    monkeypatch.setattr(server_module, "_notify_clients", lambda: events.append("notify"))
+
+    # When: the watcher runs until our controlled stop condition
+    with pytest.raises(_StopWatch):
+        server_module._watch_files(".", _FakeFramework())
+
+    # Then: component reload and rebuild happen before notify
+    assert events == ["reload", "build", "notify"]
+
+
+def test_watch_files_does_not_notify_when_rebuild_fails(monkeypatch: Any) -> None:
+    # Given: mtime changes but build_view fails
+    class _StopWatch(Exception):
+        pass
+
+    state = {"mtime_calls": 0, "sleep_calls": 0, "notified": 0}
+
+    def fake_walk(_path: str) -> list[tuple[str, list[str], list[str]]]:
+        return [("/tmp", [], ["App.lspa"])]
+
+    def fake_getmtime(_path: str) -> float:
+        state["mtime_calls"] += 1
+        return 1.0 if state["mtime_calls"] == 1 else 2.0
+
+    def fake_sleep(_seconds: float) -> None:
+        state["sleep_calls"] += 1
+        if state["sleep_calls"] >= 2:
+            raise _StopWatch()
+
+    class _FakeFramework:
+        def reload_components(self) -> None:
+            return None
+
+        def build_view(self) -> str:
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(server_module.os, "walk", fake_walk)
+    monkeypatch.setattr(server_module.os.path, "getmtime", fake_getmtime)
+    monkeypatch.setattr(server_module.time, "sleep", fake_sleep)
+    monkeypatch.setattr(
+        server_module,
+        "_notify_clients",
+        lambda: state.__setitem__("notified", state["notified"] + 1),
+    )
+
+    # When: the watcher runs until our controlled stop condition
+    with pytest.raises(_StopWatch):
+        server_module._watch_files(".", _FakeFramework())
+
+    # Then: notify is not called because build failed
+    assert state["notified"] == 0
+
+
+def test_watch_files_without_reload_method_still_notifies(monkeypatch: Any) -> None:
+    # Given: a framework without reload_components but with successful build
+    class _StopWatch(Exception):
+        pass
+
+    events: list[str] = []
+    state = {"mtime_calls": 0, "sleep_calls": 0}
+
+    def fake_walk(_path: str) -> list[tuple[str, list[str], list[str]]]:
+        return [("/tmp", [], ["App.lspa"])]
+
+    def fake_getmtime(_path: str) -> float:
+        state["mtime_calls"] += 1
+        return 1.0 if state["mtime_calls"] == 1 else 2.0
+
+    def fake_sleep(_seconds: float) -> None:
+        state["sleep_calls"] += 1
+        if state["sleep_calls"] >= 2:
+            raise _StopWatch()
+
+    class _FakeFramework:
+        def build_view(self) -> str:
+            events.append("build")
+            return "<html><body>ok</body></html>"
+
+    monkeypatch.setattr(server_module.os, "walk", fake_walk)
+    monkeypatch.setattr(server_module.os.path, "getmtime", fake_getmtime)
+    monkeypatch.setattr(server_module.time, "sleep", fake_sleep)
+    monkeypatch.setattr(server_module, "_notify_clients", lambda: events.append("notify"))
+
+    # When: the watcher runs until our controlled stop condition
+    with pytest.raises(_StopWatch):
+        server_module._watch_files(".", _FakeFramework())
+
+    # Then: build still runs and notifies even without reload_components
+    assert events == ["build", "notify"]

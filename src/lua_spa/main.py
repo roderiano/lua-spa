@@ -35,20 +35,26 @@ def _create_project(project_name: str, destination: str) -> Path:
     return project_dir
 
 
-def _serve() -> None:
+def _serve(reload: bool = False) -> None:
     framework = create_default_framework()
     host, port = framework.server_address
     print(f"Serving lua-spa at http://{host}:{port}")
-    framework.serve()
+    framework.serve(reload=reload)
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="lua-spa", description="lua-spa framework CLI")
     subparsers = parser.add_subparsers(dest="command")
 
-    subparsers.add_parser(
+    serve_parser = subparsers.add_parser(
         "serve",
         help="Start the lua-spa development server.",
+    )
+
+    serve_parser.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable live reload on file changes.",
     )
 
     create_parser = subparsers.add_parser(
@@ -87,5 +93,5 @@ def main(argv: Sequence[str] | None = None) -> None:
         return
 
     if args.command == "serve":
-        _serve()
+        _serve(reload=args.reload)
         return

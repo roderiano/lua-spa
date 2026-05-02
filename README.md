@@ -56,6 +56,12 @@ This project now includes:
   poetry run lua-spa serve
    ```
 
+  To enable hot reload while developing:
+
+  ```bash
+  poetry run lua-spa serve --reload
+  ```
+
   Tip: `poetry run lua-spa` shows CLI help.
 
 5. Open the browser:
@@ -107,6 +113,12 @@ lua-spa/
 
 ```bash
 poetry run pytest
+```
+
+Run tests with coverage:
+
+```bash
+poetry run pytest --cov=src/lua_spa --cov-report=term
 ```
 
 ## Component format

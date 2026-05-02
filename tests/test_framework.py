@@ -136,7 +136,7 @@ def test_framework_router_and_serialize_paths(tmp_path: Path) -> None:
     html = router_framework.build_view()
 
     # Then: script tags are escaped and the SPA registry is present
-    assert "<\/script>" in escaped
+    assert "<\\/script>" in escaped
     assert "lua-spa-registry" in html
 
 
@@ -146,9 +146,10 @@ def test_framework_serve_and_unknown_component(monkeypatch: Any) -> None:
     framework = create_default_framework(root)
     called: dict[str, Any] = {}
 
-    def fake_serve(instance: Any, host: str, port: int) -> None:
+    def fake_serve(instance: Any, host: str, port: int, reload: bool = False) -> None:
         called["host"] = host
         called["port"] = port
+        called["reload"] = reload
         called["instance"] = instance
 
     monkeypatch.setattr(framework_module.SpaServer, "serve", staticmethod(fake_serve))  # type: ignore[attr-defined]
@@ -159,6 +160,7 @@ def test_framework_serve_and_unknown_component(monkeypatch: Any) -> None:
     framework.serve("127.0.0.2", 9000)
     assert called["host"] == "127.0.0.2"
     assert called["port"] == 9000
+    assert called["reload"] is False
     _assert_raises(ValueError, framework._render_component, "Missing", {})
 
 
