@@ -3,9 +3,9 @@ import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
-  title: 'lua-spa',
+  title: 'Lua SPA Documentation',
   tagline: 'Python Framework for Single Page Applications',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/favicon.svg',
 
   future: {
     v4: true,
@@ -56,10 +56,11 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'lua-spa',
+      title: 'LUA-SPA',
       logo: {
         alt: 'lua-spa logo',
-        src: 'img/logo.svg',
+        src: 'img/lua-spa-logo.svg',
+        srcDark: 'img/lua-spa-logo.svg',
       },
       items: [
         {
