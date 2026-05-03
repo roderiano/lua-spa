@@ -1,6 +1,6 @@
 
 <div align="center">
-  <img src="src/lua_template/static/logo.png" alt="lua-spa logo" width="120" height="120" />
+  <img src="http://github.com/roderiano/lua-spa/raw/release/src/lua_template/static/logo.png" alt="lua-spa logo" width="120" height="120" />
   <h1><strong>LUA-SPA</strong></h1>
 </div>
 
