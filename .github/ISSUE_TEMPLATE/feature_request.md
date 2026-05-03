@@ -39,5 +39,3 @@ Provide code examples, pseudo-code, or references if possible.
 ## 📌 Additional Context
 
 Add any other relevant details.
-
-0
