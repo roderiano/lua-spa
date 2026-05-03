@@ -31,8 +31,6 @@ poetry install
 ```
 
 
-
-
 ### Create a new project
 
 ``` bash
