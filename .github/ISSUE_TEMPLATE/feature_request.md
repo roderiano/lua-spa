@@ -1,10 +1,10 @@
-
+---
 name: 🚀 Feature Request
-description: Suggest a new feature or improvement
+about: Suggest a new feature or improvement
 title: "[FEATURE]: "
 labels: ["enhancement"]
-assignees: []
-
+assignees: ""
+---
 
 ## ✨ Feature Description
 
@@ -39,3 +39,5 @@ Provide code examples, pseudo-code, or references if possible.
 ## 📌 Additional Context
 
 Add any other relevant details.
+
+0

@@ -1,10 +1,10 @@
-
+---
 name: ❓ Question
-description: Ask a question about the framework
+about: Ask a question about the framework
 title: "[QUESTION]: "
 labels: ["question"]
-assignees: []
-
+assignees: ""
+---
 
 ## ❓ Question
 
