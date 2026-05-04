@@ -1,6 +1,6 @@
 [project]
 name = "lua-spa"
-version = "1.0.0"
+version = "1.0.1"
 description = "Backend-first SPA framework in Python."
 requires-python = ">=3.10,<4.0"
 authors = [{ name = "Gabriel da Rosa Silveira", email = "gabrielsilveirapro@gmail.com" }]
