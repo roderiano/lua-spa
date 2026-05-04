@@ -3,6 +3,7 @@ from __future__ import annotations
 from lua_spa.trace import (
     _CastReference,
     _PropReference,
+    _TraceCondition,
     _TraceProps,
     _TraceState,
     _py_bool,
@@ -81,3 +82,28 @@ def test_trace_state_operations_and_cast_helpers() -> None:
     assert isinstance(_py_float(ref), _CastReference)
     assert isinstance(_py_str(ref), _CastReference)
     assert isinstance(_py_bool(ref), _CastReference)
+
+
+def test_trace_additional_paths_for_conditions_and_plain_casts() -> None:
+    # Given: trace props/state and plain values for cast wrappers
+    props = _TraceProps()
+    _ = props.foo
+    state = _TraceState()
+
+    # When: a pending condition is attached to the next operation
+    state.set_condition(_TraceCondition("count", ">", 1))
+    state.add_operation({"op": "add", "state": "count", "value": 2})
+
+    # Then: conditional metadata is injected and pending condition is consumed
+    assert state.operations[0]["cond"]["left"] == "count"
+
+    # When / Then: plain Python values still use built-in casts
+    assert _py_int("2") == 2
+    assert _py_float("2.5") == 2.5
+    assert _py_str(123) == "123"
+    assert _py_bool(1) is True
+
+    # When / Then: __setattr__ handles private attrs and explicit set operations
+    state._private = 1  # type: ignore[attr-defined]
+    state.total = 10  # type: ignore[attr-defined]
+    assert state.operations[-1]["op"] == "set"

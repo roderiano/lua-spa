@@ -352,3 +352,236 @@ def test_scope_invoke_method_callable_additional_paths() -> None:
     assert result_multi["op"] == "multi"
     assert result_truthy["state"] == "__noop__"
     assert result_none["state"] == "__noop__"
+
+
+def test_scope_additional_component_and_callable_error_paths() -> None:
+    # Given: component subclass requiring args and invalid top-level context callable
+    class BadComp(Component):
+        def __init__(self, required: int) -> None:
+            self.required = required
+
+    try:
+        resolve_component_instance({"BadComp": BadComp})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected ValueError")
+
+    try:
+        resolve_component_callables({"context": 1})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected ValueError")
+
+
+def test_scope_client_spec_mapping_and_instance_branches() -> None:
+    # Given: mapping-based client spec including Methods and lifecycle
+    mapping_spec = {
+        "props": {"a": 1},
+        "state": {"count": {"default": 0}},
+        "actions": {"set": {"op": "set", "state": "count", "value": 1}},
+        "Methods": {"log": {"op": "log", "value": "ok"}},
+        "lifecycle": {"on_mount": ["log"]},
+    }
+    props, state, actions, lifecycle = normalize_client_spec(mapping_spec)
+    assert props["a"] == 1
+    assert "log" in actions
+    assert lifecycle["onMount"] == ["log"]
+
+    # Given: instance spec exercising lower-case attrs and callable overrides
+    class StateObj:
+        name = "counter"
+        default = 1
+        cast = "int"
+
+        def init(self) -> int:
+            return 2
+
+    class Spec:
+        props = {"x": 1}
+        state = [StateObj]
+        methods = ["do"]
+        lifecycle = {"mounted": ["do"]}
+
+        def state(self) -> list[Any]:
+            return [StateObj()]
+
+        def actions(self) -> None:
+            return None
+
+        def methods(self) -> None:
+            return None
+
+        def lifecycle(self) -> dict[str, list[str]]:
+            return {"updated": ["do"]}
+
+        def do(self) -> dict[str, Any]:
+            return {"op": "log", "value": "x"}
+
+    props2, state2, actions2, lifecycle2 = normalize_client_spec(Spec())
+    assert props2["x"] == 1
+    assert state2["counter"]["default"] == 1
+    assert "do" in actions2
+    assert lifecycle2["onUpdate"] == []
+
+
+def test_scope_state_methods_and_infer_helpers_extra_paths() -> None:
+    # Given / When: normalize_state_source receives invalid shape
+    try:
+        normalize_state_source(123, owner=None)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected ValueError")
+
+    # Given / When: state item string requires owner and must exist
+    try:
+        normalize_state_item("StateCls", None)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected ValueError")
+
+    try:
+        normalize_state_item("Missing", SimpleNamespace())
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected ValueError")
+
+    class BadState:
+        default = 1
+
+    try:
+        normalize_state_item(BadState(), None)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected ValueError")
+
+    class GoodState:
+        name = "count"
+        default = 1
+
+        def init(self) -> int:
+            return 2
+
+    out = normalize_state_item(GoodState(), None)
+    assert callable(out["init"])
+
+    # Given / When: methods resolver branches
+    assert resolve_methods_actions(None, owner=None) == {}
+    assert resolve_methods_actions({"a": {"op": "log", "value": 1}}, owner=None)["a"]["op"] == "log"
+    try:
+        resolve_methods_actions([1], owner=SimpleNamespace())
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected ValueError")
+    try:
+        resolve_methods_actions(1, owner=None)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected ValueError")
+
+    # Given / When: normalize method callable resolves callable and string refs
+    owner = SimpleNamespace(run=lambda: {"op": "log", "value": "ok"})
+    assert callable(_normalize_method_callable("run", owner.run, owner))
+    assert callable(_normalize_method_callable("run", "run", owner))
+
+    # Given / When: infer_action_methods skips type attributes
+    class O:
+        ValueType = dict
+
+        def act(self) -> None:
+            return None
+
+    assert infer_action_methods(O()) == ["act"]
+
+
+def test_scope_invoke_method_and_lifecycle_noop_paths() -> None:
+    # Given: method callable with custom __builtins__ object forcing non-dict restoration path
+    class BuiltinsObj:
+        pass
+
+    class CallableObj:
+        __globals__ = {"__builtins__": BuiltinsObj()}
+
+        def __call__(self) -> None:
+            raise TypeError("force second call")
+
+    result = invoke_method_callable("x", CallableObj(), owner=None)
+    assert result["state"] == "__noop__"
+
+    # Given: lifecycle hook returning no-op should be filtered
+    class Owner:
+        def onCreate(self) -> None:
+            return None
+
+    lifecycle = normalize_lifecycle_methods(Owner())
+    assert lifecycle["onCreate"] == []
+
+    # Given / When: normalize_lifecycle_spec receives None
+    lifecycle_spec = normalize_lifecycle_spec(None)
+    assert lifecycle_spec["onMount"] == []
+
+
+def test_scope_remaining_normalization_paths() -> None:
+    # Given / When: raw_spec None branch
+    props, state, actions, lifecycle = normalize_client_spec(None)
+    assert props == {}
+    assert state == {}
+    assert actions == {}
+    assert lifecycle["onCreate"] == []
+
+    # Given / When: props/state/methods/lifecycle lower-case attribute branches
+    class SpecAttr:
+        props = {"a": 1}
+        state = [StateField(name="count", default=0, cast="int")]
+        methods = ["do"]
+        lifecycle = {"on_mount": ["do"]}
+
+        def do(self) -> dict[str, Any]:
+            return {"op": "log", "value": "ok"}
+
+    props2, state2, actions2, lifecycle2 = normalize_client_spec(SpecAttr())
+    assert props2["a"] == 1
+    assert state2["count"]["cast"] == "int"
+    assert "do" in actions2
+    assert lifecycle2["onMount"] == []
+
+    # Given / When: props callable branch
+    class SpecPropsMethod:
+        def props(self) -> dict[str, int]:
+            return {"m": 2}
+
+    props3, _, _, _ = normalize_client_spec(SpecPropsMethod())
+    assert props3["m"] == 2
+
+    # Given / When: lifecycle attr (non-callable) is normalized
+    class SpecLifecycleAttr:
+        lifecycle = {"created": ["x"]}
+
+    _, _, _, lifecycle3 = normalize_client_spec(SpecLifecycleAttr())
+    assert lifecycle3["onCreate"] == []
+
+    # Given / When: props source branches
+    class PropsClass:
+        x = 1
+
+    assert normalize_props_source(None) == {}
+    assert normalize_props_source(PropsClass)["x"] == 1
+    assert normalize_props_source(SimpleNamespace(y=2))["y"] == 2
+    try:
+        normalize_props_source(1)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected ValueError")
+
+    # Given / When: mapping methods callable normalization branch
+    owner = SimpleNamespace(do=lambda: {"op": "set", "state": "a", "value": 1})
+    actions_map = resolve_methods_actions({"do": "do"}, owner)
+    assert actions_map["do"]["op"] == "set"

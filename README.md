@@ -4,6 +4,20 @@
   <h1><strong>LUA-SPA</strong></h1>
 </div>
 
+<p align="center">
+  <a href="https://github.com/roderiano/lua-spa/actions?query=branch%3Arelease">
+    <img src="https://github.com/roderiano/lua-spa/actions/workflows/quality-and-tests.yaml/badge.svg?branch=release" />
+  </a>
+  <a href="https://codecov.io/gh/roderiano/lua-spa">
+    <img src="https://codecov.io/gh/roderiano/lua-spa/branch/main/graph/badge.svg" />
+  </a>
+  <img src="https://img.shields.io/pypi/v/lua-spa" />
+  <img src="https://img.shields.io/pypi/dm/lua-spa" />
+  <img src="https://img.shields.io/github/license/roderiano/lua-spa" />
+  <img src="https://img.shields.io/github/v/release/roderiano/lua-spa" />
+  <img src="https://img.shields.io/github/stars/roderiano/lua-spa?style=flat" />
+</p>
+
 Backend-first SPA framework in Python.
 
 This project includes:
