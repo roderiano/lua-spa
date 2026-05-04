@@ -67,3 +67,36 @@ def test_loader_error_and_fallback_paths(tmp_path: Path) -> None:
     loader2 = ComponentLoader(tmp_path)
     loaded = loader2.load_entry("Raw")
     assert loaded["Raw"].template == "hello"
+
+
+def test_loader_components_property_and_idempotent_reload(tmp_path: Path) -> None:
+    # Given: a simple component file
+    app = tmp_path / "App.lspa"
+    app.write_text("<template><div>ok</div></template>", encoding="utf-8")
+    loader = ComponentLoader(tmp_path)
+
+    # When: the same entry is loaded twice
+    first = loader.load_entry("App")
+    second = loader.load_entry("App")
+
+    # Then: components property is exposed and load is idempotent
+    assert loader.components is second
+    assert list(first.keys()) == ["App"]
+
+
+def test_loader_inject_styles_helper_edge_paths(tmp_path: Path) -> None:
+    # Given: a loader and external style markup
+    loader = ComponentLoader(tmp_path)
+    styles = "<style>h1{color:red}</style>"
+
+    # When: template has no root tag
+    no_root = loader._inject_styles_into_template_root("plain", styles)
+
+    # Then: styles are prepended
+    assert no_root.startswith("<style>")
+
+    # When: template root is self-closing
+    self_closing = loader._inject_styles_into_template_root("<img/>", styles)
+
+    # Then: styles are prepended (cannot inject inside self-closing root)
+    assert self_closing.startswith("<style>")
