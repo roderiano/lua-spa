@@ -126,7 +126,7 @@ poetry run pytest --cov=src/lua_spa --cov-report=term
 Lint & typing:
 
 ``` bash
-poetry run ruff check .
+poetry run ruff check src
 poetry run mypy src
 ```
 

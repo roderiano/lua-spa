@@ -12,7 +12,9 @@ def _is_valid_template_directory(path: Path) -> bool:
     return path.is_dir() and (path / "spa.config.json").exists() and (path / "index.lspa").exists()
 
 
-def _template_source_candidates(module_file: Path, current_working_directory: Path) -> Iterable[Path]:
+def _template_source_candidates(
+    module_file: Path, current_working_directory: Path
+) -> Iterable[Path]:
     module_file = module_file.resolve()
 
     yielded: set[Path] = set()
