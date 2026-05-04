@@ -11,7 +11,6 @@
   <a href="https://codecov.io/gh/roderiano/lua-spa">
     <img src="https://codecov.io/gh/roderiano/lua-spa/branch/staging/graph/badge.svg" />
   </a>
-  <img src="https://img.shields.io/pypi/v/lua-spa" />
   <img src="https://img.shields.io/pypi/dm/lua-spa" />
   <img src="https://img.shields.io/github/license/roderiano/lua-spa" />
   <img src="https://img.shields.io/github/v/release/roderiano/lua-spa" />
