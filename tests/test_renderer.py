@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 import re
+from unittest.mock import patch
 
 from lua_spa.renderer import (
     _normalize_iterable,
@@ -231,3 +232,95 @@ def test_renderer_loop_multi_target_and_invalid_for_syntax() -> None:
     # Then: valid multi-target loop expands, invalid syntax leaves the template unchanged
     assert html.count("<li") == 2
     assert "i-for" in unchanged
+
+
+def test_renderer_iterable_context_and_namespace_additional_paths() -> None:
+    # Given / When: dict and non-iterable are normalized
+    normalized_map = _normalize_iterable({"a": 1})
+    normalized_invalid = _normalize_iterable(5)
+
+    # Then: mapping returns item tuples and invalid iterable returns []
+    assert normalized_map == [("a", 1)]
+    assert normalized_invalid == []
+
+    # Given / When: tuple gets converted recursively to namespace-compatible tuple
+    value = to_namespace(({"x": 1}, {"y": 2}))
+
+    # Then: tuple content is preserved with namespace conversion
+    assert isinstance(value, tuple)
+    assert value[0].x == 1
+
+
+def test_renderer_loop_targets_and_reserved_keys_path() -> None:
+    # Given: multi-target loop with scalar values and a reserved top-level key
+    ctx = {"props": {"pairs": [1, 2], "props": "shadow"}, "state": {}, "py": {}}
+
+    # When: loops and scoped context are evaluated
+    html = apply_server_loops(
+        '<ul><li i-for="a, b in pairs">{{ a }}-{{ b is None }}</li></ul>',
+        ctx,
+    )
+    scoped = build_scoped_context(ctx)
+
+    # Then: scalar multi-target fallback keeps unresolved placeholders as empty values
+    assert "<li>-</li>" in html
+    assert scoped["props"].pairs == [1, 2]
+
+
+def test_renderer_conditional_chain_with_gaps_and_non_if_start() -> None:
+    # Given: conditional tags with a text gap and a chain starting at l-else-if
+    tpl = (
+        '<div><p l-if="ok">A</p> text <p l-else>B</p>'
+        '<span l-else-if="other">X</span><span l-else>Y</span></div>'
+    )
+
+    # When: conditionals are processed
+    html = apply_server_conditionals(tpl, {"props": {"ok": False, "other": True}, "state": {}, "py": {}})
+
+    # Then: first chain is not collapsed due non-empty gap; second is ignored because it does not start with l-if
+    assert "text" in html
+    assert "l-else-if" in html
+
+
+def test_renderer_conditional_replace_helpers_exception_fallbacks() -> None:
+    # Given: matches for pair and self-closing conditional tags
+    pair = re.search(
+        r"<(?P<tag>p)(?P<before>.*?)l-if=\"(?P<expr>.*?)\"(?P<after>.*?)>(?P<body>.*?)</(?P=tag)>",
+        '<p class="x" l-if="ok">A</p>',
+    )
+    self_match = re.search(
+        r"<(?P<tag>img)(?P<before>.*?)l-if=\"(?P<expr>.*?)\"(?P<after>.*?)/>",
+        '<img alt="x" l-if="ok"/>',
+    )
+    assert pair is not None
+    assert self_match is not None
+
+    # When: evaluate_expression raises unexpectedly
+    with patch("lua_spa.renderer.evaluate_expression", side_effect=RuntimeError("boom")):
+        replaced_pair = _replace_conditional_tag(pair, {"props": {}, "state": {}, "py": {}})
+        replaced_self = _replace_conditional_self_closing_tag(
+            self_match, {"props": {}, "state": {}, "py": {}}
+        )
+
+    # Then: both helpers fall back to removing the tag
+    assert replaced_pair == ""
+    assert replaced_self == ""
+
+
+def test_renderer_state_init_non_mapping_and_zero_arg_fallback() -> None:
+    # Given: non-mapping state config and zero-arg init callable fallback
+    def init_zero() -> int:
+        return 9
+
+    # When: initial values are resolved
+    raw_value = resolve_python_state_initial_value(5, {})
+    init_value = resolve_python_state_initial_value({"init": init_zero}, {})
+    from_prop_value = resolve_python_state_initial_value(
+        {"from_prop": "count", "default": 1, "cast": "int"},
+        {"count": 3},
+    )
+
+    # Then: values follow expected branch behavior
+    assert raw_value == 5
+    assert init_value == 9
+    assert from_prop_value == 3

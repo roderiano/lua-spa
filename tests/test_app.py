@@ -93,3 +93,14 @@ def test_resolve_template_directory_raises_when_missing(tmp_path: Path) -> None:
 
     # Then: FileNotFoundError is raised
     _assert_raises(FileNotFoundError, resolve_template_directory, tmp_path)
+
+
+def test_get_template_source_directory_raises_when_template_missing(monkeypatch: Any) -> None:
+    # Given: a fake module file path whose parent package has no lua_template directory
+    import lua_spa.app as app_module
+
+    fake_file = Path("C:/tmp/nonexistent_pkg/src/lua_spa/app.py")
+    monkeypatch.setattr(app_module, "__file__", str(fake_file))
+
+    # When / Then: resolving template source directory raises FileNotFoundError
+    _assert_raises(FileNotFoundError, get_template_source_directory)

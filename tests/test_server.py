@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 from http import HTTPStatus
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -271,3 +272,136 @@ def test_watch_files_without_reload_method_still_notifies(monkeypatch: Any) -> N
 
     # Then: build still runs and notifies even without reload_components
     assert events == ["build", "notify"]
+
+
+def test_notify_clients_removes_dead_streams() -> None:
+    # Given: one healthy client and one failing client
+    class Good:
+        def __init__(self) -> None:
+            self.writes = 0
+
+        def write(self, _data: bytes) -> None:
+            self.writes += 1
+
+        def flush(self) -> None:
+            return None
+
+    class Bad:
+        def write(self, _data: bytes) -> None:
+            raise RuntimeError("dead")
+
+        def flush(self) -> None:
+            return None
+
+    good = Good()
+    bad = Bad()
+    server_module._clients.clear()
+    server_module._clients.add(good)
+    server_module._clients.add(bad)
+
+    # When: notifying all connected clients
+    server_module._notify_clients()
+
+    # Then: dead client is removed and healthy client is written once
+    assert good.writes == 1
+    assert bad not in server_module._clients
+
+
+def test_spa_handler_reload_sse_endpoint(monkeypatch: Any) -> None:
+    # Given: a handler with /__reload__ path and controlled sleep interruption
+    handler = object.__new__(_SpaHandler)
+    responses: list[int] = []
+    headers: list[tuple[str, str]] = []
+    handler.server = SimpleNamespace(lua_framework=SimpleNamespace(), reload_enabled=True)  # type: ignore[assignment]
+    handler.path = "/__reload__"
+    handler.wfile = io.BytesIO()
+    handler.send_response = lambda code: responses.append(int(code))  # type: ignore[method-assign,misc,assignment]
+    handler.send_header = lambda key, value: headers.append((str(key), str(value)))  # type: ignore[method-assign,assignment]
+    handler.end_headers = lambda: None  # type: ignore[method-assign]
+
+    monkeypatch.setattr(server_module.time, "sleep", lambda _seconds: (_ for _ in ()).throw(RuntimeError("stop")))
+
+    # When: SSE endpoint is handled
+    handler.do_GET()
+
+    # Then: response is event-stream and client writer is eventually removed
+    assert responses[-1] == int(HTTPStatus.OK)
+    assert ("Content-Type", "text/event-stream") in headers
+    assert handler.wfile not in server_module._clients
+
+
+def test_watch_files_skips_non_watched_and_missing_files(monkeypatch: Any) -> None:
+    # Given: walk includes ignored extension and missing watched file
+    class _StopWatch(Exception):
+        pass
+
+    state = {"sleep_calls": 0, "notify": 0}
+
+    def fake_walk(_path: str) -> list[tuple[str, list[str], list[str]]]:
+        return [("/tmp", [], ["ignored.txt", "watched.py"])]
+
+    def fake_getmtime(path: str) -> float:
+        if path.endswith("watched.py"):
+            raise FileNotFoundError(path)
+        return 1.0
+
+    def fake_sleep(_seconds: float) -> None:
+        state["sleep_calls"] += 1
+        if state["sleep_calls"] >= 1:
+            raise _StopWatch()
+
+    monkeypatch.setattr(server_module.os, "walk", fake_walk)
+    monkeypatch.setattr(server_module.os.path, "getmtime", fake_getmtime)
+    monkeypatch.setattr(server_module.time, "sleep", fake_sleep)
+    monkeypatch.setattr(
+        server_module,
+        "_notify_clients",
+        lambda: state.__setitem__("notify", state["notify"] + 1),
+    )
+
+    # When / Then: watcher loop tolerates ignored/missing files and does not notify
+    with pytest.raises(_StopWatch):
+        server_module._watch_files(".", SimpleNamespace(build_view=lambda: "<html></html>"))
+
+    assert state["notify"] == 0
+
+
+def test_spa_server_serve_starts_reload_thread(monkeypatch: Any) -> None:
+    # Given: a fake HTTP server and fake thread implementation
+    called: dict[str, Any] = {}
+
+    class FakeServer:
+        def __init__(self, address: tuple[str, int], _handler: Any) -> None:
+            called["address"] = address
+
+        def __enter__(self) -> "FakeServer":
+            return self
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            return None
+
+        def serve_forever(self) -> None:
+            called["served"] = True
+
+    class FakeThread:
+        def __init__(self, target: Any, args: tuple[Any, ...], daemon: bool) -> None:
+            called["thread_target"] = target
+            called["thread_args"] = args
+            called["daemon"] = daemon
+
+        def start(self) -> None:
+            called["thread_started"] = True
+
+    server_module._watch_started.clear()
+    monkeypatch.setattr(server_module, "ThreadingHTTPServer", FakeServer)
+    monkeypatch.setattr(server_module.threading, "Thread", FakeThread)
+
+    framework = SimpleNamespace(_view_file=Path("C:/tmp/project/src/lua_template/index.lspa"))
+
+    # When: serving with reload enabled
+    SpaServer.serve(framework, "127.0.0.1", 8001, reload=True)
+
+    # Then: watcher thread is started using parent path from _view_file
+    assert called["served"] is True
+    assert called["thread_started"] is True
+    assert called["thread_args"][0].replace("\\", "/").endswith("project/src")
