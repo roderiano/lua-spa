@@ -3,16 +3,62 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Iterable
 
 from lua_spa.framework import SpaFramework
 
 
+def _is_valid_template_directory(path: Path) -> bool:
+    return path.is_dir() and (path / "spa.config.json").exists() and (path / "index.lspa").exists()
+
+
+def _template_source_candidates(
+    module_file: Path, current_working_directory: Path
+) -> Iterable[Path]:
+    module_file = module_file.resolve()
+
+    yielded: set[Path] = set()
+
+    def _yield(candidate: Path) -> Iterable[Path]:
+        resolved = candidate.resolve()
+        if resolved in yielded:
+            return []
+        yielded.add(resolved)
+        return [resolved]
+
+    # Common installation layouts (site-packages and editable installs)
+    for path in _yield(module_file.parents[1] / "lua_template"):
+        yield path
+    for path in _yield(module_file.parent / "lua_template"):
+        yield path
+
+    # Repository debug layouts when running directly from source
+    for parent in module_file.parents:
+        for path in _yield(parent / "src" / "lua_template"):
+            yield path
+        for path in _yield(parent / "lua_template"):
+            yield path
+
+    # Last fallback: discover template from current working directory
+    for path in _yield(current_working_directory / "src" / "lua_template"):
+        yield path
+    for path in _yield(current_working_directory / "lua_template"):
+        yield path
+
+
 def get_template_source_directory() -> Path:
     """Return the packaged lua_template directory used by `lua-spa create`."""
-    candidate = Path(__file__).resolve().parents[1] / "lua_template"
-    if candidate.exists() and candidate.is_dir():
-        return candidate
-    msg = f"Could not locate lua_template source directory at: {candidate}"
+    module_file = Path(__file__)
+    cwd = Path.cwd()
+    searched: list[Path] = []
+
+    for candidate in _template_source_candidates(module_file, cwd):
+        searched.append(candidate)
+        if _is_valid_template_directory(candidate):
+            return candidate
+
+    searched_paths = "\n".join(f"- {path}" for path in searched)
+    msg = f"Could not locate lua_template source directory. Paths checked:\n{searched_paths}"
     raise FileNotFoundError(msg)
 
 
@@ -25,7 +71,7 @@ def resolve_template_directory(root: Path) -> Path:
     ]
 
     for candidate in candidates:
-        if (candidate / "spa.config.json").exists() and (candidate / "index.lspa").exists():
+        if _is_valid_template_directory(candidate):
             return candidate
 
     msg = (
