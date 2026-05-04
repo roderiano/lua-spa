@@ -95,12 +95,66 @@ def test_resolve_template_directory_raises_when_missing(tmp_path: Path) -> None:
     _assert_raises(FileNotFoundError, resolve_template_directory, tmp_path)
 
 
-def test_get_template_source_directory_raises_when_template_missing(monkeypatch: Any) -> None:
+def test_get_template_source_directory_raises_when_template_missing(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
     # Given: a fake module file path whose parent package has no lua_template directory
     import lua_spa.app as app_module
 
     fake_file = Path("C:/tmp/nonexistent_pkg/src/lua_spa/app.py")
     monkeypatch.setattr(app_module, "__file__", str(fake_file))
+    monkeypatch.chdir(tmp_path)
 
     # When / Then: resolving template source directory raises FileNotFoundError
-    _assert_raises(FileNotFoundError, get_template_source_directory)
+    try:
+        get_template_source_directory()
+    except FileNotFoundError as exc:
+        assert "Paths checked:" in str(exc)
+        return
+    raise AssertionError("Expected FileNotFoundError to be raised")
+
+
+def test_get_template_source_directory_uses_package_local_fallback(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    # Given: a layout where lua_template lives inside the lua_spa package directory
+    import lua_spa.app as app_module
+
+    package_dir = tmp_path / "site-packages" / "lua_spa"
+    package_dir.mkdir(parents=True)
+    (package_dir / "app.py").write_text("", encoding="utf-8")
+    package_template = package_dir / "lua_template"
+    package_template.mkdir()
+    (package_template / "spa.config.json").write_text("{}", encoding="utf-8")
+    (package_template / "index.lspa").write_text("<html></html>", encoding="utf-8")
+
+    monkeypatch.setattr(app_module, "__file__", str(package_dir / "app.py"))
+
+    # When: get_template_source_directory is called
+    resolved = get_template_source_directory()
+
+    # Then: the package-local template path is discovered
+    assert resolved == package_template.resolve()
+
+
+def test_get_template_source_directory_uses_repository_debug_layout(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    # Given: a source-debug layout where app.py is under src/lua_spa and scaffold under src/lua_template
+    import lua_spa.app as app_module
+
+    app_file = tmp_path / "repo" / "src" / "lua_spa" / "app.py"
+    app_file.parent.mkdir(parents=True)
+    app_file.write_text("", encoding="utf-8")
+    debug_template = tmp_path / "repo" / "src" / "lua_template"
+    debug_template.mkdir(parents=True)
+    (debug_template / "spa.config.json").write_text("{}", encoding="utf-8")
+    (debug_template / "index.lspa").write_text("<html></html>", encoding="utf-8")
+
+    monkeypatch.setattr(app_module, "__file__", str(app_file))
+
+    # When: get_template_source_directory is called
+    resolved = get_template_source_directory()
+
+    # Then: the source debug template path is discovered
+    assert resolved == debug_template.resolve()
