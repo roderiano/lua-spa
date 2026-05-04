@@ -21,6 +21,20 @@ We use a structured branching model:
 -   All pull requests must target `staging`
 -   `staging` accumulates code for upcoming releases
 -   `release` is updated only when preparing a new version
+-   Every branch must be linked to an issue number
+
+### Branch Naming
+
+Create branches with the issue number prefix:
+
+    <issue-number>-<type>-<short-description>
+
+Examples:
+-   13-bug-missing-lua_template-scaffold-directory
+-   42-feature-router-params
+-   77-docs-update-contributing-guide
+
+Tip: create the branch directly from the GitHub issue page when possible.
 
 
 
@@ -65,7 +79,7 @@ Include:
 
 1.  Fork the repository
 2.  Create your branch from `staging`
-3.  Link your work to an issue
+3.  Use an issue-linked branch name (for example: `123-fix-cli-template-discovery`)
 4.  Add tests if needed
 5.  Ensure tests pass
 6.  Ensure coverage is at least **90%**
@@ -84,17 +98,8 @@ Create a new branch:
 
 ``` bash
 git checkout staging
-git checkout -b feature/your-feature-name
+git checkout -b <issue-number>-<type>-<short-description>
 ```
-
-We follow Conventional Branches:
-
-    type/your-feature-name
-
-Examples:
--   feature/your-feature-name
--   fix/your-feature-name
--   docs/your-feature-name
 
 
 
