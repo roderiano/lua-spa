@@ -1,8 +1,39 @@
 {
-	"page_title": "lua-spa",
-	"initial_props": {},
+	"page_title": "LUA SPA Admin",
+	"mount_id": "app",
+	"initial_props": {
+		"title": "Dashboard",
+		"subtitle": "Welcome back!"
+	},
 	"server": {
 		"host": "127.0.0.1",
 		"port": 8000
+	},
+	"router": {
+		"initial_path": "/",
+		"routes": [
+			{
+				"path": "/",
+				"component": "App",
+				"children": [
+					{
+						"index": true,
+						"component": "Hero"
+					},
+					{
+						"path": "features",
+						"component": "Features"
+					},
+					{
+						"path": "*",
+						"component": "NotFound",
+						"props": {
+							"title": "Page not found",
+							"subtitle": "The requested route does not exist"
+						}
+					}
+				]
+			}
+		]
 	}
 }

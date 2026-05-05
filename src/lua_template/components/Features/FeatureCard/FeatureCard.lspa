@@ -1,0 +1,8 @@
+<template>
+  <article class="feature-card">
+    <h3>{{ props.icon }} {{ props.title }}</h3>
+    <p>{{ props.description }}</p>
+  </article>
+</template>
+
+<style src="./FeatureCard.css"></style>

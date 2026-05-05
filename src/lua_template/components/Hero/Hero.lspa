@@ -9,5 +9,9 @@
     <h1 class="hero__title">lua-spa</h1>
     <p class="hero__subtitle">Python Framework for Single Page Applications</p>
     <p class="hero__tagline">Combine the power of Server Rendering with Client Hydration - build modern, fast SPAs with pure Python.</p>
+    
+    <div class="hero__actions">
+      <a href="/features" class="hero__btn hero__btn--primary">Explore Features</a>
+    </div>
   </main>
 </template>
