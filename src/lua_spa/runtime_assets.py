@@ -602,6 +602,10 @@ SPA_RUNTIME_JS = r"""
       return inner;
     }
 
+    function renderRoutedTemplate(stack) {
+      return renderStack(stack || []);
+    }
+
     function currentPath() {
       var hash = window.location.hash || "";
       var cleaned = hash.replace(/^#/, "");
@@ -686,7 +690,7 @@ SPA_RUNTIME_JS = r"""
             if (!canActivate(match.stack, match.params, guardFallback)) {
               return;
             }
-            var template = renderStack(match.stack);
+            var template = renderRoutedTemplate(match.stack);
             var vnode = parseTemplate(template, routerContext, app.registry);
             if (!app.routerVNode) {
               var hydrationNode = firstRenderableChild(container);

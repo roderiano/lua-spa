@@ -193,17 +193,15 @@ Create a new branch:
 
 ``` bash
 git checkout staging
-git checkout -b feature/your-feature-name
+git checkout -b <issue-number>-<type>-<short-description>
 ```
 
-We follow Conventional Branches:
-
-    type/your-feature-name
-
 Examples:
--   feature/your-feature-name
--   fix/your-feature-name
--   docs/your-feature-name
+-   13-bug-missing-lua_template-scaffold-directory
+-   42-feature-router-params
+-   77-docs-update-contributing-guide
+
+Tip: create the branch directly from the GitHub issue page when possible.
 
 
 

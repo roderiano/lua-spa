@@ -10,7 +10,7 @@ A lua-spa project created with `lua-spa create my_app` looks like this:
 ```
 my_app/
 ├── index.lspa           ← HTML shell (root page)
-├── spa.config.json      ← app config (title, port, entry component, router)
+├── spa.config.json      ← app config (title, mount, port, router)
 ├── index.css            ← global styles
 ├── components/          ← all .lspa components live here
 │   ├── App.lspa
@@ -24,7 +24,7 @@ my_app/
 
 ```mermaid
 graph TD
-    config["spa.config.json<br/><small>entry_component, port, router</small>"]
+    config["spa.config.json<br/><small>mount_id, port, router</small>"]
     index["index.lspa<br/><small>HTML shell</small>"]
     app["components/App.lspa<br/><small>root component</small>"]
     child["components/Hero.lspa<br/><small>child component</small>"]
@@ -62,7 +62,7 @@ The HTML shell. lua-spa fills these placeholders at build time:
 }
 ```
 
-Optional fields: `entry_component`, `mount_id`, `router`.
+Optional fields: `mount_id`, `router`.
 
 ### `components/`
 

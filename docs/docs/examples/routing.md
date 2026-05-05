@@ -35,9 +35,9 @@ Configure a multi-page SPA entirely from `spa.config.json`.
 
 ```mermaid
 flowchart TD
-    A[Request path] --> B{Match /}
-    B -- yes --> C[Render App]
-    C --> D{Match child}
+  A[Request path] --> B{Match /}
+  B -- yes --> C[Match child]
+  C --> D{Child result}
     D -- index --> E[Render Home inside App]
     D -- about --> F[Render About inside App]
     D -- users/:id --> G[Render UserDetail inside App]
@@ -58,7 +58,7 @@ class App(Component):
   <div class="layout">
     <Nav />
     <main class="layout__content">
-      <!-- child component inserted here by router -->
+      {{ children }}
     </main>
   </div>
 </template>

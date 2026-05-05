@@ -1,0 +1,119 @@
+.notfound {
+    width: min(100%, 580px);
+    min-height: calc(100dvh - var(--nav-height) - var(--footer-height));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+}
+
+.notfound__container {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    border-radius: 1rem;
+    background: linear-gradient(135deg, #232733 0%, #353a47 60%, #181a20 100%);
+    border: 1px solid rgba(191, 198, 209, 0.2);
+    color: #e6eaf0;
+}
+
+.notfound__icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    display: inline-block;
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-20px);
+    }
+}
+
+.notfound__title {
+    font-size: 5rem;
+    margin: 0 0 0.5rem 0;
+    font-weight: 900;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.notfound__subtitle {
+    font-size: 1.75rem;
+    margin: 0.5rem 0 1rem 0;
+    font-weight: 700;
+    color: #bfc6d1;
+}
+
+.notfound__text {
+    font-size: 1.1rem;
+    color: #9ab1cc;
+    margin: 0 0 2rem 0;
+    line-height: 1.6;
+}
+
+.notfound__actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.notfound__btn {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.6rem;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.notfound__btn--primary {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+}
+
+.notfound__btn--primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(99, 102, 241, 0.3);
+}
+
+.notfound__btn--secondary {
+    border: 2px solid rgba(191, 198, 209, 0.4);
+    color: #bfc6d1;
+    background: transparent;
+}
+
+.notfound__btn--secondary:hover {
+    border-color: rgba(191, 198, 209, 0.7);
+    background: rgba(191, 198, 209, 0.05);
+    transform: translateY(-2px);
+}
+
+@media (max-width: 640px) {
+    .notfound__container {
+        padding: 2rem 1rem;
+    }
+
+    .notfound__title {
+        font-size: 3rem;
+    }
+
+    .notfound__subtitle {
+        font-size: 1.35rem;
+    }
+
+    .notfound__text {
+        font-size: 1rem;
+    }
+}

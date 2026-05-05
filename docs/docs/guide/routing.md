@@ -37,7 +37,32 @@ Add a `"router"` key to `spa.config.json`:
 }
 ```
 
-The `entry_component` key is not needed when `router` is present — the framework uses the router to resolve the initial path.
+When `router` is enabled, route rendering is driven by `router.routes`.
+
+### Router contract (standard)
+
+- `router.routes`: defines which components are matched and rendered.
+- with `"initial_path": "/"`, rendering starts from the route that matches `"/"`.
+- if you want a layout shell, declare it as a route `component` and nest children under it.
+
+Recommended route shape for layout apps:
+
+```json
+{
+  "router": {
+    "routes": [
+      {
+        "path": "/",
+        "component": "Layout",
+        "children": [
+          { "index": true, "component": "Home" },
+          { "path": "about", "component": "About" }
+        ]
+      }
+    ]
+  }
+}
+```
 
 ---
 
@@ -85,7 +110,7 @@ class PostArchive(Component):
 
 ## Nested routes
 
-Use `"children"` to nest routes inside a layout component:
+Use `"children"` to nest routes inside path groups:
 
 ```json
 {
@@ -93,7 +118,6 @@ Use `"children"` to nest routes inside a layout component:
     "routes": [
       {
         "path": "/",
-        "component": "App",
         "children": [
           { "index": true,         "component": "Home" },
           { "path": "about",       "component": "About" },
@@ -106,23 +130,116 @@ Use `"children"` to nest routes inside a layout component:
 }
 ```
 
-The router resolves the full stack — parent first, then child — and renders them as nested component tags:
+The router resolves the full stack — parent first, then child — and renders them as nested component tags for the routed outlet:
 
 ```html
 <!-- resolved for /users/42 -->
-<App>
+<UserLayout>
   <UserDetail __props="...id=42..." />
-</App>
+</UserLayout>
 ```
 
 ### Resolution flow
 
 ```mermaid
 flowchart TD
-    A["GET /users/42"] --> B["Match / → App"]
-    B --> C["Match child users/:id → UserDetail"]
+  A["GET /users/42"] --> B["Match / (group route)"]
+  B --> C["Match child users/:id → UserDetail"]
     C --> D["params: {id: '42'}"]
-    D --> E["Render App wrapping UserDetail"]
+  D --> E["Render matched component stack"]
+```
+
+### How `children` is implemented in lua-spa
+
+Internally, nested routing happens in three stages:
+
+1. Route tree normalization:
+   The router reads `children` recursively from `router.routes` and builds a tree of route nodes.
+2. Recursive match:
+   `Router.resolve(path)` matches the parent route first, then keeps matching against `children` with remaining path segments.
+3. Cascaded render:
+   `Router.render(match)` creates nested tags from child to parent, so parent layouts wrap child pages.
+
+For `/users/42`, the routed stack is equivalent to:
+
+```html
+<UserLayout __props="...routeParams...">
+  <UserDetail __props="...routeParams.id=42..." />
+</UserLayout>
+```
+
+The final output is the rendered route stack.
+If the parent route is a layout component, child content is passed to that layout as `children`.
+
+### Practical example (router + `.lspa`)
+
+`spa.config.json`:
+
+```json
+{
+  "page_title": "Nested Users",
+  "router": {
+    "initial_path": "/users/42",
+    "routes": [
+      {
+        "path": "/",
+        "component": "AppLayout",
+        "children": [
+          { "index": true,       "component": "HomePage" },
+          { "path": "users",    "component": "UserListPage" },
+          { "path": "users/:id", "component": "UserDetailPage" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+`AppLayout.lspa`:
+
+```html
+@import Nav from './Nav/Nav.lspa'
+
+<python>
+class AppLayout(Component):
+    pass
+</python>
+
+<template>
+  <div class="layout">
+    <Nav />
+    <main class="layout__content">
+      {{ children }}
+    </main>
+  </div>
+</template>
+```
+
+`UserDetailPage.lspa`:
+
+```html
+<python>
+class UserDetailPage(Component):
+    def context(self, props):
+        params = props.get("routeParams", {})
+        return {"user_id": params.get("id", "unknown")}
+</python>
+
+<template>
+  <article>
+    <h1>User {{ py.user_id }}</h1>
+  </article>
+</template>
+```
+
+With `"initial_path": "/users/42"`, the rendered structure is:
+
+```html
+<AppLayout>
+  <HomePage /><!-- for "/" -->
+  <!-- or -->
+  <UserDetailPage /><!-- for "/users/42" -->
+</AppLayout>
 ```
 
 ---
@@ -305,7 +422,7 @@ class Layout(Component):
   <div class="layout">
     <Nav />
     <main class="layout__content">
-      <!-- child route renders here -->
+      {{ children }}
     </main>
   </div>
 </template>

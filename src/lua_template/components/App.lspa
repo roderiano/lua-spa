@@ -1,8 +1,10 @@
 
 @import AppStars from './Stars/Stars.lspa'
 @import AppNav from './Nav/Nav.lspa'
-@import AppHero from './Hero/Hero.lspa'
+@import Hero from './Hero/Hero.lspa'
 @import AppFooter from './Footer/Footer.lspa'
+@import NotFound from './NotFound/NotFound.lspa'
+@import Features from './Features/Features.lspa'
 
 <python>
 class App(Component):
@@ -15,7 +17,7 @@ class App(Component):
   <div class="page">
     <AppStars />
     <AppNav />
-    <AppHero />
+    {{ children }}
     <AppFooter />
   </div>
 </template>
