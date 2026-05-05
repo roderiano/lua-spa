@@ -62,7 +62,6 @@ class SpaFramework:
             view_file=lua_template_dir / "index.lspa",
             components_dir=lua_template_dir / "components",
             static_dir=lua_template_dir / "static",
-            entry_component=config.entry_component,
             mount_id=config.mount_id,
             default_props=config.initial_props,
             host=config.host,

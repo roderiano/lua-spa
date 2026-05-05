@@ -34,3 +34,5 @@ docs/build/
 # Environment variables
 .env
 .env.*
+
+lua_template_temp/

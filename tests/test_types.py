@@ -5,7 +5,6 @@ from pathlib import Path
 
 from lua_spa.types import (
     ClientMethods,
-    _infer_entry_component_from_router,
     _infer_mount_id_from_router,
     load_lua_template_config,
 )
@@ -24,7 +23,7 @@ def test_client_methods_operations() -> None:
     assert client.toggle("open")["op"] == "toggle"
 
 
-def test_load_lua_template_config_defaults_and_router_inference(tmp_path: Path) -> None:
+def test_load_lua_template_config_defaults_do_not_depend_on_router(tmp_path: Path) -> None:
     # Given: a spa.config.json with router and server sections
     config_file = tmp_path / "spa.config.json"
     config_file.write_text(
@@ -43,11 +42,32 @@ def test_load_lua_template_config_defaults_and_router_inference(tmp_path: Path) 
     # When: the config is loaded
     cfg = load_lua_template_config(config_file)
 
-    # Then: entry component, mount id, host and port are correctly inferred
-    assert cfg.entry_component == "Home"
-    assert cfg.mount_id == "root"
+    # Then: mount uses standardized default; host and port are read from server
+    assert cfg.mount_id == "app"
     assert cfg.host == "0.0.0.0"
     assert cfg.port == 9090
+
+
+def test_load_lua_template_config_explicit_mount(tmp_path: Path) -> None:
+    # Given: a spa.config.json with explicit mount plus router block
+    config_file = tmp_path / "spa.config.json"
+    config_file.write_text(
+        json.dumps(
+            {
+                "mount_id": "root-app",
+                "router": {
+                    "routes": [{"path": "/", "component": "Home"}],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    # When: the config is loaded
+    cfg = load_lua_template_config(config_file)
+
+    # Then: explicit mount is preserved
+    assert cfg.mount_id == "root-app"
 
 
 def test_load_lua_template_config_invalid_server_port(tmp_path: Path) -> None:
@@ -69,13 +89,12 @@ def test_load_lua_template_config_invalid_server_port(tmp_path: Path) -> None:
 
 
 def test_router_inference_helpers() -> None:
-    # Given: a router config with a mount_id and a single route
-    router_cfg = {"mount_id": "app-root", "routes": [{"component": "Entry"}]}
+    # Given: a router config with a mount_id
+    router_cfg = {"mount_id": "app-root"}
 
-    # When: inference helpers extract values from the config
+    # When: mount inference helper extracts values from the config
 
-    # Then: entry component and mount id are correctly returned
-    assert _infer_entry_component_from_router(router_cfg) == "Entry"
+    # Then: mount id is correctly returned
     assert _infer_mount_id_from_router(router_cfg) == "app-root"
 
 
@@ -122,13 +141,10 @@ def test_types_invalid_config_shapes(tmp_path: Path) -> None:
 
 
 def test_types_inference_none_paths() -> None:
-    # Given: None configs, empty route lists, and non-dict route items
+    # Given: None configs and empty dicts
 
-    # When: inference helpers are called with edge-case inputs
+    # When: mount inference helper is called with edge-case inputs
 
-    # Then: all return None gracefully
-    assert _infer_entry_component_from_router(None) is None
-    assert _infer_entry_component_from_router({"routes": []}) is None
-    assert _infer_entry_component_from_router({"routes": ["x"]}) is None
+    # Then: it returns None gracefully
     assert _infer_mount_id_from_router(None) is None
     assert _infer_mount_id_from_router({}) is None

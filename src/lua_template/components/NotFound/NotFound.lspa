@@ -1,0 +1,16 @@
+<template>
+  <section class="notfound">
+    <div class="notfound__container">
+      <div class="notfound__icon">⚠️</div>
+      <h1 class="notfound__title">404</h1>
+      <h2 class="notfound__subtitle">Oops! Page Not Found</h2>
+      <p class="notfound__text">The page you're looking for doesn't exist or has been moved.</p>
+      <div class="notfound__actions">
+        <a href="/" class="notfound__btn notfound__btn--primary">Back to Home</a>
+        <a href="/features" class="notfound__btn notfound__btn--secondary">Explore Features</a>
+      </div>
+    </div>
+  </section>
+</template>
+
+<style src="./NotFound.css"></style>

@@ -79,7 +79,7 @@ SpaFramework(
 | `view_file` | `Path` | — | Path to `index.lspa` HTML shell |
 | `components_dir` | `Path` | — | Path to components directory |
 | `static_dir` | `Path \| None` | `view_file.parent/static` | Static assets directory |
-| `entry_component` | `str` | `"App"` | Root component name |
+| `entry_component` | `str` | `"App"` | Root component used when router is disabled |
 | `mount_id` | `str` | `"app"` | DOM element ID for mount point |
 | `default_props` | `Mapping \| None` | `None` | Default props for the entry component |
 | `host` | `str` | `"127.0.0.1"` | Server bind host |
@@ -99,7 +99,9 @@ html = framework.build_view(props={"user": "alice"})
 
 1. Reads `index.lspa` shell
 2. Inlines `<style src="...">` tags
-3. Renders the entry component (or router outlet) server-side
+3. Renders server-side HTML:
+    with router disabled: `entry_component`
+    with router enabled: matched route stack from `router.routes`
 4. Embeds the component registry JSON, bootstrap config, and runtime JS
 5. Replaces all `{{ SPA_* }}` placeholders
 
@@ -129,6 +131,6 @@ framework.serve(reload=True)
 |---|---|---|
 | `component_names` | `tuple[str, ...]` | Names of all loaded components |
 | `server_address` | `tuple[str, int]` | `(host, port)` |
-| `entry_component` | `str` | Root component name |
+| `entry_component` | `str` | Root component used when router is disabled |
 | `mount_id` | `str` | DOM mount ID |
 | `page_title` | `str` | HTML page title |

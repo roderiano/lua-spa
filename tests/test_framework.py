@@ -95,7 +95,7 @@ def test_framework_expand_child_components_supports_self_closing() -> None:
 
     # When: a self-closing component tag is expanded
     output = framework._expand_child_components(
-        "<div><AppHero /></div>",
+        "<div><Hero /></div>",
         {"props": {}, "state": {}, "py": {}},
     )
 
@@ -204,3 +204,68 @@ def test_framework_static_path_guards() -> None:
     # Then: None is returned for both cases
     assert framework.get_static_asset("/static/") is None
     assert framework.get_static_asset("/other/path") is None
+
+
+def test_framework_template_router_cascades_children_inside_layout() -> None:
+    # Given: a router tree with nested child component resolution
+    root = Path(__file__).resolve().parents[1]
+    framework = create_default_framework(root)
+    framework._router_config = {
+        "initial_path": "/features",
+        "routes": [
+			{
+				"path": "/features",
+				"component": "App",
+				"children": [
+					{
+						"index": True,
+						"component": "Hero"
+					},
+					{
+						"path": "features",
+						"component": "Features"
+					},
+					{
+						"path": "*",
+						"component": "NotFound",
+						"props": {
+							"title": "Page not found",
+							"subtitle": "The requested route does not exist"
+						}
+					}
+				]
+			}
+		]
+    }
+
+    # When: building the server-side HTML
+    html = framework.build_view()
+
+    # Then: routed child content is present
+    assert "Python Framework for Single Page Applications" in html
+
+
+def test_framework_router_wildcard_notfound_component_is_rendered() -> None:
+    # Given: a router with wildcard NotFound component and an unmatched initial path
+    root = Path(__file__).resolve().parents[1]
+    framework = create_default_framework(root)
+    framework._router_config = {
+        "initial_path": "/nao-existe",
+        "routes": [
+            {
+                "path": "/",
+                "children": [
+                    {"index": True, "component": "Dashboard"},
+                    {"path": "*", "component": "NotFound"},
+                ],
+            }
+        ],
+    }
+
+    # When: building the server-side HTML
+    html = framework.build_view()
+
+    # Then: wildcard route renders the configured NotFound component
+    assert "404" in html
+    assert "The page you're looking for doesn't exist or has been moved." in html
+

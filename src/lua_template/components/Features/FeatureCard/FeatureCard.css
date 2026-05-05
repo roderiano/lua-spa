@@ -1,0 +1,17 @@
+.feature-card {
+    padding: 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(191, 198, 209, 0.18);
+    background: rgba(53, 58, 71, 0.45);
+}
+
+.feature-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+}
+
+.feature-card p {
+    margin: 0;
+    color: #bfc6d1;
+    line-height: 1.5;
+}

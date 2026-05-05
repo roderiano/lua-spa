@@ -1,0 +1,72 @@
+@import FeatureCard from './FeatureCard/FeatureCard.lspa'
+
+<python>
+class Features(Component):
+  def client(self):
+    return {
+      "props": {
+        "title": "lua-spa",
+        "subtitle": "Python Framework for Single Page Applications",
+        "tagline": "Combine Server Rendering with Client Hydration to build modern, fast SPAs with pure Python.",
+        "features": [
+          {
+            "icon": "🐍",
+            "title": "Pure Python",
+            "description": "Write component logic in Python while lua-spa handles runtime behavior.",
+          },
+          {
+            "icon": "⚡",
+            "title": "SSR + Hydration",
+            "description": "Render HTML on the server and hydrate it on the client without UI jumps.",
+          },
+          {
+            "icon": "🔌",
+            "title": "No Build Step",
+            "description": "Start quickly with a simple Python workflow and zero frontend bundling.",
+          },
+          {
+            "icon": "🧩",
+            "title": "Component System",
+            "description": "Compose reusable .lspa components with template, Python, and style together.",
+          },
+          {
+            "icon": "🗺️",
+            "title": "Built-in Router",
+            "description": "Use nested routes, dynamic params, and wildcard fallbacks from configuration.",
+          },
+          {
+            "icon": "♻️",
+            "title": "Hot Reload",
+            "description": "Update files and instantly see changes while developing.",
+          },
+        ],
+      }
+    }
+</python>
+
+<template>
+  <section class="hero-route">
+    <div class="hero-route__banner">
+      <h1 class="hero-route__title">{{ py.title }}</h1>
+      <p class="hero-route__subtitle">{{ py.subtitle }}</p>
+      <p class="hero-route__tagline">{{ py.tagline }}</p>
+      <div class="hero-route__actions">
+        <a href="/" class="hero-route__btn hero-route__btn--secondary">Back to Home</a>
+      </div>
+      <div class="hero-route__install">
+        <code>pip install lua-spa</code>
+      </div>
+    </div>
+
+    <div class="hero-route__features">
+      <FeatureCard
+        i-for="feature in props.features"
+        icon="{{ feature.icon }}"
+        title="{{ feature.title }}"
+        description="{{ feature.description }}"
+      />
+    </div>
+  </section>
+</template>
+
+<style src="./Features.css"></style>
