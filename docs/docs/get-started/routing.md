@@ -12,7 +12,6 @@ lua-spa has a built-in router configured entirely in `spa.config.json`. No extra
 ```json
 {
   "page_title": "my_app",
-  "entry_component": "App",
   "router": {
     "routes": [
       { "path": "/",       "component": "Home" },
@@ -20,6 +19,22 @@ lua-spa has a built-in router configured entirely in `spa.config.json`. No extra
       { "path": "/users/:id", "component": "UserDetail" }
     ]
   }
+}
+```
+
+With routing enabled, rendering is driven by `router.routes`.
+
+When `"initial_path": "/"`, lua-spa starts from the route that matches `"/"`.
+
+Example layout route:
+
+```html
+{
+  "path": "/",
+  "component": "Layout",
+  "children": [
+    { "index": true, "component": "DashboardHome" }
+  ]
 }
 ```
 
@@ -37,10 +52,10 @@ Dynamic segments start with `:`. The value is passed as a prop to the component:
 
 ```json
 {
+  "initial_path": "/",
   "routes": [
     {
       "path": "/dashboard",
-      "component": "Dashboard",
       "children": [
         { "index": true, "component": "DashboardHome" },
         { "path": "settings", "component": "Settings" }
@@ -56,11 +71,10 @@ Dynamic segments start with `:`. The value is passed as a prop to the component:
 flowchart TD
     A[Browser GET /dashboard/settings] --> B[Router.resolve]
     B --> C{Match /dashboard?}
-    C -- yes --> D[RouteComponent: Dashboard]
-    D --> E{Match child settings?}
-    E -- yes --> F[RouteComponent: Settings]
-    F --> G[Render cascaded stack]
-    G --> H["<Dashboard><Settings /></Dashboard>"]
+  C -- yes --> D{Match child settings?}
+  D -- yes --> E[RouteComponent: Settings]
+  E --> F[Render routed outlet]
+  F --> G["<Layout><Settings /></Layout>"]
     C -- no --> I[KeyError: Route not found]
 ```
 
@@ -68,6 +82,19 @@ flowchart TD
 
 ```json
 { "path": "*", "component": "NotFound" }
+```
+
+Recommended usage (as last child route):
+
+```json
+{
+  "path": "/",
+  "children": [
+    { "index": true, "component": "Dashboard" },
+    { "path": "products", "component": "ProductList" },
+    { "path": "*", "component": "NotFound" }
+  ]
+}
 ```
 
 ## Guard (meta)
