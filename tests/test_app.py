@@ -24,7 +24,7 @@ def test_create_default_framework_loads_components() -> None:
     framework = create_default_framework(root)
 
     # Then: expected components and default server address are configured
-    assert {"App", "AppStars", "AppNav", "AppHero", "AppFooter"}.issubset(
+    assert {"App", "AppStars", "AppNav", "Hero", "AppFooter"}.issubset(
         set(framework.component_names)
     )
     assert framework.server_address == ("127.0.0.1", 8000)
