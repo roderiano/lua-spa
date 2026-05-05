@@ -12,11 +12,10 @@ from typing import Any, Mapping
 class LuaTemplateConfig:
     """Configuration loaded from lua_template/spa.config.json.
 
-    Stores the entry component, mount ID, initial props, and server settings
+    Stores mount ID, initial props, router, and server settings
     for the SPA application.
     """
 
-    entry_component: str
     mount_id: str
     initial_props: Mapping[str, Any]
     host: str
@@ -87,25 +86,6 @@ class Component:
     """
 
 
-def _infer_entry_component_from_router(router: Mapping[str, Any] | None) -> str | None:
-    """Infer the root component from router.routes.
-
-    Picks the first configured route component when available.
-    """
-    if not isinstance(router, Mapping):
-        return None
-    routes = router.get("routes")
-    if not isinstance(routes, list) or not routes:
-        return None
-    first = routes[0]
-    if not isinstance(first, Mapping):
-        return None
-    component = first.get("component")
-    if component is None:
-        return None
-    return str(component)
-
-
 def _infer_mount_id_from_router(router: Mapping[str, Any] | None) -> str | None:
     """Infer mount id from router block when provided."""
     if not isinstance(router, Mapping):
@@ -119,7 +99,7 @@ def _infer_mount_id_from_router(router: Mapping[str, Any] | None) -> str | None:
 def load_lua_template_config(config_file: Path) -> LuaTemplateConfig:
     """Load SPA configuration from a JSON file.
 
-    Reads lua_template/spa.config.json and returns a LuaTemplateConfig with entry_component,
+    Reads lua_template/spa.config.json and returns a LuaTemplateConfig with
     mount_id, initial_props, host, and port. Raises FileNotFoundError if the
     file doesn't exist, ValueError if fields are malformed.
     """
@@ -133,11 +113,7 @@ def load_lua_template_config(config_file: Path) -> LuaTemplateConfig:
     if router is not None and not isinstance(router, Mapping):
         raise ValueError("lua_template config field 'router' must be an object")
 
-    inferred_entry = _infer_entry_component_from_router(router)
-    inferred_mount = _infer_mount_id_from_router(router)
-
-    entry_component = str(data.get("entry_component") or inferred_entry or "App")
-    mount_id = str(data.get("mount_id") or inferred_mount or "app")
+    mount_id = str(data.get("mount_id") or "app")
 
     initial_props = data.get("initial_props", {})
     if not isinstance(initial_props, dict):
@@ -160,7 +136,6 @@ def load_lua_template_config(config_file: Path) -> LuaTemplateConfig:
         raise ValueError("lua_template config field 'server.port' must be an integer") from error
 
     return LuaTemplateConfig(
-        entry_component=entry_component,
         mount_id=mount_id,
         initial_props=initial_props,
         host=host,
