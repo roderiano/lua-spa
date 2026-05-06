@@ -251,10 +251,19 @@ class SpaFramework:
             }
             for name, component in self._components.items()
         }
+        entry_python_context: Mapping[str, Any] = {}
+        entry_component = self._components.get(self.entry_component)
+        if entry_component is not None:
+            entry_python_context = build_python_context(entry_component.python_block, props)
+
+        synced_props = dict(props)
+        if isinstance(entry_python_context, Mapping) and len(entry_python_context) > 0:
+            synced_props["__context"] = dict(entry_python_context)
+
         config = {
             "mountId": self.mount_id,
             "entry": self.entry_component,
-            "props": dict(props),
+            "props": synced_props,
             "router": self._router_config,
         }
 

@@ -498,6 +498,7 @@ def invoke_method_callable(action_name: str, method_callable: Any, owner: Any | 
         sep = kwargs.get("sep", " ")
         message = sep.join(str(item) for item in args)
         trace_logs.append(message)
+        original_print(*args, **kwargs)
 
     try:
         builtins.print = _trace_print

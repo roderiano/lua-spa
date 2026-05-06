@@ -142,7 +142,7 @@ def test_scope_resolve_methods_actions_no_mappings() -> None:
         resolve_methods_actions({"up": "up"}, owner)
 
 
-def test_scope_invoke_method_callable_tracing_and_logs() -> None:
+def test_scope_invoke_method_callable_tracing_and_logs(capsys: pytest.CaptureFixture[str]) -> None:
     class Owner(Component):
         def __init__(self) -> None:
             self.state = _TraceState()
@@ -155,8 +155,16 @@ def test_scope_invoke_method_callable_tracing_and_logs() -> None:
 
     owner = Owner()
     result = invoke_method_callable("apply", owner.apply, owner)
+    captured = capsys.readouterr()
 
     assert result["op"] in {"multi", "add"}
+    assert "hello" in captured.out
+    if result["op"] == "multi":
+        assert any(
+            step.get("op") == "log" and step.get("value") == "hello"
+            for step in result.get("steps", [])
+            if isinstance(step, dict)
+        )
 
 
 def test_scope_lifecycle_and_helpers() -> None:

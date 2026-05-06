@@ -1,12 +1,123 @@
 @import FeatureCard from './FeatureCard/FeatureCard.lspa'
 
 <python>
+import json
+import re
+
+try:
+  import requests
+except Exception:  # pragma: no cover - fallback when dependency is unavailable
+  requests = None
+
+
 class Features(Component):
+  def _version_sort_key(self, version):
+    tokens = re.findall(r"\d+|[A-Za-z]+", str(version))
+    normalized = []
+    for token in tokens:
+      if token.isdigit():
+        normalized.append((0, int(token)))
+      else:
+        normalized.append((1, token.lower()))
+    return tuple(normalized)
+
+  def _fetch_pypi_versions(self, package_name, package_owner, limit):
+    print(f"[features] fetching pypi payload for {package_name}", flush=True)
+    if requests is None:
+      print("[features] requests not installed", flush=True)
+      return {
+        "available": False,
+        "error": "A lib requests nao esta instalada no ambiente.",
+        "versions": [],
+        "latest": "",
+        "author": "",
+        "maintainer": "",
+        "owner_matches": False,
+      }
+
+    url = f"https://pypi.org/pypi/{package_name}/json"
+    try:
+      response = requests.get(url, timeout=8)
+      response.raise_for_status()
+      payload = response.json()
+      payload_preview = json.dumps(payload, ensure_ascii=True)[:1200]
+      print(f"[features] payload preview: {payload_preview}", flush=True)
+    except Exception as error:
+      print(f"[features] request failed: {error}", flush=True)
+      return {
+        "available": False,
+        "error": f"Falha ao consultar PyPI: {error}",
+        "versions": [],
+        "latest": "",
+        "author": "",
+        "maintainer": "",
+        "owner_matches": False,
+      }
+
+    info = payload.get("info", {}) if isinstance(payload, dict) else {}
+    releases = payload.get("releases", {}) if isinstance(payload, dict) else {}
+
+    if not isinstance(releases, dict):
+      releases = {}
+
+    author = str(info.get("author") or "").strip()
+    maintainer = str(info.get("maintainer") or "").strip()
+    expected_owner = str(package_owner).strip().lower()
+    owner_matches = expected_owner in {author.lower(), maintainer.lower()} if expected_owner else True
+
+    ordered_versions = sorted(releases.keys(), key=self._version_sort_key, reverse=True)
+    visible_versions = ordered_versions[: max(1, int(limit))]
+
+    return {
+      "available": True,
+      "error": "",
+      "versions": visible_versions,
+      "latest": visible_versions[0] if len(visible_versions) > 0 else "",
+      "author": author,
+      "maintainer": maintainer,
+      "owner_matches": owner_matches,
+    }
+
+  def context(self, props):
+    title = str(props.get("title", "lua-spa"))
+    subtitle = str(props.get("subtitle", "Python Framework for Single Page Applications"))
+    tagline = str(
+      props.get(
+        "tagline",
+        "Combine Server Rendering with Client Hydration to build modern, fast SPAs with pure Python.",
+      )
+    )
+    package_name = str(props.get("package_name", "lua-spa"))
+    package_owner = str(props.get("package_owner", "roderiano"))
+    raw_limit = props.get("versions_limit", 8)
+    try:
+      versions_limit = int(raw_limit)
+    except (TypeError, ValueError):
+      versions_limit = 8
+
+    pypi_data = self._fetch_pypi_versions(package_name, package_owner, versions_limit)
+    return {
+      "title": title,
+      "subtitle": subtitle,
+      "tagline": tagline,
+      "package_name": package_name,
+      "package_owner": package_owner,
+      "versions_limit": versions_limit,
+      "pypi": pypi_data,
+    }
+
   def client(self):
+    client_pypi = self._fetch_pypi_versions("lua-spa", "roderiano", 8)
+    fetch_pypi_versions = self._fetch_pypi_versions
+
     class Props:
       title = "lua-spa"
       subtitle = "Python Framework for Single Page Applications"
       tagline = "Combine Server Rendering with Client Hydration to build modern, fast SPAs with pure Python."
+      package_name = "lua-spa"
+      package_owner = "roderiano"
+      versions_limit = 8
+      pypi = client_pypi
       features = [
         {
           "icon": "🐍",
@@ -40,11 +151,38 @@ class Features(Component):
         },
       ]
 
+    class MountedState:
+      name = "mounted"
+      default = False
+      cast = "bool"
+
+    class ReloadCountState:
+      name = "reload_count"
+      default = 0
+      cast = "int"
+
+    class StatusState:
+      name = "status"
+      default = "idle"
+      cast = "str"
+
     class ClientSpec:
-      pass
+      def mounted(self):
+        print("Features mounted")
+        self.state.mounted = True
+        self.state.status = "ready"
+
+      def reload_packages(self):
+        print("Reload packages action")
+        refreshed = fetch_pypi_versions("lua-spa", "roderiano", 8)
+        print(f"Reload latest version: {refreshed.get('latest', '')}")
+        self.state.reload_count += 1
+        self.state.status = "updated"
 
     spec = ClientSpec()
     spec.Props = Props
+    spec.State = [MountedState, ReloadCountState, StatusState]
+    spec.Methods = ["reload_packages"]
     return spec
 </python>
 
@@ -56,10 +194,34 @@ class Features(Component):
       <p class="hero-route__tagline">{{ py.tagline }}</p>
       <div class="hero-route__actions">
         <a href="/" class="hero-route__btn hero-route__btn--secondary">Back to Home</a>
+        <button type="button" class="hero-route__btn hero-route__btn--tertiary" @click="reload_packages">
+          Recarregar pacotes
+        </button>
       </div>
       <div class="hero-route__install">
         <code>pip install lua-spa</code>
       </div>
+      <p class="hero-route__status">
+        status: {{ state.status }} | mounted: {{ state.mounted }} | recarregamentos: {{ state.reload_count }}
+      </p>
+    </div>
+
+    <div class="hero-route__package-meta">
+      <h2>Versoes no PyPI</h2>
+      <p><strong>Pacote:</strong> {{ py.package_name }}</p>
+      <p><strong>Dono esperado:</strong> {{ py.package_owner }}</p>
+      <p><strong>Author no PyPI:</strong> {{ py.pypi.author }}</p>
+      <p><strong>Maintainer no PyPI:</strong> {{ py.pypi.maintainer }}</p>
+      <p l-if="py.pypi.owner_matches">Autor/maintainer combina com o owner esperado.</p>
+      <p l-else>Owner esperado nao coincide com os metadados retornados pelo PyPI.</p>
+
+      <p l-if="py.pypi.available == False" class="hero-route__error">{{ py.pypi.error }}</p>
+
+      <ul l-if="py.pypi.available" class="hero-route__versions">
+        <li i-for="version in py.pypi.versions" class="hero-route__version-item">
+          <code>{{ version }}</code>
+        </li>
+      </ul>
     </div>
 
     <div class="hero-route__features">

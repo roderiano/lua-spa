@@ -99,6 +99,9 @@ class Counter(Component):
     # Then: the resulting JS defines a setup function with actions
     assert "function setup" in script
     assert "actions" in script
+    assert "incomingProps" in script
+    assert "contextSync" in script
+    assert "delete resolvedProps.__context" in script
 
 
 def test_codegen_fallback_and_error_paths() -> None:

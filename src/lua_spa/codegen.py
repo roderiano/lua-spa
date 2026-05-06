@@ -45,7 +45,17 @@ def build_client_script(python_block: str) -> str:
     state_fields = list(state_spec.items())
     lines: list[str] = ["function setup({ useState, props }) {"]
     props_literal = _js_literal(props_spec)
-    lines.append(f"  const resolvedProps = Object.assign({{}}, {props_literal}, props || {{}});")
+    lines.append("  const incomingProps = props || {};")
+    lines.append(
+        "  const contextSync = (incomingProps.__context && typeof incomingProps.__context === 'object')"
+        " ? incomingProps.__context : {};"
+    )
+    lines.append(
+        f"  const resolvedProps = Object.assign({{}}, {props_literal}, contextSync, incomingProps);"
+    )
+    lines.append("  if (Object.prototype.hasOwnProperty.call(resolvedProps, '__context')) {")
+    lines.append("    delete resolvedProps.__context;")
+    lines.append("  }")
 
     for prop_name, default_value in props_spec.items():
         prop_key = _js_literal(str(prop_name))
