@@ -5,7 +5,7 @@ title: Server-Seeded Data
 
 # Server-Seeded Data
 
-Inject Python data (database results, API calls) into a component via `context()` and `initial_props`.
+Inject Python data (database results, API calls) into a component via `setup().data` and `initial_props`.
 
 ## Pattern
 
@@ -13,7 +13,7 @@ Inject Python data (database results, API calls) into a component via `context()
 flowchart LR
     DB[(Database)] --> PY[Python]
     PY -->|build_view props| FW[SpaFramework]
-    FW -->|context props| Component
+    FW -->|setup(props)| Component
     Component -->|py.users| Template
     Template --> Browser
 ```
@@ -44,10 +44,16 @@ html = framework.build_view(props={"users": json.dumps(users)})
 import json
 
 class UserList(Component):
-    def context(self, props):
+  def setup(self, props):
         raw = props.get("users", "[]")
         users = json.loads(raw) if isinstance(raw, str) else raw
-        return {"users": users}
+    return {
+      "props": props,
+      "state": {},
+      "data": {"users": users},
+      "actions": {},
+      "lifecycle": {},
+    }
 </python>
 
 <template>
@@ -63,7 +69,7 @@ class UserList(Component):
 
 | Variable | Server | Client |
 |---|---|---|
-| `py.users` | ✅ (from `context()`) | ❌ (server only) |
+| `py.users` | ✅ (from `setup().data`) | ✅ (when patched by server call) |
 | `props.users` | ✅ (raw string) | ✅ (available) |
 | `state.*` | ❌ | ✅ |
 

@@ -26,7 +26,9 @@ This project includes:
 -   Client hydration at component level
 -   DOM diff renderer inspired by React's virtual DOM flow
 -   `useState` hook-style state management
--   Base app definitions isolated in `lua_template/spa.config.json`
+-   Setup-only component contract via `Component.setup(self, props)`
+-   Server-call bridge for callable actions and lifecycle hooks
+-   Base app definitions isolated in `src/lua_template/spa.config.json`
 
 ## Requirements
 
@@ -51,6 +53,15 @@ lua-spa create my_project
 lua-spa create my_project ./apps
 ```
 
+### Create a component from template
+
+``` bash
+lua-spa new component UserCard
+lua-spa new component UserCard ./apps/my_project
+```
+
+The CLI copies `ComponentTemplate`, renames files/content, and prints the exact created paths.
+
 
 
 ### Run the application
@@ -63,6 +74,12 @@ Enable hot reload:
 
 ``` bash
 poetry run lua-spa serve --reload
+```
+
+When reload is enabled, watcher logs use relative paths:
+
+``` text
+Live reload activated. Watching src for file changes...
 ```
 
 Open in browser:
@@ -92,12 +109,19 @@ lua-spa/
   src/
     lua_spa/
       app.py
+      codegen.py
       framework.py
+      loader.py
       main.py
-  lua_template/
-    index.lspa
-    spa.config.json
-    components/
+      renderer.py
+      router.py
+      scope.py
+      server.py
+      runtime_assets.py
+    lua_template/
+      index.lspa
+      spa.config.json
+      components/
   tests/
 ```
 
@@ -122,5 +146,10 @@ poetry run pytest --cov=src/lua_spa --cov-report=term
 Components are `.lspa` files composed of:
 
 -   optional imports
--   `<python>` block (executed on backend)
+-   `<python>` block with a `Component` subclass implementing `setup(self, props)`
 -   `<template>` block (HTML)
+
+`setup(self, props)` can return a mapping with `props`, `state`, `data`, `actions`, and `lifecycle`,
+or omit return and let the server infer these sections from local variables/functions.
+Callable `actions` and `lifecycle` entries are executed through the `POST /__lua_spa_action` bridge.
+When actions/lifecycle mutate `data`, those keys are patched back to client props automatically.

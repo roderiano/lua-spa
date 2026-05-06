@@ -7,6 +7,8 @@ then inspects and normalizes the resulting client specs (props, state, actions, 
 from __future__ import annotations
 
 import builtins
+import sys
+from types import FunctionType
 from typing import Any, Mapping
 
 from lua_spa.trace import (
@@ -58,6 +60,7 @@ def load_python_scope(python_block: str) -> dict[str, Any]:
         "StateField": StateField,
     }
     exec(python_block, shared_scope, shared_scope)  # noqa: S102
+    shared_scope["__print_ref__"] = None  # placeholder for print injection
     return shared_scope
 
 
@@ -102,33 +105,71 @@ def resolve_component_instance(local_scope: Mapping[str, Any]) -> Any | None:
 
 
 def resolve_component_callables(local_scope: Mapping[str, Any]) -> tuple[Any | None, Any | None]:
-    """Extract context() and client() callables from the component.
+    """Extract setup-derived context/client factories from a Component instance.
 
-    Returns a (context_factory, client_factory) tuple. Looks for top-level
-    context() and client() functions, or methods on a component instance.
-    Raises ValueError if the callables are not actually callable.
+    Returns a (context_factory, client_factory) tuple created from
+    `Component.setup(self, props)`. Legacy styles (top-level setup/context/client)
+    are not supported.
     """
-    context_factory = local_scope.get("context")
-    client_factory = local_scope.get("client")
+    context_factory = None
+    client_factory = None
 
     component_instance = resolve_component_instance(local_scope)
-    if component_instance is not None:
-        method_context = getattr(component_instance, "context", None)
-        if callable(method_context):
-            context_factory = method_context
+    if component_instance is None:
+        if len(local_scope) == 0:
+            return None, None
+        raise ValueError(
+            "Component python block must define a Component subclass with setup(self, props)"
+        )
 
-        client_attr = getattr(component_instance, "client", None)
-        if client_attr is not None:
-            client_factory = _build_client_factory(client_attr)
+    method_setup = getattr(component_instance, "setup", None)
+    if not callable(method_setup):
+        raise ValueError(
+            "Component python block must define setup(self, props); context()/client()/top-level setup are not supported"
+        )
 
-        method_client = getattr(component_instance, "client", None)
-        if callable(method_client):
-            client_factory = method_client
+    def _context_from_setup(props: Any) -> Any:
+        setup_props = dict(props) if isinstance(props, Mapping) else {}
+        try:
+            setup_result_raw, setup_locals = _invoke_setup_with_locals(method_setup, setup_props)
+            setup_result = _coerce_setup_result(
+                component_instance,
+                setup_result_raw,
+                setup_props,
+                setup_locals,
+            )
+        except ValueError:
+            return {}
+        if isinstance(setup_result, Mapping):
+            setup_data = setup_result.get("data", {})
+            if isinstance(setup_data, Mapping):
+                return setup_data
+        return {}
+
+    def _client_from_setup(props: Any | None = None) -> Any:
+        setup_props = dict(props) if isinstance(props, Mapping) else {}
+        setup_result_raw, setup_locals = _invoke_setup_with_locals(method_setup, setup_props)
+        setup_result = _coerce_setup_result(
+            component_instance,
+            setup_result_raw,
+            setup_props,
+            setup_locals,
+        )
+        if not isinstance(setup_result, Mapping):
+            raise ValueError(
+                "setup(self, props) must return a mapping or set component props/state/data/actions/lifecycle attributes"
+            )
+        mapped_result = dict(setup_result)
+        mapped_result["__setup_mapped__"] = True
+        return mapped_result
+
+    context_factory = _context_from_setup
+    client_factory = _client_from_setup
 
     if context_factory is not None and not callable(context_factory):
-        raise ValueError("Component python block must define callable context(props)")
+        raise ValueError("Component python block must define callable setup(self, props)")
     if client_factory is not None and not callable(client_factory):
-        raise ValueError("Component python block must define callable client()")
+        raise ValueError("Component python block must define callable setup(self, props)")
 
     return context_factory, client_factory
 
@@ -148,6 +189,101 @@ def _build_client_factory(client_attr: Any) -> Any:
         return client_attr
 
     return _value_factory
+
+
+def _coerce_setup_result(
+    component_instance: Any,
+    setup_result: Any,
+    setup_props: Mapping[str, Any],
+    setup_locals: Mapping[str, Any] | None = None,
+) -> Mapping[str, Any]:
+    """Normalize setup output, supporting implicit component attribute mapping."""
+    if isinstance(setup_result, Mapping):
+        return setup_result
+
+    if setup_result is not None:
+        raise ValueError(
+            "setup(self, props) must return a mapping or None when using component attributes"
+        )
+
+    setup_locals_map = dict(setup_locals or {})
+
+    mapped_props = getattr(component_instance, "props", None)
+    if mapped_props is None and "props" in setup_locals_map:
+        mapped_props = setup_locals_map.get("props")
+
+    mapped_state = getattr(component_instance, "state", None)
+    if mapped_state is None and "state" in setup_locals_map:
+        mapped_state = setup_locals_map.get("state")
+
+    mapped_data = getattr(component_instance, "data", None)
+    if mapped_data is None and "data" in setup_locals_map:
+        mapped_data = setup_locals_map.get("data")
+
+    mapped_actions = getattr(component_instance, "actions", None)
+    if mapped_actions is None and "actions" in setup_locals_map:
+        mapped_actions = setup_locals_map.get("actions")
+
+    mapped_lifecycle = getattr(component_instance, "lifecycle", None)
+    if mapped_lifecycle is None and "lifecycle" in setup_locals_map:
+        mapped_lifecycle = setup_locals_map.get("lifecycle")
+
+    local_callables: dict[str, Any] = {
+        name: value
+        for name, value in setup_locals_map.items()
+        if isinstance(name, str) and not name.startswith("_") and callable(value)
+    }
+
+    inferred_lifecycle: dict[str, Any] = {}
+    for callable_name, callable_ref in local_callables.items():
+        try:
+            canonical_lifecycle_name(callable_name)
+        except ValueError:
+            continue
+        inferred_lifecycle[callable_name] = callable_ref
+
+    if mapped_lifecycle is None:
+        mapped_lifecycle = inferred_lifecycle
+
+    if mapped_actions is None:
+        mapped_actions = {
+            callable_name: callable_ref
+            for callable_name, callable_ref in local_callables.items()
+            if callable_name not in inferred_lifecycle
+        }
+
+    return {
+        "props": dict(setup_props) if mapped_props is None else mapped_props,
+        "state": {} if mapped_state is None else mapped_state,
+        "data": {} if mapped_data is None else mapped_data,
+        "actions": {} if mapped_actions is None else mapped_actions,
+        "lifecycle": {} if mapped_lifecycle is None else mapped_lifecycle,
+    }
+
+
+def _invoke_setup_with_locals(
+    method_setup: Any,
+    setup_props: Mapping[str, Any],
+) -> tuple[Any, dict[str, Any]]:
+    """Execute setup and capture local variables from its return frame."""
+    setup_callable = getattr(method_setup, "__func__", method_setup)
+    setup_code = getattr(setup_callable, "__code__", None)
+    captured_locals: dict[str, Any] = {}
+
+    previous_profile = sys.getprofile()
+
+    def _profile(frame: Any, event: str, arg: Any) -> Any:
+        if event == "return" and setup_code is not None and frame.f_code is setup_code:
+            captured_locals.update(dict(frame.f_locals))
+        return _profile
+
+    sys.setprofile(_profile)
+    try:
+        setup_result = method_setup(dict(setup_props))
+    finally:
+        sys.setprofile(previous_profile)
+
+    return setup_result, captured_locals
 
 
 def normalize_context_result(result: Any) -> dict[str, Any]:
@@ -183,34 +319,24 @@ def normalize_client_spec(
     Returns empty dicts if raw_spec is None. Raises ValueError if format is invalid.
     """
     if raw_spec is None:
-        return (
-            {},
-            {},
-            {},
-            {"onCreate": [], "onMount": [], "onUpdate": [], "onUnmount": []},
+        raise ValueError(
+            "setup(self, props) must return a mapping with props/state/data/actions/lifecycle"
         )
 
     if isinstance(raw_spec, Mapping):
-        mapping_props_spec = normalize_props_source(
-            _extract_mapping_value(raw_spec, ["props", "Props"], {})
+        if raw_spec.get("__setup_mapped__") is True:
+            return _normalize_setup_spec(raw_spec)
+        raise ValueError(
+            "client() must return a Python object/class instance; declarative dict specs are not supported"
         )
-        mapping_state_spec = normalize_state_source(
-            _extract_mapping_value(raw_spec, ["state", "State"], {}), owner=None
-        )
-        mapping_actions_spec = _extract_mapping_value(raw_spec, ["actions", "methods"], {})
-        methods_spec = _extract_mapping_value(raw_spec, ["Methods"], None)
-        lifecycle_spec_raw = _extract_mapping_value(raw_spec, ["lifecycle", "Lifecycle"], {})
 
-        if not isinstance(mapping_actions_spec, Mapping):
-            raise ValueError("client().actions must be a mapping")
+    raise ValueError("Only setup(self, props) mapping output is supported")
 
-        normalized_actions = dict(mapping_actions_spec)
-        if methods_spec is not None:
-            normalized_actions.update(resolve_methods_actions(methods_spec, owner=None))
 
-        mapping_lifecycle_spec = normalize_lifecycle_spec(lifecycle_spec_raw)
-        return mapping_props_spec, mapping_state_spec, normalized_actions, mapping_lifecycle_spec
-
+def _normalize_setup_spec(
+    raw_spec: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, list[Any]]]:
+    """Normalize setup(self, props) mapping output into client spec tuple."""
     props_spec: dict[str, Any] = {}
     state_spec: dict[str, Any] = {}
     actions_spec: dict[str, Any] = {}
@@ -221,79 +347,395 @@ def normalize_client_spec(
         "onUnmount": [],
     }
 
-    props_attr = getattr(raw_spec, "Props", None)
-    if props_attr is None:
-        lower_props_attr = getattr(raw_spec, "props", None)
-        if lower_props_attr is not None and not callable(lower_props_attr):
-            props_spec = normalize_props_source(lower_props_attr)
-        else:
-            props_spec = _extract_object_properties(raw_spec)
+    raw_props = raw_spec.get("props", {})
+    if isinstance(raw_props, Mapping):
+        props_spec = dict(raw_props)
     else:
-        props_spec = normalize_props_source(props_attr)
+        props_spec = normalize_props_source(raw_props)
 
-    props_method = getattr(raw_spec, "props", None)
-    if callable(props_method):
-        method_props = props_method()
-        props_spec = normalize_props_source(method_props)
+    raw_data = raw_spec.get("data", {})
+    if isinstance(raw_data, Mapping):
+        for key, value in raw_data.items():
+            key_name = str(key)
+            if key_name not in props_spec:
+                props_spec[key_name] = value
 
-    state_attr = getattr(raw_spec, "State", None)
-    if state_attr is None:
-        lower_state_attr = getattr(raw_spec, "state", None)
-        if lower_state_attr is not None and not callable(lower_state_attr):
-            state_attr = lower_state_attr
-    state_spec = normalize_state_source(state_attr, owner=raw_spec)
-    state_method = getattr(raw_spec, "state", None)
-    if callable(state_method):
-        method_state = state_method()
-        state_spec = normalize_state_source(method_state, owner=raw_spec)
-
-    actions_method = getattr(raw_spec, "actions", None)
-    if callable(actions_method):
-        method_actions = actions_method()
-        if method_actions is None:
-            method_actions = {}
-        if not isinstance(method_actions, Mapping):
-            raise ValueError("client().actions() must return a mapping")
-        actions_spec.update(dict(method_actions))
-
-    methods_method = getattr(raw_spec, "methods", None)
-    if callable(methods_method):
-        method_actions = methods_method()
-        if method_actions is None:
-            method_actions = {}
-        if not isinstance(method_actions, Mapping):
-            raise ValueError("client().methods() must return a mapping")
-        actions_spec.update(dict(method_actions))
-
-    methods_attr = getattr(raw_spec, "Methods", None)
-    if methods_attr is None:
-        lower_methods_attr = getattr(raw_spec, "methods", None)
-        if lower_methods_attr is not None and not callable(lower_methods_attr):
-            methods_attr = lower_methods_attr
-    if methods_attr is not None:
-        actions_spec.update(resolve_methods_actions(methods_attr, owner=raw_spec))
+    raw_state = raw_spec.get("state", {})
+    if isinstance(raw_state, Mapping):
+        state_spec = dict(raw_state)
     else:
-        inferred_methods = infer_action_methods(raw_spec)
-        if len(inferred_methods) > 0:
-            actions_spec.update(resolve_methods_actions(inferred_methods, owner=raw_spec))
+        state_spec = normalize_state_source(raw_state, owner=None)
 
-    lifecycle_attr = getattr(raw_spec, "Lifecycle", None)
-    if lifecycle_attr is None:
-        lower_lifecycle_attr = getattr(raw_spec, "lifecycle", None)
-        if lower_lifecycle_attr is not None and not callable(lower_lifecycle_attr):
-            lifecycle_attr = lower_lifecycle_attr
-    if lifecycle_attr is not None:
-        lifecycle_spec = normalize_lifecycle_spec(lifecycle_attr)
+    raw_actions = raw_spec.get("actions", {})
+    if raw_actions is None:
+        raw_actions = {}
+    if not isinstance(raw_actions, Mapping):
+        raise ValueError("setup().actions must be a mapping")
 
-    lifecycle_method = getattr(raw_spec, "lifecycle", None)
-    if callable(lifecycle_method):
-        lifecycle_spec = normalize_lifecycle_spec(lifecycle_method())
+    for action_name, action_value in raw_actions.items():
+        action_name_str = str(action_name)
+        if callable(action_value):
+            actions_spec[action_name_str] = {
+                "op": "server_call",
+                "kind": "action",
+                "name": action_name_str,
+            }
+            continue
+        if isinstance(action_value, Mapping):
+            actions_spec[action_name_str] = dict(action_value)
+            continue
+        raise ValueError(f"setup().actions['{action_name_str}'] must be callable or mapping")
 
-    method_lifecycle = normalize_lifecycle_methods(raw_spec)
-    for hook_name, action_names in method_lifecycle.items():
-        lifecycle_spec[hook_name] = action_names
+    raw_lifecycle = raw_spec.get("lifecycle", {})
+    if raw_lifecycle is None:
+        raw_lifecycle = {}
+    if not isinstance(raw_lifecycle, Mapping):
+        raise ValueError("setup().lifecycle must be a mapping")
+
+    for hook_name_raw, hook_value in raw_lifecycle.items():
+        hook_name = canonical_lifecycle_name(str(hook_name_raw))
+
+        if callable(hook_value):
+            lifecycle_spec[hook_name] = [
+                {
+                    "op": "server_call",
+                    "kind": "lifecycle",
+                    "name": str(hook_name_raw),
+                }
+            ]
+            continue
+
+        if isinstance(hook_value, str):
+            lifecycle_spec[hook_name] = [hook_value]
+            continue
+
+        if isinstance(hook_value, Mapping):
+            lifecycle_spec[hook_name] = [dict(hook_value)]
+            continue
+
+        if isinstance(hook_value, (list, tuple)):
+            normalized_items: list[Any] = []
+            for item in hook_value:
+                if callable(item):
+                    normalized_items.append(
+                        {
+                            "op": "server_call",
+                            "kind": "lifecycle",
+                            "name": str(hook_name_raw),
+                        }
+                    )
+                    continue
+                if isinstance(item, (str, Mapping)):
+                    normalized_items.append(item)
+                    continue
+                raise ValueError(
+                    "setup().lifecycle entries must be callables, strings, or mappings"
+                )
+            lifecycle_spec[hook_name] = normalized_items
+            continue
+
+        raise ValueError("setup().lifecycle values must be callable, string, list, or mapping")
 
     return props_spec, state_spec, actions_spec, lifecycle_spec
+
+
+def execute_setup_server_callable(
+    python_block: str,
+    kind: str,
+    name: str,
+    props: Mapping[str, Any] | None,
+    state: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Execute a setup action/lifecycle callable at request time.
+
+    Returns a patch payload containing updated state and props updates.
+    """
+    local_scope = load_python_scope(python_block)
+    component_instance = resolve_component_instance(local_scope)
+    if component_instance is None:
+        raise ValueError("Component python block must define a Component subclass")
+
+    method_setup = getattr(component_instance, "setup", None)
+    if not callable(method_setup):
+        raise ValueError("Component must define setup(self, props)")
+
+    setup_props = dict(props or {})
+    setup_result_raw, setup_locals = _invoke_setup_with_locals(method_setup, setup_props)
+    setup_result = _coerce_setup_result(
+        component_instance,
+        setup_result_raw,
+        setup_props,
+        setup_locals,
+    )
+
+    # Inject print ref into the local scope so nested functions see changes
+    if isinstance(local_scope, dict):
+        local_scope["__print_ref__"] = None
+
+    setup_state_obj = setup_result.get("state", {})
+    setup_state: dict[str, Any] = (
+        dict(setup_state_obj) if isinstance(setup_state_obj, Mapping) else {}
+    )
+    setup_data_obj = setup_result.get("data", {})
+
+    if isinstance(state, Mapping):
+        for key, value in state.items():
+            key_name = str(key)
+            if key_name in setup_state:
+                setup_state[key_name] = value
+        if isinstance(setup_state_obj, dict):
+            setup_state_obj.clear()
+            setup_state_obj.update(setup_state)
+
+    props_patch: dict[str, Any] = {}
+    tracked_action_results: list[Any] = []
+    trace_logs: list[Any] = []
+    original_print = builtins.print
+
+    def _trace_print(*args: Any, **kwargs: Any) -> None:
+        sep = kwargs.get("sep", " ")
+        message = sep.join(str(item) for item in args)
+        trace_logs.append(message)
+        original_print(*args, **kwargs)
+
+    def _merge_result(result: Any) -> None:
+        if isinstance(result, Mapping):
+            for key, value in result.items():
+                props_patch[str(key)] = value
+
+    # Inject trace_print into locals scope so nested functions use it
+    if isinstance(local_scope, dict):
+        builtin_ref = local_scope.get("__builtins__")
+        if isinstance(builtin_ref, dict):
+            builtin_ref["print"] = _trace_print
+        elif hasattr(builtin_ref, "__dict__"):
+            builtin_ref.__dict__["print"] = _trace_print
+        else:
+            try:
+                setattr(builtin_ref, "print", _trace_print)
+            except (TypeError, AttributeError):
+                pass
+        local_scope["__print_ref__"] = _trace_print
+
+    actions_original = setup_result.get("actions", {})
+    actions_for_execution: dict[str, Any] = {}
+    action_replacements_by_id: dict[int, Any] = {}
+    if isinstance(actions_original, Mapping):
+        for action_key, action_value in actions_original.items():
+            action_name = str(action_key)
+            if callable(action_value):
+
+                def _wrap_callable(fn: Any) -> Any:
+                    def _wrapped(*args: Any, **kwargs: Any) -> Any:
+                        old_print = builtins.print
+                        builtins.print = _trace_print
+                        try:
+                            result = fn(*args, **kwargs)
+                            tracked_action_results.append(result)
+                            return result
+                        finally:
+                            builtins.print = old_print
+
+                    return _wrapped
+
+                wrapped_callable = _wrap_callable(action_value)
+                actions_for_execution[action_name] = wrapped_callable
+                action_replacements_by_id[id(action_value)] = wrapped_callable
+            else:
+                actions_for_execution[action_name] = action_value
+
+    if isinstance(setup_result, dict):
+        setup_result["actions"] = actions_for_execution
+
+    if kind == "action":
+        actions = setup_result.get("actions", {})
+        if not isinstance(actions, Mapping):
+            raise ValueError("setup().actions must be a mapping")
+        target = actions.get(name)
+        if not callable(target):
+            raise ValueError(f"Unknown action: {name}")
+        builtins.print = _trace_print
+        try:
+            result = target()
+        except TypeError:
+            result = target(None)
+        finally:
+            builtins.print = original_print
+        _merge_result(result)
+    elif kind == "lifecycle":
+        lifecycle = setup_result.get("lifecycle", {})
+        if not isinstance(lifecycle, Mapping):
+            raise ValueError("setup().lifecycle must be a mapping")
+        hook_value = lifecycle.get(name)
+        if callable(hook_value):
+            hook_callable = _rewire_callable_closure(hook_value, action_replacements_by_id)
+            builtins.print = _trace_print
+            try:
+                result = hook_callable()
+            except TypeError:
+                result = hook_callable(None)
+            finally:
+                builtins.print = original_print
+            _merge_result(result)
+        elif isinstance(hook_value, str):
+            actions = setup_result.get("actions", {})
+            if not isinstance(actions, Mapping):
+                raise ValueError("setup().actions must be a mapping")
+            action_callable = actions.get(hook_value)
+            if not callable(action_callable):
+                raise ValueError(f"Unknown lifecycle action: {hook_value}")
+            try:
+                result = action_callable()
+            except TypeError:
+                result = action_callable(None)
+            _merge_result(result)
+        elif isinstance(hook_value, (list, tuple)):
+            actions = setup_result.get("actions", {})
+            if not isinstance(actions, Mapping):
+                actions = {}
+            for entry in hook_value:
+                if callable(entry):
+                    entry_callable = _rewire_callable_closure(entry, action_replacements_by_id)
+                    try:
+                        result = entry_callable()
+                    except TypeError:
+                        result = entry_callable(None)
+                    _merge_result(result)
+                    continue
+                if isinstance(entry, str):
+                    action_callable = actions.get(entry)
+                    if callable(action_callable):
+                        try:
+                            result = action_callable()
+                        except TypeError:
+                            result = action_callable(None)
+                        _merge_result(result)
+        elif hook_value is not None:
+            raise ValueError(f"Unsupported lifecycle hook value for {name}")
+    for message in trace_logs:
+        if "__lua_logs__" not in props_patch:
+            props_patch["__lua_logs__"] = []
+        props_patch["__lua_logs__"].append(message)
+
+    for tracked in tracked_action_results:
+        _merge_result(tracked)
+
+    if isinstance(setup_data_obj, Mapping):
+        for data_key, data_value in setup_data_obj.items():
+            data_key_str = str(data_key)
+            if data_key_str not in props_patch:
+                props_patch[data_key_str] = data_value
+
+    current_state = dict(setup_state_obj) if isinstance(setup_state_obj, Mapping) else setup_state
+    return {
+        "state": current_state,
+        "props": props_patch,
+    }
+
+
+def _make_closure_cell(value: Any) -> Any:
+    """Create a writable closure cell carrying the provided value."""
+    closure = (lambda: value).__closure__
+    if closure:
+        return closure[0]
+    return None
+
+
+def _rewire_callable_closure(callable_obj: Any, replacements_by_id: Mapping[int, Any]) -> Any:
+    """Replace closure callables by identity so lifecycle hooks call wrapped actions."""
+    if len(replacements_by_id) == 0:
+        return callable_obj
+
+    bound_self = getattr(callable_obj, "__self__", None)
+    function_obj = getattr(callable_obj, "__func__", callable_obj)
+    if not isinstance(function_obj, FunctionType):
+        return callable_obj
+
+    closure = getattr(function_obj, "__closure__", None)
+    if not closure:
+        return callable_obj
+
+    changed = False
+    new_cells: list[Any] = []
+    for cell in closure:
+        try:
+            cell_value = cell.cell_contents
+        except ValueError:
+            new_cells.append(cell)
+            continue
+
+        replacement = replacements_by_id.get(id(cell_value))
+        if replacement is None:
+            new_cells.append(cell)
+            continue
+
+        new_cells.append(_make_closure_cell(replacement))
+        changed = True
+
+    if not changed:
+        return callable_obj
+
+    rewired = FunctionType(
+        function_obj.__code__,
+        function_obj.__globals__,
+        name=function_obj.__name__,
+        argdefs=function_obj.__defaults__,
+        closure=tuple(new_cells),
+    )
+    rewired.__kwdefaults__ = function_obj.__kwdefaults__
+    rewired.__annotations__ = getattr(function_obj, "__annotations__", {})
+    rewired.__dict__.update(getattr(function_obj, "__dict__", {}))
+
+    if bound_self is not None:
+        return rewired.__get__(bound_self, type(bound_self))
+    return rewired
+
+
+def _normalize_setup_action_callable(
+    action_name: str,
+    action_callable: Any,
+    state_backing: dict[str, Any],
+) -> dict[str, Any]:
+    """Execute setup action callable once and convert effects to action operations."""
+    before_state = dict(state_backing)
+
+    try:
+        result = action_callable()
+    except TypeError:
+        result = action_callable(None)
+
+    after_state = dict(state_backing)
+
+    # Restore setup state backing so one action does not affect others during normalization.
+    state_backing.clear()
+    state_backing.update(before_state)
+
+    steps: list[dict[str, Any]] = []
+
+    for state_name, before_value in before_state.items():
+        after_value = after_state.get(state_name)
+        if after_value != before_value:
+            if isinstance(before_value, (int, float)) and isinstance(after_value, (int, float)):
+                delta = after_value - before_value
+                if delta > 0:
+                    steps.append({"op": "add", "state": str(state_name), "value": delta})
+                    continue
+                if delta < 0:
+                    steps.append({"op": "sub", "state": str(state_name), "value": abs(delta)})
+                    continue
+            steps.append({"op": "set", "state": str(state_name), "value": after_value})
+
+    if isinstance(result, Mapping):
+        for key, value in result.items():
+            steps.append({"op": "set_prop", "prop": str(key), "value": value})
+
+    if len(steps) == 0:
+        return {"op": "set", "state": "__noop__", "value": None}
+
+    if len(steps) == 1:
+        return steps[0]
+
+    return {"op": "multi", "steps": steps}
 
 
 def normalize_props_source(raw_props: Any) -> dict[str, Any]:
@@ -301,12 +743,14 @@ def normalize_props_source(raw_props: Any) -> dict[str, Any]:
     if raw_props is None:
         return {}
     if isinstance(raw_props, Mapping):
-        return dict(raw_props)
+        raise ValueError(
+            "Declarative props dicts are not supported. Use a Props class or props() returning an object"
+        )
     if isinstance(raw_props, type):
         return _extract_class_properties(raw_props)
     if hasattr(raw_props, "__dict__"):
         return _extract_object_properties(raw_props)
-    raise ValueError("client().props must be mapping or object with public variables")
+    raise ValueError("client().props must be a class or object with public variables")
 
 
 def normalize_state_source(raw_state: Any, owner: Any | None) -> dict[str, Any]:
@@ -319,7 +763,15 @@ def normalize_state_source(raw_state: Any, owner: Any | None) -> dict[str, Any]:
         return {}
 
     if isinstance(raw_state, Mapping):
-        return dict(raw_state)
+        raise ValueError(
+            "Declarative state dicts are not supported. Use a State class/object or a list of StateField/classes"
+        )
+
+    if isinstance(raw_state, type):
+        return _normalize_state_attributes(_extract_class_properties(raw_state))
+
+    if hasattr(raw_state, "__dict__"):
+        return _normalize_state_attributes(_extract_object_properties(raw_state))
 
     if isinstance(raw_state, (list, tuple, set)):
         normalized: dict[str, Any] = {}
@@ -334,7 +786,35 @@ def normalize_state_source(raw_state: Any, owner: Any | None) -> dict[str, Any]:
                 normalized[state_item["name"]]["init"] = state_item["init"]
         return normalized
 
-    raise ValueError("State must be a mapping or a list of state classes")
+    raise ValueError("State must be a class/object or a list of StateField/classes")
+
+
+def _normalize_state_attributes(values: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize class/object state attributes into a state spec mapping."""
+    normalized: dict[str, Any] = {}
+    for name, value in values.items():
+        if isinstance(value, StateField):
+            normalized_name = (
+                value.name if isinstance(value.name, str) and value.name.strip() != "" else name
+            )
+            normalized[normalized_name] = {
+                "from_prop": value.from_prop,
+                "default": value.default,
+                "cast": value.cast,
+            }
+            continue
+        if isinstance(value, type):
+            state_item = normalize_state_item(value, owner=None)
+            normalized[state_item["name"]] = {
+                "from_prop": state_item["from_prop"],
+                "default": state_item["default"],
+                "cast": state_item["cast"],
+            }
+            if "init" in state_item:
+                normalized[state_item["name"]]["init"] = state_item["init"]
+            continue
+        normalized[name] = value
+    return normalized
 
 
 def normalize_state_item(item: Any, owner: Any | None) -> dict[str, Any]:
@@ -344,18 +824,7 @@ def normalize_state_item(item: Any, owner: Any | None) -> dict[str, Any]:
     Raises ValueError if the item is malformed.
     """
     if isinstance(item, Mapping):
-        name = item.get("name")
-        if not isinstance(name, str) or name.strip() == "":
-            raise ValueError("State item mapping must include a string 'name'")
-        result = {
-            "name": name,
-            "from_prop": item.get("from_prop"),
-            "default": item.get("default"),
-            "cast": str(item.get("cast", "raw")),
-        }
-        if "init" in item and callable(item.get("init")):
-            result["init"] = item.get("init")
-        return result
+        raise ValueError("State list items cannot be dicts. Use StateField or state classes")
 
     if isinstance(item, StateField):
         return {
@@ -409,13 +878,24 @@ def resolve_methods_actions(methods_spec: Any, owner: Any | None) -> dict[str, A
         return resolved
 
     if isinstance(methods_spec, Mapping):
-        for action_name, action_callable in methods_spec.items():
-            action_name_str = str(action_name)
-            if isinstance(action_callable, Mapping):
-                resolved[action_name_str] = action_callable
+        raise ValueError(
+            "methods/actions mappings are not supported. Use methods list (names) or methods objects/classes"
+        )
+
+    if isinstance(methods_spec, type):
+        for action_name, action_callable in vars(methods_spec).items():
+            if action_name.startswith("_"):
                 continue
-            callable_ref = _normalize_method_callable(action_name_str, action_callable, owner)
-            resolved[action_name_str] = invoke_method_callable(action_name_str, callable_ref, owner)
+            callable_ref = _normalize_method_callable(action_name, action_callable, owner)
+            resolved[action_name] = invoke_method_callable(action_name, callable_ref, owner)
+        return resolved
+
+    if hasattr(methods_spec, "__dict__") and not isinstance(methods_spec, str):
+        for action_name, action_callable in vars(methods_spec).items():
+            if action_name.startswith("_"):
+                continue
+            callable_ref = _normalize_method_callable(action_name, action_callable, owner)
+            resolved[action_name] = invoke_method_callable(action_name, callable_ref, owner)
         return resolved
 
     if isinstance(methods_spec, (list, tuple, set)):
@@ -430,7 +910,7 @@ def resolve_methods_actions(methods_spec: Any, owner: Any | None) -> dict[str, A
             resolved[item] = invoke_method_callable(item, method_ref, owner)
         return resolved
 
-    raise ValueError("Methods must be a mapping of callables or a list of method names")
+    raise ValueError("Methods must be a class/object of callables or a list of method names")
 
 
 def _normalize_method_callable(action_name: str, candidate: Any, owner: Any | None) -> Any:
@@ -480,6 +960,7 @@ def invoke_method_callable(action_name: str, method_callable: Any, owner: Any | 
         sep = kwargs.get("sep", " ")
         message = sep.join(str(item) for item in args)
         trace_logs.append(message)
+        original_print(*args, **kwargs)
 
     try:
         builtins.print = _trace_print

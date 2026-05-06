@@ -14,30 +14,33 @@ A controlled form with input binding, validation state, and submit feedback.
 ```html
 <python>
 class ContactForm(Component):
-    def context(self, props):
-        return {}
+  def setup(self, props):
+    state = {"name": "", "email": "", "submitted": False, "error": ""}
 
-    def client(self):
-        return {
-            "state": {
-                "name": "",
-                "email": "",
-                "submitted": False,
-                "error": "",
-            },
-        }
+    def setName():
+      state["name"] = ""
 
-    def setName(self):
-        self.state.name = ""
+    def setEmail():
+      state["email"] = ""
 
-    def setEmail(self):
-        self.state.email = ""
+    def submit():
+      state["submitted"] = True
 
-    def submit(self):
-        self.state.submitted = True
+    def clearError():
+      state["error"] = ""
 
-    def clearError(self):
-        self.state.error = ""
+    return {
+      "props": props,
+      "state": state,
+      "data": {},
+      "actions": {
+        "setName": setName,
+        "setEmail": setEmail,
+        "submit": submit,
+        "clearError": clearError,
+      },
+      "lifecycle": {},
+    }
 </python>
 
 <template>
@@ -84,4 +87,4 @@ stateDiagram-v2
 | Controlled input | `:value="state.name"` + `@input="setName"` |
 | Conditional section | `l-if="state.submitted"` / `l-else` |
 | Error display | `l-if="state.error"` |
-| Submit feedback | `self.set("submitted", True)` |
+| Submit feedback | action callable updates `state.submitted` |

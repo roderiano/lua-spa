@@ -26,6 +26,7 @@ classDiagram
         +reload_components() None
         +get_static_asset(path) tuple|None
         +serve(host, port, reload) None
+        +execute_server_callable(component_name, kind, callable_name, props, state) dict
     }
 
     class ComponentLoader {
@@ -124,6 +125,15 @@ Starts the HTTP server. Blocks until interrupted.
 ```python
 framework.serve(reload=True)
 ```
+
+### `execute_server_callable(component_name, kind, callable_name, props, state) -> dict`
+
+Executes callable actions/lifecycle hooks from `setup(self, props)` (explicit or inferred) and returns patch payload:
+
+- `state`: updated state snapshot
+- `props`: props/data patch to apply in browser (includes mutated `data` keys even when action returns `None`)
+
+Used internally by `POST /__lua_spa_action` runtime bridge.
 
 ## Properties
 

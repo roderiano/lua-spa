@@ -5,14 +5,14 @@ title: Computed Variables
 
 # Computed Variables
 
-Computed variables let you derive values from props (or any Python logic) on the **server side**, making them available in your template as the `py` namespace.
+Computed variables let you derive values from props (or any Python logic) on the server side, making them available in your template as the `py` namespace.
 
-They are declared in `context(self, props)` — a method called once per request before rendering.
+They are declared in `setup(self, props)` via the `data` field.
 
 ```mermaid
 flowchart LR
-    P["props"] --> C["context(self, props)"]
-    C -->|"returns dict"| PY["py namespace"]
+  P["props"] --> C["setup(self, props)"]
+  C -->|"returns data dict"| PY["py namespace"]
     PY --> T["{{ py.name }} in template"]
     PY --> T2["{{ name }} — also works (flattened)"]
 ```
@@ -21,16 +21,23 @@ flowchart LR
 
 ## Declaring computed variables
 
-Return a plain dict from `context(self, props)`. Every key becomes a variable you can use in the template:
+Return a plain dict in `data` from `setup(self, props)`. Every key becomes a variable you can use in the template:
 
 ```python
 class Greeting(Component):
-    def context(self, props):
+  def setup(self, props):
         name = props.get("name", "World")
+    data = {
+      "message":    f"Hello, {name}!",
+      "upper_name": name.upper(),
+      "char_count": len(name),
+    }
         return {
-            "message":    f"Hello, {name}!",
-            "upper_name": name.upper(),
-            "char_count": len(name),
+      "props": {"name": name, **props},
+      "state": {},
+      "data": data,
+      "actions": {},
+      "lifecycle": {},
         }
 ```
 
@@ -48,25 +55,33 @@ class Greeting(Component):
 
 ---
 
-## What you can do inside `context()`
+## What you can do inside `setup()`
 
-`context(self, props)` is plain Python. You can call any function, import libraries,
+`setup(self, props)` is plain Python. You can call any function, import libraries,
 format strings, run conditionals, compute lists — anything:
 
 ```python
 from datetime import date
 
 class InvoiceHeader(Component):
-    def context(self, props):
+  def setup(self, props):
         total   = props.get("subtotal", 0) * 1.2          # add 20% tax
         due     = props.get("due_date", str(date.today()))
         overdue = due < str(date.today())
 
+    data = {
+      "total_with_tax": f"${total:.2f}",
+      "due_label":      f"Due: {due}",
+      "status":         "OVERDUE" if overdue else "Pending",
+      "status_class":   "danger"  if overdue else "info",
+    }
+
         return {
-            "total_with_tax": f"${total:.2f}",
-            "due_label":      f"Due: {due}",
-            "status":         "OVERDUE" if overdue else "Pending",
-            "status_class":   "danger"  if overdue else "info",
+      "props": props,
+      "state": {},
+      "data": data,
+      "actions": {},
+      "lifecycle": {},
         }
 ```
 
@@ -82,37 +97,49 @@ class InvoiceHeader(Component):
 
 ---
 
-## Combining `context()` with `client()` (state + computed)
+## Combining computed data with actions/state
 
-`context()` provides **server-side** computed values (in `py`).  
-`client()` provides **client-side** reactive state.
+`setup().data` provides server-side computed values in `py`.  
+`setup().state` and `setup().actions` provide client-side reactive behavior.
 
 Both can coexist in the same component:
 
 ```python
 class ProductCard(Component):
-    def context(self, props):
+  def setup(self, props):
         price    = props.get("price", 0)
         discount = props.get("discount", 0)
         final    = price * (1 - discount / 100)
-        return {
+    data = {
             "display_price":    f"${price:.2f}",
             "display_final":    f"${final:.2f}",
             "discount_label":   f"{discount}% off" if discount else "",
             "has_discount":     discount > 0,
         }
+    state = {
+      "quantity": 1,
+      "in_cart": False,
+    }
 
-    def client(self):
+    def add():
+      state["quantity"] += 1
+
+    def remove():
+      state["quantity"] -= 1
+
+    def to_cart():
+      state["in_cart"] = True
+
         return {
-            "state": {
-                "quantity": 1,
-                "in_cart":  False,
-            },
+      "props": props,
+      "state": state,
+      "data": data,
             "actions": {
-                "add":     self.add("quantity"),
-                "remove":  self.sub("quantity"),
-                "to_cart": self.set("in_cart", True),
+        "add": add,
+        "remove": remove,
+        "to_cart": to_cart,
             },
+      "lifecycle": {},
         }
 ```
 
@@ -134,24 +161,30 @@ class ProductCard(Component):
 </template>
 ```
 
-> `py.*` values are baked into the initial HTML at request time.  
-> `state.*` values are reactive — they update live in the browser.
+`py.*` values are baked into the initial HTML and can be refreshed by server call patches.  
+`state.*` values are reactive and update live in the browser.
 
 ---
 
-## Returning an object instead of a dict
+## Returning object-like data
 
-If your `context()` returns an object, its **public attributes** (no leading `_`) are extracted automatically:
+If `setup().data` is object-like, public attributes (no leading `_`) are extracted:
 
 ```python
 class Summary(Component):
-    def context(self, props):
+  def setup(self, props):
         class Info:
             label  = props.get("label", "n/a").title()
             count  = len(props.get("items", []))
             plural = "s" if count != 1 else ""
 
-        return Info()
+    return {
+      "props": props,
+      "state": {},
+      "data": Info(),
+      "actions": {},
+      "lifecycle": {},
+    }
 ```
 
 ```html
@@ -164,10 +197,10 @@ class Summary(Component):
 
 ## Limitations
 
-| | `context()` — `py` namespace | `client()` — `state` |
+| | `setup().data` — `py` namespace | `setup().state` |
 |---|---|---|
-| When evaluated | **once, server-side**, at request time | client-side, reactive |
-| Reacts to user input | ❌ | ✅ |
+| When evaluated | server-side render + server callable patches | client-side reactive |
+| Reacts to user input | via server-call actions/lifecycle | ✅ |
 | Can run Python / import libs | ✅ | ❌ |
 | Available in template | ✅ as `{{ py.x }}` or `{{ x }}` | ✅ as `{{ state.x }}` |
 | Survives browser navigation | ❌ re-evaluated on next request | ✅ lives in JS memory |

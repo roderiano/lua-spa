@@ -1,11 +1,9 @@
 name: Release & Deploy
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version (format: v1.0.0)"
-        required: true
+  push:
+    branches:
+      - release
 
 permissions:
   contents: write
@@ -13,138 +11,94 @@ permissions:
   id-token: write
 
 jobs:
-  create-release:
+  release:
     runs-on: ubuntu-latest
-
-    outputs:
-      version: ${{ steps.set-version.outputs.version }}
 
     steps:
       - name: Checkout release branch
         uses: actions/checkout@v4
         with:
-          ref: release
+          fetch-depth: 0
 
-      - name: Ensure branch is release
+      - name: Get version from pyproject.toml
+        id: get_version
         run: |
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          if [ "$CURRENT_BRANCH" != "release" ]; then
-            echo "This workflow must run on 'release' branch"
-            exit 1
-          fi
+          VERSION=$(grep '^version =' pyproject.toml | sed 's/.*"\(.*\)"/\1/')
+          echo "version=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Resolved version: v$VERSION"
 
-      - name: Set version output
-        id: set-version
-        run: echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-
-      - name: Validate version format
+      - name: Ensure version changed
         run: |
-          if [[ ! "${{ github.event.inputs.version }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Invalid version format. Use vX.X.X"
-            exit 1
+          if git diff HEAD~1 HEAD -- pyproject.toml | grep -q "version"; then
+            echo "Version updated."
+          else
+            echo "Version not changed in this commit. Skipping release."
+            exit 0
           fi
 
       - name: Check if tag already exists
         run: |
           git fetch --tags
-          if git rev-parse "${{ github.event.inputs.version }}" >/dev/null 2>&1; then
-            echo "Tag already exists locally!"
-            exit 1
+          if git rev-parse "${{ steps.get_version.outputs.version }}" >/dev/null 2>&1; then
+            echo "Tag already exists. Skipping."
+            exit 0
           fi
 
-          if git ls-remote --tags origin | grep -q "refs/tags/${{ github.event.inputs.version }}$"; then
-            echo "Tag already exists on remote!"
-            exit 1
+      - name: Check if version exists on PyPI
+        id: check_pypi
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          VERSION=${VERSION#v}
+
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://pypi.org/pypi/lua-spa/$VERSION/json)
+
+          if [ "$STATUS" = "200" ]; then
+            echo "Version already exists on PyPI. Skipping publish."
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Create Git Tag
+        if: steps.check_pypi.outputs.exists == 'false'
+        run: |
+          git tag ${{ steps.get_version.outputs.version }}
+          git push origin ${{ steps.get_version.outputs.version }}
 
       - name: Create GitHub Release
+        if: steps.check_pypi.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.version }}
-          name: ${{ github.event.inputs.version }}
-          target_commitish: release
+          tag_name: ${{ steps.get_version.outputs.version }}
+          name: ${{ steps.get_version.outputs.version }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  deploy-docs:
-    runs-on: ubuntu-latest
-    needs: create-release
-
-    steps:
-      - name: Checkout release branch
-        uses: actions/checkout@v4
-        with:
-          ref: release
-
-      - name: Install dependencies
+      - name: Deploy docs
+        if: steps.check_pypi.outputs.exists == 'false'
         working-directory: ./docs
-        run: npm install
-
-      - name: Build Docusaurus
-        working-directory: ./docs
-        run: npm run build
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel
-
-      - name: Deploy to Vercel
-        working-directory: ./docs
-        run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          npm install
+          npm run build
+          npx vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-  publish-pypi:
-    runs-on: ubuntu-latest
-    needs: create-release
-
-    steps:
-      - name: Checkout release branch
-        uses: actions/checkout@v4
-        with:
-          ref: release
-
-      - name: Set up Python
+      - name: Setup Python
+        if: steps.check_pypi.outputs.exists == 'false'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install Poetry
-        run: pip install poetry
-
-      - name: Update version in pyproject.toml
-        run: |
-          VERSION=${{ needs.create-release.outputs.version }}
-          VERSION=${VERSION#v}
-          poetry version $VERSION
-
-      - name: Commit version bump
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add pyproject.toml
-          git commit -m "chore: bump version to ${{ needs.create-release.outputs.version }}" || echo "No changes to commit"
-
-      - name: Create PR for version bump
-        uses: peter-evans/create-pull-request@v7
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: chore/version-bump-${{ needs.create-release.outputs.version }}
-          base: release
-          title: "chore: bump version to ${{ needs.create-release.outputs.version }}"
-          body: |
-            Automated version bump generated by release workflow.
-
-            - Updated `pyproject.toml` to match release `${{ needs.create-release.outputs.version }}`.
-          commit-message: "chore: bump version to ${{ needs.create-release.outputs.version }}"
-          delete-branch: true
-
-      - name: Install dependencies
-        run: poetry install --no-interaction --no-root
-
       - name: Build package
-        run: poetry build
+        if: steps.check_pypi.outputs.exists == 'false'
+        run: |
+          pip install poetry
+          poetry install --no-interaction --no-root
+          poetry build
 
       - name: Publish to PyPI
+        if: steps.check_pypi.outputs.exists == 'false'
         uses: pypa/gh-action-pypi-publish@release/v1

@@ -28,7 +28,7 @@ A component is a `.lspa` file that combines HTML template, Python logic, and CSS
 ```mermaid
 graph LR
     A["@import"] --> B[Component registry]
-    C["&lt;python&gt;"] --> D[Server context + client spec]
+  C["&lt;python&gt;"] --> D[setup(props) spec]
     E["&lt;template&gt;"] --> F[HTML rendered server-side]
     F --> G[Hydrated client-side]
 ```
@@ -51,25 +51,37 @@ Use the registered name as a tag inside `<template>`:
 
 ### `<python>` block
 
-Two functions live here:
+Components use one contract:
 
 | Function | Purpose | Runs on |
 |---|---|---|
-| `context(props)` | Returns a dict of template variables | Server |
-| `client()` | Declares state, actions, lifecycle | Both (compiled to JS) |
+| `setup(self, props)` | Defines `props/state/data/actions/lifecycle` (return mapping or let server infer automatically) | Server + compiled client runtime |
 
 ```python
 class MyComponent(Component):
-    def context(self, props):
-        return {"greeting": f"Hello, {props.get('name', 'World')}"}
+  def setup(self, props):
+    props = {"name": "World", **props}
+    state = {"visible": True}
+    data = {"greeting": f"Hello, {props.get('name', 'World')}"}
 
-    def client(self):
-        return {
-            "props":   {"name": "World"},
-            "state":   {"visible": True},
-            "actions": {"toggle": self.toggle("visible")},
-        }
+    def toggle():
+      state["visible"] = not state["visible"]
+
+    def mounted():
+      toggle()
 ```
+
+When `setup` does not return a mapping, the server builds it automatically using:
+- Local variables: `props`, `state`, `data`
+- Local functions inferred as `actions`
+- Lifecycle-named functions (`mounted`, `created`, `on_mount`, etc.) inferred as `lifecycle`
+
+Inside action/lifecycle callables, mutating `data` is enough to patch props on the client.
+You no longer need to `return {"key": value}` just to sync computed data.
+
+Latest behavior:
+- `setup` may omit both `return` and `self.actions/self.lifecycle` assignments.
+- Server infers `actions` from local callables and `lifecycle` from lifecycle-named callables.
 
 ### `<template>` block
 
@@ -98,5 +110,5 @@ stateDiagram-v2
 
 ## Restrictions
 
-- No `<script>` tags — use `<python>` + `client()` instead.
+- No `<script>` tags — use `<python>` + `setup(self, props)` instead.
 - CSS must be in an external file referenced via `<style src="...">` or inline `<style>` blocks.

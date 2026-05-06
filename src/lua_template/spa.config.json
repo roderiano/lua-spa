@@ -25,6 +25,10 @@
 						"component": "Features"
 					},
 					{
+						"path": "component-template",
+						"component": "ComponentTemplate"
+					},
+					{
 						"path": "*",
 						"component": "NotFound",
 						"props": {

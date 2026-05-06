@@ -80,8 +80,14 @@ The captured values are passed to the component as props and available in the te
 ```html
 <python>
 class UserDetail(Component):
-    def context(self, props):
-        return {"user_id": props.get("id", "unknown")}
+  def setup(self, props):
+    return {
+      "props": props,
+      "state": {},
+      "data": {"user_id": props.get("id", "unknown")},
+      "actions": {},
+      "lifecycle": {},
+    }
 </python>
 
 <template>
@@ -94,10 +100,17 @@ Multiple params in one path:
 ```html
 <python>
 class PostArchive(Component):
-    def context(self, props):
+  def setup(self, props):
+    data = {
+      "year":  props.get("year"),
+      "month": props.get("month"),
+    }
         return {
-            "year":  props.get("year"),
-            "month": props.get("month"),
+      "props": props,
+      "state": {},
+      "data": data,
+      "actions": {},
+      "lifecycle": {},
         }
 </python>
 
@@ -220,9 +233,15 @@ class AppLayout(Component):
 ```html
 <python>
 class UserDetailPage(Component):
-    def context(self, props):
+  def setup(self, props):
         params = props.get("routeParams", {})
-        return {"user_id": params.get("id", "unknown")}
+    return {
+      "props": props,
+      "state": {},
+      "data": {"user_id": params.get("id", "unknown")},
+      "actions": {},
+      "lifecycle": {},
+    }
 </python>
 
 <template>
@@ -332,9 +351,15 @@ Attach arbitrary metadata to a route with `"meta"`:
 ```html
 <python>
 class Admin(Component):
-    def context(self, props):
+  def setup(self, props):
         meta = props.get("routeMeta", {})
-        return {"requires_auth": meta.get("requiresAuth", False)}
+    return {
+      "props": props,
+      "state": {},
+      "data": {"requires_auth": meta.get("requiresAuth", False)},
+      "actions": {},
+      "lifecycle": {},
+    }
 </python>
 ```
 
@@ -433,8 +458,14 @@ class Layout(Component):
 ```html
 <python>
 class GuidePage(Component):
-    def context(self, props):
-        return {"slug": props.get("slug", "")}
+  def setup(self, props):
+    return {
+      "props": props,
+      "state": {},
+      "data": {"slug": props.get("slug", "")},
+      "actions": {},
+      "lifecycle": {},
+    }
 </python>
 
 <template>
