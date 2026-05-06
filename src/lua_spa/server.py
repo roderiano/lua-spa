@@ -7,6 +7,7 @@ and logs request details.
 from __future__ import annotations
 
 import os
+import json
 import time
 import threading
 from http import HTTPStatus
@@ -146,6 +147,64 @@ class _SpaHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
+
+    def do_POST(self) -> None:  # noqa: N802
+        """Handle POST requests for runtime server-call actions."""
+        framework = self.server.lua_framework  # type: ignore
+        request_path = urlparse(self.path).path
+
+        if request_path != "/__lua_spa_action":
+            self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
+            return
+
+        content_length_raw = self.headers.get("Content-Length", "0")
+        try:
+            content_length = int(content_length_raw)
+        except ValueError:
+            content_length = 0
+
+        raw_body = self.rfile.read(max(0, content_length))
+        try:
+            payload = json.loads(raw_body.decode("utf-8") if raw_body else "{}")
+        except Exception:
+            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON payload")
+            return
+
+        component_name = str(payload.get("component") or "")
+        callable_kind = str(payload.get("kind") or "action")
+        callable_name = str(payload.get("name") or "")
+        props = payload.get("props")
+        state = payload.get("state")
+
+        if component_name == "" or callable_name == "":
+            self.send_error(HTTPStatus.BAD_REQUEST, "Missing component/name")
+            return
+
+        try:
+            result = framework.execute_server_callable(
+                component_name=component_name,
+                kind=callable_kind,
+                callable_name=callable_name,
+                props=props if isinstance(props, dict) else {},
+                state=state if isinstance(state, dict) else {},
+            )
+        except Exception as error:
+            response = json.dumps({"ok": False, "error": str(error)}, ensure_ascii=True).encode(
+                "utf-8"
+            )
+            self.send_response(HTTPStatus.BAD_REQUEST)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)
+            return
+
+        response = json.dumps({"ok": True, "result": result}, ensure_ascii=True).encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(response)))
+        self.end_headers()
+        self.wfile.write(response)
 
     def log_message(self, format: str, *args: Any) -> None:
         return

@@ -588,14 +588,14 @@ def _replace_conditional_self_closing_tag(match: re.Match[str], context: Mapping
 
 
 def build_python_context(python_block: str, props: Mapping[str, Any]) -> dict[str, Any]:
-    """Call component.context(props) and return its result as a dict.
+    """Call setup(self, props) context mapping and return it as a dict.
 
     Args:
         python_block: The <python> block source code.
         props: Component props.
 
     Returns:
-        The dict returned by context(props), or empty dict if no context() found.
+        The dict returned from setup data, or empty dict if no component setup is found.
     """
     from lua_spa.scope import (
         load_python_scope,
@@ -614,7 +614,7 @@ def build_python_context(python_block: str, props: Mapping[str, Any]) -> dict[st
 
 
 def build_server_state(python_block: str, props: Mapping[str, Any]) -> dict[str, Any]:
-    """Call component.client() and initialize server state from state specs.
+    """Call setup(self, props) and initialize server state from state specs.
 
     Args:
         python_block: The <python> block source code.
@@ -634,7 +634,10 @@ def build_server_state(python_block: str, props: Mapping[str, Any]) -> dict[str,
     if client_factory is None:
         return {}
 
-    raw_spec = client_factory()
+    try:
+        raw_spec = client_factory(dict(props))
+    except TypeError:
+        raw_spec = client_factory()
     props_spec, state_spec, _, _ = normalize_client_spec(raw_spec)
     resolved_props = dict(props_spec)
     resolved_props.update(dict(props))

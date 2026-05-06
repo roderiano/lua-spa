@@ -21,7 +21,7 @@ class Features(Component):
         normalized.append((1, token.lower()))
     return tuple(normalized)
 
-  def _fetch_pypi_versions(self, package_name, package_owner, limit):
+  def fetch_pypi_versions(self, package_name, package_owner, limit):
     print(f"[features] fetching pypi payload for {package_name}", flush=True)
     if requests is None:
       print("[features] requests not installed", flush=True)
@@ -41,7 +41,7 @@ class Features(Component):
       response.raise_for_status()
       payload = response.json()
       payload_preview = json.dumps(payload, ensure_ascii=True)[:1200]
-      print(f"[features] payload preview: {payload_preview}", flush=True)
+      print(f"[features] payload returned", flush=True)
     except Exception as error:
       print(f"[features] request failed: {error}", flush=True)
       return {
@@ -78,47 +78,15 @@ class Features(Component):
       "owner_matches": owner_matches,
     }
 
-  def context(self, props):
-    title = str(props.get("title", "lua-spa"))
-    subtitle = str(props.get("subtitle", "Python Framework for Single Page Applications"))
-    tagline = str(
-      props.get(
-        "tagline",
-        "Combine Server Rendering with Client Hydration to build modern, fast SPAs with pure Python.",
-      )
-    )
-    package_name = str(props.get("package_name", "lua-spa"))
-    package_owner = str(props.get("package_owner", "roderiano"))
-    raw_limit = props.get("versions_limit", 8)
-    try:
-      versions_limit = int(raw_limit)
-    except (TypeError, ValueError):
-      versions_limit = 8
-
-    pypi_data = self._fetch_pypi_versions(package_name, package_owner, versions_limit)
-    return {
-      "title": title,
-      "subtitle": subtitle,
-      "tagline": tagline,
-      "package_name": package_name,
-      "package_owner": package_owner,
-      "versions_limit": versions_limit,
-      "pypi": pypi_data,
-    }
-
-  def client(self):
-    client_pypi = self._fetch_pypi_versions("lua-spa", "roderiano", 8)
-    fetch_pypi_versions = self._fetch_pypi_versions
-
-    class Props:
-      title = "lua-spa"
-      subtitle = "Python Framework for Single Page Applications"
-      tagline = "Combine Server Rendering with Client Hydration to build modern, fast SPAs with pure Python."
-      package_name = "lua-spa"
-      package_owner = "roderiano"
-      versions_limit = 8
-      pypi = client_pypi
-      features = [
+  def setup(self, props):
+    props = {
+      "title": "lua-spa",
+      "subtitle": "Python Framework for Single Page Applications",
+      "tagline": "Combine Server Rendering with Client Hydration to build modern, fast SPAs with pure Python.",
+      "package_name": "lua-spa",
+      "package_owner": "roderiano",
+      "versions_limit": 8,
+      "features": [
         {
           "icon": "🐍",
           "title": "Pure Python",
@@ -149,79 +117,81 @@ class Features(Component):
           "title": "Hot Reload",
           "description": "Update files and instantly see changes while developing.",
         },
-      ]
+      ],
+      **props,
+    }
 
-    class MountedState:
-      name = "mounted"
-      default = False
-      cast = "bool"
+    raw_limit = props.get("versions_limit", 8)
+    try:
+      versions_limit = int(raw_limit)
+    except (TypeError, ValueError):
+      versions_limit = 8
+    if versions_limit < 1:
+      versions_limit = 1
+    props["versions_limit"] = versions_limit
 
-    class ReloadCountState:
-      name = "reload_count"
-      default = 0
-      cast = "int"
+    state = {
+      "mounted": False,
+      "reload_count": 0,
+      "status": "idle",
+    }
 
-    class StatusState:
-      name = "status"
-      default = "idle"
-      cast = "str"
+    def reload_packages():
+      refreshed = self.fetch_pypi_versions(
+        props["package_name"],
+        props["package_owner"],
+        props["versions_limit"],
+      )
+      state["reload_count"] += 1
+      state["status"] = "updated"
+      return {"pypi": refreshed}
 
-    class ClientSpec:
-      def mounted(self):
-        print("Features mounted")
-        self.state.mounted = True
-        self.state.status = "ready"
+    def mounted():
+      state["mounted"] = True
+      reload_packages()
 
-      def reload_packages(self):
-        print("Reload packages action")
-        refreshed = fetch_pypi_versions("lua-spa", "roderiano", 8)
-        print(f"Reload latest version: {refreshed.get('latest', '')}")
-        self.state.reload_count += 1
-        self.state.status = "updated"
-
-    spec = ClientSpec()
-    spec.Props = Props
-    spec.State = [MountedState, ReloadCountState, StatusState]
-    spec.Methods = ["reload_packages"]
-    return spec
+    return {
+      "props": props,
+      "state": state,
+      "data": {
+        "pypi": {
+          "available": False,
+          "error": "",
+          "versions": [],
+          "latest": "",
+          "author": "",
+          "maintainer": "",
+          "owner_matches": False,
+        },
+      },
+      "actions": {
+        "reload_packages": reload_packages,
+      },
+      "lifecycle": {
+        "mounted": mounted,
+      },
+    }
 </python>
 
 <template>
   <section class="hero-route">
     <div class="hero-route__banner">
-      <h1 class="hero-route__title">{{ py.title }}</h1>
-      <p class="hero-route__subtitle">{{ py.subtitle }}</p>
-      <p class="hero-route__tagline">{{ py.tagline }}</p>
+      <h1 class="hero-route__title">{{ props.title }}</h1>
+      <p class="hero-route__subtitle">{{ props.subtitle }}</p>
+      <p class="hero-route__tagline">{{ props.tagline }}</p>
       <div class="hero-route__actions">
         <a href="/" class="hero-route__btn hero-route__btn--secondary">Back to Home</a>
         <button type="button" class="hero-route__btn hero-route__btn--tertiary" @click="reload_packages">
-          Recarregar pacotes
+          Reload Packages
         </button>
       </div>
       <div class="hero-route__install">
-        <code>pip install lua-spa</code>
+        <code>pip install lua-spa=={{ py.pypi.latest }}</code>
       </div>
+      <p class="hero-route__author">Author: {{ py.pypi.author }}</p>
       <p class="hero-route__status">
-        status: {{ state.status }} | mounted: {{ state.mounted }} | recarregamentos: {{ state.reload_count }}
+        status: {{ state.status }} | mounted: {{ state.mounted }} | refresh: {{ state.reload_count }}
       </p>
-    </div>
-
-    <div class="hero-route__package-meta">
-      <h2>Versoes no PyPI</h2>
-      <p><strong>Pacote:</strong> {{ py.package_name }}</p>
-      <p><strong>Dono esperado:</strong> {{ py.package_owner }}</p>
-      <p><strong>Author no PyPI:</strong> {{ py.pypi.author }}</p>
-      <p><strong>Maintainer no PyPI:</strong> {{ py.pypi.maintainer }}</p>
-      <p l-if="py.pypi.owner_matches">Autor/maintainer combina com o owner esperado.</p>
-      <p l-else>Owner esperado nao coincide com os metadados retornados pelo PyPI.</p>
-
-      <p l-if="py.pypi.available == False" class="hero-route__error">{{ py.pypi.error }}</p>
-
-      <ul l-if="py.pypi.available" class="hero-route__versions">
-        <li i-for="version in py.pypi.versions" class="hero-route__version-item">
-          <code>{{ version }}</code>
-        </li>
-      </ul>
     </div>
 
     <div class="hero-route__features">

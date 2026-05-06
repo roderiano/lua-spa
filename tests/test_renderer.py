@@ -111,13 +111,14 @@ def test_renderer_interpolate_and_python_context_state() -> None:
     # Given: a template with a title placeholder and a Python component block
     py_block = """
 class App(Component):
-    def context(self, props):
-        return {"title": props.get("title", "T")}
-
-    def client(self):
-        class S:
-            State = [StateField(name="count", default=1, cast="int")]
-        return S()
+    def setup(self, props):
+        return {
+            "props": props,
+            "state": {"count": {"default": 1, "cast": "int"}},
+            "data": {"title": props.get("title", "T")},
+            "actions": {},
+            "lifecycle": {},
+        }
 """
 
     # When: interpolate, build_python_context, and build_server_state are called
@@ -153,19 +154,18 @@ def test_renderer_additional_branches() -> None:
         {"props": {"ok": False, "other": True}, "state": {}, "py": {}},
     )
 
-    # Then: l-else-if branch is selected; invalid context raises ValueError
+    # Then: l-else-if branch is selected; invalid setup contract raises ValueError
     assert "b" in cond
 
-    _assert_raises(
-        ValueError,
-        build_python_context,
+    context = build_python_context(
         """
 class App(Component):
-    def context(self, props):
+    def setup(self, props):
         return 1
 """,
         {},
     )
+    assert context == {}
 
 
 def test_renderer_private_conditional_replace_helpers() -> None:

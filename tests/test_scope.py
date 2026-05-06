@@ -8,6 +8,7 @@ import pytest
 from lua_spa.scope import (
     _extract_mapping_value,
     canonical_lifecycle_name,
+    execute_setup_server_callable,
     infer_action_methods,
     invoke_method_callable,
     load_python_scope,
@@ -26,25 +27,19 @@ from lua_spa.types import Component, StateField
 def test_scope_resolve_component_callables_with_python_spec() -> None:
     source = """
 class Counter(Component):
-    def context(self, props):
-        return {"title": props.get("title", "default")}
+    def setup(self, props):
+        state = {"count": 0}
 
-    def client(self):
-        class Props:
-            title = "default"
+        def inc():
+            state["count"] += 1
 
-        class State:
-            count = 0
-
-        class ClientSpec:
-            Props = Props
-            State = State
-            Methods = ["inc"]
-
-        return ClientSpec()
-
-    def inc(self):
-        self.state.count += 1
+        return {
+            "props": {"title": props.get("title", "default")},
+            "state": state,
+            "data": {},
+            "actions": {"inc": inc},
+            "lifecycle": {},
+        }
 """
     scope = load_python_scope(source)
     context_fn, client_fn = resolve_component_callables(scope)
@@ -54,25 +49,30 @@ class Counter(Component):
 
 
 def test_scope_normalize_client_spec_class_only() -> None:
-    class ClientSpec:
-        class Props:
-            title = "hello"
+    state = {
+        "count": 0,
+        "qty": {"from_prop": "initialQty", "default": 1, "cast": "int"},
+    }
 
-        class State:
-            count = 0
-            qty = StateField(name="qty", from_prop="initialQty", default=1, cast="int")
+    def inc() -> dict[str, Any]:
+        return {"op": "add", "state": "count", "value": 1}
 
-        Methods = ["inc"]
-
-        def inc(self) -> None:
-            self.state.count += 1  # type: ignore[operator]
-
-    props, state, actions, lifecycle = normalize_client_spec(ClientSpec())
+    props, state, actions, lifecycle = normalize_client_spec(
+        {
+            "__setup_mapped__": True,
+            "props": {"title": "hello"},
+            "state": state,
+            "data": {},
+            "actions": {"inc": inc},
+            "lifecycle": {},
+        }
+    )
 
     assert props["title"] == "hello"
     assert state["count"] == 0
     assert state["qty"]["from_prop"] == "initialQty"
-    assert actions["inc"]["op"] == "add"
+    assert actions["inc"]["op"] == "server_call"
+    assert actions["inc"]["kind"] == "action"
     assert lifecycle["onMount"] == []
 
 
@@ -184,3 +184,122 @@ def test_scope_lifecycle_and_helpers() -> None:
 
     assert "public_action" in infer_action_methods(Actions())
     assert _extract_mapping_value({"a": 1}, ["x", "a"], 0) == 1
+
+
+def test_scope_setup_mapping_is_normalized_automatically() -> None:
+    source = """
+class Features(Component):
+    def setup(self, props):
+        props = {"title": "lua-spa", **props}
+        state = {"mounted": False, "reload_count": 0, "status": "idle"}
+        data = {"pypi": {"available": True, "latest": "1.0.0"}}
+
+        def reload_packages():
+            return {"op": "log", "value": "reload"}
+
+        def mounted():
+            return {"op": "log", "value": "mounted"}
+
+        return {
+            "props": props,
+            "state": state,
+            "data": data,
+            "actions": {"reload_packages": reload_packages},
+            "lifecycle": {"mounted": mounted},
+        }
+"""
+
+    scope = load_python_scope(source)
+    context_fn, client_fn = resolve_component_callables(scope)
+
+    assert callable(context_fn)
+    assert callable(client_fn)
+
+    context = context_fn({})
+    assert context["pypi"]["available"] is True
+
+    props, state, actions, lifecycle = normalize_client_spec(client_fn({}))
+    assert props["title"] == "lua-spa"
+    assert props["pypi"]["latest"] == "1.0.0"
+    assert state["reload_count"] == 0
+    assert actions["reload_packages"]["op"] == "server_call"
+    assert actions["reload_packages"]["name"] == "reload_packages"
+    assert lifecycle["onMount"][0]["op"] == "server_call"
+
+
+def test_scope_lifecycle_merges_nested_action_results_without_return() -> None:
+    source = """
+class Features(Component):
+    def setup(self, props):
+        state = {"mounted": False, "reload_count": 0, "status": "idle"}
+
+        def reload_packages():
+            state["reload_count"] += 1
+            state["status"] = "updated"
+            return {"pypi": {"available": True, "latest": "1.2.3"}}
+
+        def mounted():
+            state["mounted"] = True
+            reload_packages()
+
+        return {
+            "props": props,
+            "state": state,
+            "data": {"pypi": {"available": False, "latest": ""}},
+            "actions": {"reload_packages": reload_packages},
+            "lifecycle": {"mounted": mounted},
+        }
+"""
+
+    patch = execute_setup_server_callable(
+        source,
+        kind="lifecycle",
+        name="mounted",
+        props={},
+        state={},
+    )
+
+    assert patch["state"]["mounted"] is True
+    assert patch["state"]["reload_count"] == 1
+    assert patch["state"]["status"] == "updated"
+    assert patch["props"]["pypi"]["available"] is True
+    assert patch["props"]["pypi"]["latest"] == "1.2.3"
+
+
+def test_scope_lifecycle_captures_print_logs() -> None:
+    source = """
+class Features(Component):
+    def setup(self, props):
+        state = {"count": 0}
+
+        def increment():
+            print("incrementing counter")
+            state["count"] += 1
+
+        def mounted():
+            print("component mounted")
+            increment()
+            print("finished mounting")
+
+        return {
+            "props": props,
+            "state": state,
+            "actions": {"increment": increment},
+            "lifecycle": {"mounted": mounted},
+        }
+"""
+
+    patch = execute_setup_server_callable(
+        source,
+        kind="lifecycle",
+        name="mounted",
+        props={},
+        state={},
+    )
+
+    assert patch["state"]["count"] == 1
+    assert "__lua_logs__" in patch["props"]
+    assert isinstance(patch["props"]["__lua_logs__"], list)
+    assert "component mounted" in patch["props"]["__lua_logs__"]
+    assert "incrementing counter" in patch["props"]["__lua_logs__"]
+    assert "finished mounting" in patch["props"]["__lua_logs__"]

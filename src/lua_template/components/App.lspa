@@ -8,7 +8,14 @@
 
 <python>
 class App(Component):
-  pass
+  def setup(self, props):
+    return {
+      "props": props,
+      "state": {},
+      "data": {},
+      "actions": {},
+      "lifecycle": {},
+    }
 </python>
 
 <style src="./App.css"></style>
