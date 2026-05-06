@@ -26,11 +26,13 @@ A component is a `.lspa` file that combines HTML template, Python logic, and CSS
 ## The three sections
 
 ```mermaid
-graph LR
-    A["@import"] --> B[Component registry]
-  C["&lt;python&gt;"] --> D[setup(props) spec]
-    E["&lt;template&gt;"] --> F[HTML rendered server-side]
-    F --> G[Hydrated client-side]
+flowchart LR
+    A["@import"] --> B["Component registry"]
+    C["python block"] --> D["setup(self, props)"]
+    E["template block"] --> F["SSR HTML"]
+    B --> F
+    D --> F
+    F --> G["Hydrated client-side"]
 ```
 
 ### `@import`

@@ -16,6 +16,7 @@ Let's build a click counter — the "Hello World" of reactive UIs.
 class Counter(Component):
   def setup(self, props):
     state = {"count": 0}
+    props = {"label": "clicks", **props}
 
     def increment():
       state["count"] += 1
@@ -26,17 +27,17 @@ class Counter(Component):
     def reset():
       state["count"] = 0
 
-        return {
-      "props": {"label": "clicks", **props},
+    return {
+      "props": props,
       "state": state,
       "data": {},
-            "actions": {
+      "actions": {
         "increment": increment,
         "decrement": decrement,
         "reset": reset,
-            },
+      },
       "lifecycle": {},
-        }
+    }
 </python>
 
 <template>
@@ -73,14 +74,15 @@ sequenceDiagram
     participant Python as Python (server)
     participant JS as JavaScript (browser)
 
-    Python->>Python: setup() → props/state/data/actions/lifecycle
+  Python->>Python: setup(self, props)
     Python->>Python: render template → SSR HTML
     Python->>JS: bootstrap JSON (registry + config)
-    JS->>JS: setup() → useState(0)
+  JS->>JS: hydrate + bind actions
     JS->>JS: hydrate DOM (diff + patch)
     Note over JS: User clicks "+"
-    JS->>JS: increment() → setCount(count + 1)
-    JS->>JS: re-render template
+  JS->>Python: POST /__lua_spa_action (action=increment)
+  Python->>JS: patch {state, props}
+  JS->>JS: apply patch and re-render
 ```
 
 ## Key concepts introduced
@@ -90,4 +92,4 @@ sequenceDiagram
 | `setup(self, props)` | Declares props, state, data, actions and lifecycle |
 | `state.count` | Reads reactive state in the template |
 | `@click="action"` | Binds a DOM event to an action |
-| callable action | Can mutate state and optionally return props patch |
+| callable action | Runs through `POST /__lua_spa_action` and patches state/props |

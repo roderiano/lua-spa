@@ -58,6 +58,7 @@ Prints the server URL on startup:
 
 ```
 Serving lua-spa at http://127.0.0.1:8000
+```
 
 With `--reload`, the watcher path is shown relative to the current working directory:
 
@@ -88,7 +89,6 @@ CLI output includes the exact created locations:
 Component created at: <...>/components/UserCard/UserCard.lspa
 Style created at: <...>/components/UserCard/UserCard.css
 ```
-```
 
 ## Invoke via Python module
 
@@ -109,4 +109,6 @@ flowchart TD
     E --> F[ComponentLoader.load_entry]
     F --> G[SpaServer.serve]
     G --> H[ThreadingHTTPServer listening]
+    H --> I[GET /__reload__ stream when --reload]
+    H --> J[POST /__lua_spa_action for server_call]
 ```

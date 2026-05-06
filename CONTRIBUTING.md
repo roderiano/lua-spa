@@ -127,6 +127,7 @@ Lint & typing:
 
 ``` bash
 poetry run ruff check src
+poetry run ruff format --check src
 poetry run mypy src
 ```
 
@@ -164,6 +165,9 @@ Make sure:
 poetry run pre-commit install
 poetry run pre-commit run --all-files
 ```
+
+`pre-commit` runs the project quality gate script, which validates Ruff lint and Ruff format.
+Run `pytest` and `mypy` separately before opening PRs.
 
 
 

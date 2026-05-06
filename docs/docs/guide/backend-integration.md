@@ -56,14 +56,27 @@ def get_data():
 ## Architecture with external backend
 
 ```mermaid
-graph LR
+flowchart LR
     Browser -->|GET /| SpaFramework
-    SpaFramework -->|build_view| HTML
-    HTML -->|SSR + Bootstrap| Browser
+    SpaFramework -->|build_view| HtmlPage
+    HtmlPage -->|SSR + bootstrap| Browser
+    Browser -->|POST /__lua_spa_action| SpaFramework
+    SpaFramework -->|state/props patch| Browser
+    Browser -->|GET /__reload__| SpaFramework
     Browser -->|fetch /api/...| FastAPI
     FastAPI -->|JSON| Browser
-    Browser -->|state.set| Rerender
+    Browser -->|state updates| ReRender
 ```
+
+## Runtime bridge endpoints
+
+When using lua-spa built-in server, these runtime routes are reserved:
+
+- `POST /__lua_spa_action`: executes callable actions/lifecycle and returns `{ok, result}`
+- `GET /__reload__`: SSE stream used only when `serve(..., reload=True)`
+
+If you embed lua-spa behind another framework/proxy, preserve these routes or mount lua-spa
+under a dedicated prefix and update your integration accordingly.
 
 ## Passing server data to components
 
