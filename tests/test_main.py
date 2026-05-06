@@ -104,3 +104,57 @@ def test_internal_serve_uses_framework(monkeypatch: pytest.MonkeyPatch) -> None:
     # Then: the framework's serve method is invoked
     assert called["serve"] is True
     assert called["reload"] is False
+
+
+def test_new_component_command_dispatches_creation(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Given: a monkeypatched component creator
+    called = {"name": None, "path": None}
+
+    def _fake_create_component(name: str, path: str) -> tuple[Path, Path]:
+        called["name"] = name
+        called["path"] = path
+        return Path("components") / f"{name}.lspa", Path("components") / f"{name}.css"
+
+    monkeypatch.setattr("lua_spa.main._create_component", _fake_create_component)
+
+    # When: new component command is invoked
+    main(["new", "component", "Widget", "."])
+
+    # Then: creator is called with expected args
+    assert called["name"] == "Widget"
+    assert called["path"] == "."
+
+
+def test_create_component_from_server_action_template(tmp_path: Path) -> None:
+    # Given: a project layout containing ComponentTemplate
+    components_dir = tmp_path / "src" / "lua_template" / "components"
+    source_dir = components_dir / "ComponentTemplate"
+    source_dir.mkdir(parents=True)
+    (tmp_path / "src" / "lua_template" / "spa.config.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "src" / "lua_template" / "index.lspa").write_text(
+        "<template></template>", encoding="utf-8"
+    )
+    (source_dir / "ComponentTemplate.lspa").write_text(
+        """
+<python>
+class ComponentTemplate(Component):
+  def setup(self, props):
+    props = {"title": "Server Action Template", **props}
+</python>
+<style src=\"./ComponentTemplate.css\"></style>
+""".strip(),
+        encoding="utf-8",
+    )
+    (source_dir / "ComponentTemplate.css").write_text("section { }", encoding="utf-8")
+
+    # When: creating a component from the template
+    created_lspa, created_css = cli_main._create_component("UserCard", str(tmp_path))
+
+    # Then: files are created in components/UserCard and content is renamed
+    assert created_lspa.exists()
+    assert created_css.exists()
+    lspa_content = created_lspa.read_text(encoding="utf-8")
+    assert "class UserCard(Component)" in lspa_content
+    assert "Server Action Template" not in lspa_content
+    assert "User Card" in lspa_content
+    assert "./UserCard.css" in lspa_content

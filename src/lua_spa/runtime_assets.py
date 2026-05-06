@@ -38,8 +38,9 @@ SPA_RUNTIME_JS = r"""
 
   function evaluateRawExpression(expression, context) {
     try {
+      var scopedContext = Object.assign({ True: true, False: false, None: null }, context || {});
       var evaluator = new Function("ctx", "with (ctx) { return (" + expression + "); }");
-      return evaluator(context);
+      return evaluator(scopedContext);
     } catch (error) {
       console.warn("[lua-spa] expression failed:", expression, error);
       return undefined;
@@ -817,6 +818,7 @@ SPA_RUNTIME_JS = r"""
     if (instance.setup) {
       var result = instance.setup({
         useState: createUseState(instance),
+        componentName: instance.name,
         props: instance.props,
         state: instance.state,
         actions: instance.actions,

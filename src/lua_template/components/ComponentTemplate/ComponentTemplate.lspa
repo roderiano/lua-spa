@@ -1,0 +1,39 @@
+<python>
+class ComponentTemplate(Component):
+  def setup(self, props):
+    props = {
+      "title": "Server Action Template",
+      **props,
+    }
+
+    state = {
+      "mounted": False,
+      "reload_count": 0,
+      "status": "idle",
+    }
+
+    data = {
+      "message": "waiting",
+    }
+
+    def reload_data():
+      state["reload_count"] += 1
+      state["status"] = "updated"
+      data["message"] = f"reload #{state['reload_count']}"
+
+    def mounted():
+      state["mounted"] = True
+      reload_data()
+</python>
+
+<style src="./ComponentTemplate.css"></style>
+
+<template>
+  <section>
+    <h2>{{ props.title }}</h2>
+    <p>{{ data.message }}</p>
+    <p align="center">{{ state.reload_count }}</p>
+    <p>status: {{ state.status }} | mounted: {{ state.mounted }}</p>
+    <button type="button" @click="reload_data">Reload</button>
+  </section>
+</template>

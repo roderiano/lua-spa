@@ -68,15 +68,23 @@ def test_codegen_branches_for_multi_log_js_and_conditions() -> None:
 
 
 def test_codegen_build_client_script() -> None:
-    # Given: a Python component class with client spec
+    # Given: a Python component class with setup(self, props) spec
     python_block = """
 class Counter(Component):
-    def client(self):
+    def setup(self, props):
+        state = {
+            "count": {"from_prop": "start", "default": 0, "cast": "int"}
+        }
+
+        def inc():
+            return {"op": "add", "state": "count", "value": 1}
+
         return {
-            "props": {"start": 0},
-            "state": {"count": {"from_prop": "start", "default": 0, "cast": "int"}},
-            "actions": {"inc": {"op": "add", "state": "count", "value": 1}},
-            "lifecycle": {"onMount": []},
+            "props": {"start": 0, **props},
+            "state": state,
+            "data": {},
+            "actions": {"inc": inc},
+            "lifecycle": {},
         }
 """
 
@@ -86,6 +94,9 @@ class Counter(Component):
     # Then: the resulting JS defines a setup function with actions
     assert "function setup" in script
     assert "actions" in script
+    assert "incomingProps" in script
+    assert "contextSync" in script
+    assert "delete resolvedProps.__context" in script
 
 
 def test_codegen_fallback_and_error_paths() -> None:
@@ -179,11 +190,19 @@ def test_codegen_init_and_lifecycle_call_action_branch() -> None:
     # Given: lifecycle with action-name string triggers __callAction branch
     python_block = """
 class App(Component):
-    def client(self):
+    def setup(self, props):
+        state = {
+            "count": {"from_prop": "start", "default": 0, "cast": "bool"}
+        }
+
+        def inc():
+            return {"op": "add", "state": "count", "value": 1}
+
         return {
-            "props": {"enabled": False, "start": 1},
-            "state": {"count": {"from_prop": "start", "default": 0, "cast": "bool"}},
-            "actions": {"inc": {"op": "add", "state": "count", "value": 1}},
+            "props": {"enabled": False, "start": 1, **props},
+            "state": state,
+            "data": {},
+            "actions": {"inc": inc},
             "lifecycle": {"onMount": ["inc"]},
         }
 """
@@ -192,26 +211,27 @@ class App(Component):
     script = build_client_script(python_block)
 
     # Then: lifecycle string action invokes __callAction and bool cast is generated
-    assert "__callAction(\"inc\")" in script
+    assert '__callAction("inc")' in script
     assert "Boolean(" in script
 
 
 def test_codegen_remaining_branches_for_initializers_and_actions() -> None:
     # Given / When: lifecycle mapping operation branch is generated via lifecycle method tracing
     python_block = """
-class ClientSpec:
-    state = {"count": {"default": 1}}
-
-    def actions(self):
-        return {"inc": {"op": "add", "state": "count", "value": 1}}
-
-    def created(self):
-        return {"op": "set", "state": "count", "value": 2}
-
-
 class App(Component):
-    def client(self):
-        return ClientSpec()
+    def setup(self, props):
+        def inc():
+            return {"op": "add", "state": "count", "value": 1}
+
+        return {
+            "props": props,
+            "state": {"count": 1},
+            "data": {},
+            "actions": {"inc": inc},
+            "lifecycle": {
+                "onCreate": [{"op": "set", "state": "count", "value": 2}],
+            },
+        }
 """
     script = build_client_script(python_block)
     assert "onCreate" in script

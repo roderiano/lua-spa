@@ -82,7 +82,7 @@ class ComponentLoader:
 
         if "<script" in body.lower():
             raise ValueError(
-                f"Component '{component_name}' uses <script>; use a <python> block with client() instead"
+                f"Component '{component_name}' uses <script>; use a <python> block with Component.setup(self, props)"
             )
 
         template = self._extract_template(body)

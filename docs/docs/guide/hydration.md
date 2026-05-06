@@ -47,7 +47,7 @@ When `build_view()` runs, `{{ SPA_BOOTSTRAP }}` is replaced with:
 
 Each entry in the registry contains:
 - `template` — the raw HTML template string (with `{{ }}` and directives intact for client re-use)
-- `script` — the compiled `setup()` JavaScript function generated from `client()`
+- `script` — the compiled `setup()` JavaScript function generated from `Component.setup(self, props)`
 
 ## Hydration strategy
 
@@ -64,13 +64,16 @@ This means the first paint is instant (SSR HTML), and JavaScript takes over seam
 Inside the generated `setup()`:
 
 ```js
-function setup({ useState, props }) {
+function setup({ useState, props, componentName }) {
   const [count, setCount] = useState(0);
   const actions = {
-    increment: function () { setCount(count + 1); }
+    increment: function () { setCount(count + 1); },
+    reload: function () { __serverCall("action", "reload"); },
   };
   return { props, state: { count }, actions, lifecycle };
 }
 ```
 
 `useState` is the framework's own hook — it schedules a re-render when the setter is called.
+
+For callable actions/lifecycle hooks, hydration uses `POST /__lua_spa_action` and applies state/props patches returned by the server.
