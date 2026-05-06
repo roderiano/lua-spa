@@ -20,7 +20,7 @@ Evaluate any Python/JavaScript expression:
 The context available inside `{{ }}`:
 - `state` — reactive state object
 - `props` — component props
-- `py` — namespace populated by `context()` return value
+- `py` — namespace populated by `setup().data`
 
 ## Conditional rendering
 
@@ -62,7 +62,7 @@ Multi-target unpacking:
 <form @submit="handleSubmit">...</form>
 ```
 
-The value must be the name of an action declared in `client()`.
+The value must be the name of an action declared in `setup().actions`.
 
 ## Dynamic attributes `:attr`
 
@@ -86,6 +86,6 @@ flowchart TD
 
 | Variable | Type | Source |
 |---|---|---|
-| `state` | object | `client()` → `state` section |
+| `state` | object | `setup()` → `state` section |
 | `props` | object | Parent or `spa.config.json` |
-| `py.*` | any | `context(props)` return dict |
+| `py.*` | any | `setup().data` |

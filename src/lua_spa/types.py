@@ -81,8 +81,8 @@ class ClientMethods:
 class Component:
     """Base component class available to .lspa Python scripts.
 
-    Subclass this or define a context(props) and client() pair to build
-    a component's server-side and client-side behavior.
+    Subclass this and implement setup(self, props) to define
+    server-side/context data, state, actions, and lifecycle behavior.
     """
 
 

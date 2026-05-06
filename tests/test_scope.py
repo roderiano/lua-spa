@@ -3,585 +3,387 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 from lua_spa.scope import (
-    _build_client_factory,
-    _extract_class_properties,
     _extract_mapping_value,
-    _extract_object_properties,
-    _normalize_method_callable,
     canonical_lifecycle_name,
+    execute_setup_server_callable,
     infer_action_methods,
     invoke_method_callable,
     load_python_scope,
     normalize_action_names,
     normalize_client_spec,
-    normalize_context_result,
     normalize_lifecycle_methods,
-    normalize_lifecycle_spec,
     normalize_props_source,
-    normalize_state_item,
     normalize_state_source,
     resolve_component_callables,
-    resolve_component_instance,
     resolve_methods_actions,
-    swap_attribute,
 )
 from lua_spa.trace import _TraceState
 from lua_spa.types import Component, StateField
 
 
-def test_load_scope_and_component_callables() -> None:
-    # Given: a Python source block defining an App component with context and client
+def test_scope_resolve_component_callables_with_python_spec() -> None:
     source = """
-class App(Component):
-    def context(self, props):
-        return {"title": props.get("title", "x")}
+class Counter(Component):
+    def setup(self, props):
+        state = {"count": 0}
 
-    def client(self):
-        return {"props": {"count": 1}, "state": {"count": {"default": 1}}, "actions": {}}
+        def inc():
+            state["count"] += 1
+
+        return {
+            "props": {"title": props.get("title", "default")},
+            "state": state,
+            "data": {},
+            "actions": {"inc": inc},
+            "lifecycle": {},
+        }
 """
-
-    # When: the scope is loaded and callables are resolved
     scope = load_python_scope(source)
     context_fn, client_fn = resolve_component_callables(scope)
 
-    # Then: both context and client functions are callable
     assert callable(context_fn)
     assert callable(client_fn)
 
 
-def test_scope_normalization_variants_and_errors() -> None:
-    # Given: various context results, prop sources, state sources, and an invalid state item
+def test_scope_normalize_client_spec_class_only() -> None:
+    state = {
+        "count": 0,
+        "qty": {"from_prop": "initialQty", "default": 1, "cast": "int"},
+    }
 
-    # When: normalization functions process each input
-
-    # Then: outputs match expectations and invalid input raises ValueError
-    assert normalize_context_result(None) == {}
-    assert normalize_context_result({"a": 1})["a"] == 1
-    obj = SimpleNamespace(a=2, _hidden=3)
-    assert normalize_context_result(obj) == {"a": 2}
-
-    assert normalize_props_source({"x": 1})["x"] == 1
-    state = normalize_state_source([StateField(name="count", default=0, cast="int")], owner=None)
-    assert state["count"]["cast"] == "int"
-
-    try:
-        normalize_state_item({"default": 1}, None)
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-
-class _ClientSample:
-    Props = {"start": 0}
-    State = [StateField(name="count", from_prop="start", default=0, cast="int")]
-    Methods = ["inc"]
-
-    def inc(self) -> dict[str, Any]:
+    def inc() -> dict[str, Any]:
         return {"op": "add", "state": "count", "value": 1}
 
+    props, state, actions, lifecycle = normalize_client_spec(
+        {
+            "__setup_mapped__": True,
+            "props": {"title": "hello"},
+            "state": state,
+            "data": {},
+            "actions": {"inc": inc},
+            "lifecycle": {},
+        }
+    )
 
-def test_scope_client_spec_and_method_resolution() -> None:
-    # Given: a sample client class and a method owner namespace
-
-    # When: client spec and method actions are resolved
-    props, state, actions, lifecycle = normalize_client_spec(_ClientSample())
-    method_owner = SimpleNamespace(increment=lambda: {"op": "add", "state": "count", "value": 1})
-    actions2 = resolve_methods_actions(["increment"], method_owner)
-
-    # Then: props, state, actions and lifecycle match the class definition
-    assert props["start"] == 0
-    assert "count" in state
-    assert actions["inc"]["op"] == "add"
-    assert set(lifecycle.keys()) == {"onCreate", "onMount", "onUpdate", "onUnmount"}
-    assert actions2["increment"]["op"] == "add"
+    assert props["title"] == "hello"
+    assert state["count"] == 0
+    assert state["qty"]["from_prop"] == "initialQty"
+    assert actions["inc"]["op"] == "server_call"
+    assert actions["inc"]["kind"] == "action"
+    assert lifecycle["onMount"] == []
 
 
-def test_scope_invoke_methods_lifecycle_and_attribute_swap() -> None:
-    # Given: a Component owner with traced state, a lifecycle hook, and action methods
+def test_scope_rejects_declarative_dict_client_specs() -> None:
+    with pytest.raises(ValueError, match="declarative dict specs"):
+        normalize_client_spec({"props": {"title": "x"}})
+
+
+@pytest.mark.parametrize(
+    "invalid_props",
+    [
+        {"title": "x"},
+        1,
+        "bad",
+    ],
+)
+def test_scope_props_source_validation(invalid_props: Any) -> None:
+    if isinstance(invalid_props, dict):
+        with pytest.raises(ValueError, match="Declarative props dicts"):
+            normalize_props_source(invalid_props)
+    else:
+        with pytest.raises(ValueError):
+            normalize_props_source(invalid_props)
+
+
+@pytest.mark.parametrize(
+    "invalid_state",
+    [
+        {"count": 0},
+        1,
+        "bad",
+    ],
+)
+def test_scope_state_source_validation(invalid_state: Any) -> None:
+    if isinstance(invalid_state, dict):
+        with pytest.raises(ValueError, match="Declarative state dicts"):
+            normalize_state_source(invalid_state, owner=None)
+    else:
+        with pytest.raises(ValueError):
+            normalize_state_source(invalid_state, owner=None)
+
+
+def test_scope_state_source_from_class_and_statefield() -> None:
+    class State:
+        count = 0
+        enabled = True
+        qty = StateField(name="qty", from_prop="initialQty", default=1, cast="int")
+
+    state = normalize_state_source(State, owner=None)
+
+    assert state["count"] == 0
+    assert state["enabled"] is True
+    assert state["qty"]["cast"] == "int"
+
+
+def test_scope_resolve_methods_actions_no_mappings() -> None:
+    owner = SimpleNamespace(
+        up=lambda: {"op": "add", "state": "count", "value": 1},
+        down=lambda: {"op": "sub", "state": "count", "value": 1},
+    )
+
+    resolved = resolve_methods_actions(["up", "down"], owner)
+    assert resolved["up"]["op"] == "add"
+    assert resolved["down"]["op"] == "sub"
+
+    with pytest.raises(ValueError, match="not supported"):
+        resolve_methods_actions({"up": "up"}, owner)
+
+
+def test_scope_invoke_method_callable_tracing_and_logs(capsys: pytest.CaptureFixture[str]) -> None:
     class Owner(Component):
-        value = 1
-
         def __init__(self) -> None:
             self.state = _TraceState()
             self.props = SimpleNamespace()
 
-        def method(self) -> None:
-            self.state.count += 1  # type: ignore[operator]
-
-        def created(self) -> dict[str, Any]:
-            return {"op": "log", "value": "created"}
-
-        def do(self) -> None:
-            return
+        def apply(self) -> None:
+            print("hello")
+            if self.state.count < 3:  # type: ignore[operator]
+                self.state.count += 1  # type: ignore[operator]
 
     owner = Owner()
+    result = invoke_method_callable("apply", owner.apply, owner)
+    captured = capsys.readouterr()
 
-    # When: method is invoked, lifecycle is normalized, attribute is swapped, and action methods are inferred
-    result = invoke_method_callable("method", owner.method, owner)
-    life = normalize_lifecycle_methods(owner)
-    restore = swap_attribute(owner, "value", 5)
-    methods = infer_action_methods(owner)
-
-    # Then: traced state produces an add op, lifecycle maps correctly, swap is reversible
-    assert result["op"] == "add"
-    assert life["onCreate"][0]["op"] == "log"
-    assert callable(restore)
-    restore()
-    assert owner.value == 1
-    assert "do" in methods
+    assert result["op"] in {"multi", "add"}
+    assert "hello" in captured.out
+    if result["op"] == "multi":
+        assert any(
+            step.get("op") == "log" and step.get("value") == "hello"
+            for step in result.get("steps", [])
+            if isinstance(step, dict)
+        )
 
 
-def test_scope_lifecycle_name_and_actions_normalization() -> None:
-    # Given: lifecycle spec dicts, hook name strings, and action name inputs
+def test_scope_lifecycle_and_helpers() -> None:
+    class Owner:
+        def mounted(self) -> dict[str, Any]:
+            return {"op": "log", "value": "mounted"}
 
-    # When: normalization and canonical name helpers are called
-    lifecycle = normalize_lifecycle_spec({"created": ["init"], "on_update": "refresh"})
+    lifecycle = normalize_lifecycle_methods(Owner())
 
-    # Then: names are mapped to camelCase and invalid hooks raise ValueError
-    assert lifecycle["onCreate"] == ["init"]
-    assert lifecycle["onUpdate"] == ["refresh"]
     assert canonical_lifecycle_name("on_mount") == "onMount"
     assert normalize_action_names("save") == ["save"]
+    assert lifecycle["onMount"][0]["op"] == "log"
 
-    try:
-        canonical_lifecycle_name("unknown_hook")
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-
-def test_scope_component_instance_paths() -> None:
-    # Given: a zero-arg component class and one that requires arguments
-    class Good(Component):
-        pass
-
-    class Bad(Component):
-        def __init__(self, value: int) -> None:
-            self.value = value
-
-    # When: resolve_component_instance is called for each
-
-    # Then: Good instantiates successfully; Bad raises ValueError
-    assert isinstance(resolve_component_instance({"Component": Good}), Good)
-    try:
-        resolve_component_instance({"Component": Bad})
-    except ValueError:
-        return
-    raise AssertionError("Expected ValueError")
-
-
-def test_scope_branch_coverage_for_factories_and_errors() -> None:
-    # Given: blank source, a class, a literal value, and various invalid client specs
-
-    # When: factory and normalization helpers process each input
-
-    # Then: each edge case is handled correctly or raises ValueError
-    assert load_python_scope("   ") == {}
-
-    class C:
-        pass
-
-    assert _build_client_factory(C) is C
-    fn = _build_client_factory(123)
-    assert callable(fn)
-    assert fn() == 123
-
-    try:
-        normalize_client_spec({"actions": []})
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    class BadClient:
-        def actions(self) -> list[int]:
-            return [1]
-
-    try:
-        normalize_client_spec(BadClient())
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    class BadMethods:
-        def methods(self) -> list[int]:
-            return [1]
-
-    try:
-        normalize_client_spec(BadMethods())
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    try:
-        resolve_methods_actions(["missing"], SimpleNamespace())
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    try:
-        _normalize_method_callable("x", "y", None)
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    assert swap_attribute(None, "x", 1) is None
-
-
-def test_scope_extract_helpers_and_state_item_strings() -> None:
-    # Given: state classes, prop classes, namespaces, and mappings
-    class StateCls:
-        name = "count"
-        default = 1
-        cast = "int"
-
-    class NeedArg:
-        def __init__(self, x: int) -> None:
-            self.x = x
-
-    class PropsClass:
-        a = 1
-        _b = 2
-
-    owner = SimpleNamespace(StateCls=StateCls)
-
-    # When: extract and normalize helpers are called
-    item = normalize_state_item("StateCls", owner)
-
-    # Then: properties are extracted correctly and invalid inputs raise ValueError
-    assert item["name"] == "count"
-
-    try:
-        normalize_state_item(NeedArg, None)
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    assert _extract_class_properties(PropsClass)["a"] == 1
-    assert _extract_object_properties(SimpleNamespace(a=2, _x=1))["a"] == 2
-    assert _extract_mapping_value({"x": 1}, ["y", "x"], 0) == 1
-
-
-def test_scope_more_error_branches_and_lifecycle() -> None:
-    # Given: a bad component callable, invalid callables dict, a lifecycle owner, and invalid specs
-    def bad_component(required: int) -> int:
-        return required
-
-    class Owner:
-        def onCreate(self) -> None:
+    class Actions(Component):
+        def public_action(self) -> None:
             return None
 
-        def on_mount(self) -> dict[str, Any]:
-            return {"op": "log", "value": "m"}
-
-    # When: resolution and normalization helpers process each input
-
-    # Then: invalid shapes raise ValueError; valid lifecycle maps correctly
-    try:
-        resolve_component_instance({"component": bad_component})
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    try:
-        resolve_component_callables({"client": 1})
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    lifecycle = normalize_lifecycle_methods(Owner())
-    assert "onMount" in lifecycle
-
-    try:
-        normalize_lifecycle_spec([])
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    try:
-        normalize_action_names([1])
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
+    assert "public_action" in infer_action_methods(Actions())
+    assert _extract_mapping_value({"a": 1}, ["x", "a"], 0) == 1
 
 
-def test_scope_invoke_method_callable_additional_paths() -> None:
-    # Given: an owner with methods that print, trace state, return truthy, and return None
-    class Owner:
-        def __init__(self) -> None:
-            self.state = _TraceState()
-            self.props = SimpleNamespace()
+def test_scope_setup_mapping_is_normalized_automatically() -> None:
+    source = """
+class Features(Component):
+    def setup(self, props):
+        props = {"title": "lua-spa", **props}
+        state = {"mounted": False, "reload_count": 0, "status": "idle"}
+        data = {"pypi": {"available": True, "latest": "1.0.0"}}
 
-        def with_print(self) -> None:
-            print("hello")
+        def reload_packages():
+            return {"op": "log", "value": "reload"}
 
-        def returns_mapping_and_traces(self) -> dict[str, Any]:
-            self.state.count += 1  # type: ignore[operator]
-            return {"op": "set", "state": "count", "value": 2}
+        def mounted():
+            return {"op": "log", "value": "mounted"}
 
-        def returns_truthy(self) -> int:
-            return 1
+        return {
+            "props": props,
+            "state": state,
+            "data": data,
+            "actions": {"reload_packages": reload_packages},
+            "lifecycle": {"mounted": mounted},
+        }
+"""
 
-        def returns_none(self) -> None:
-            return None
+    scope = load_python_scope(source)
+    context_fn, client_fn = resolve_component_callables(scope)
 
-    owner = Owner()
+    assert callable(context_fn)
+    assert callable(client_fn)
 
-    # When: each method callable is invoked via invoke_method_callable
-    result_log = invoke_method_callable("with_print", owner.with_print, owner)
-    result_multi = invoke_method_callable(
-        "returns_mapping_and_traces", owner.returns_mapping_and_traces, owner
-    )
-    result_truthy = invoke_method_callable("returns_truthy", owner.returns_truthy, owner)
-    result_none = invoke_method_callable("returns_none", owner.returns_none, owner)
+    context = context_fn({})
+    assert context["pypi"]["available"] is True
 
-    # Then: each returns the expected op type or noop marker
-    assert result_log["op"] in {"log", "set", "multi"}
-    assert result_multi["op"] == "multi"
-    assert result_truthy["state"] == "__noop__"
-    assert result_none["state"] == "__noop__"
-
-
-def test_scope_additional_component_and_callable_error_paths() -> None:
-    # Given: component subclass requiring args and invalid top-level context callable
-    class BadComp(Component):
-        def __init__(self, required: int) -> None:
-            self.required = required
-
-    try:
-        resolve_component_instance({"BadComp": BadComp})
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    try:
-        resolve_component_callables({"context": 1})
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
+    props, state, actions, lifecycle = normalize_client_spec(client_fn({}))
+    assert props["title"] == "lua-spa"
+    assert props["pypi"]["latest"] == "1.0.0"
+    assert state["reload_count"] == 0
+    assert actions["reload_packages"]["op"] == "server_call"
+    assert actions["reload_packages"]["name"] == "reload_packages"
+    assert lifecycle["onMount"][0]["op"] == "server_call"
 
 
-def test_scope_client_spec_mapping_and_instance_branches() -> None:
-    # Given: mapping-based client spec including Methods and lifecycle
-    mapping_spec = {
-        "props": {"a": 1},
-        "state": {"count": {"default": 0}},
-        "actions": {"set": {"op": "set", "state": "count", "value": 1}},
-        "Methods": {"log": {"op": "log", "value": "ok"}},
-        "lifecycle": {"on_mount": ["log"]},
-    }
-    props, state, actions, lifecycle = normalize_client_spec(mapping_spec)
-    assert props["a"] == 1
-    assert "log" in actions
-    assert lifecycle["onMount"] == ["log"]
+def test_scope_setup_automatic_mapping_without_return() -> None:
+    source = """
+class Card(Component):
+    def setup(self, props):
+        price = props.get("price", 0)
+        self.props = props
+        self.state = {}
+        self.data = {
+            "display": f"${price:.2f}",
+            "is_cheap": price < 10,
+        }
+        self.actions = {}
+        self.lifecycle = {}
+"""
 
-    # Given: instance spec exercising lower-case attrs and callable overrides
-    class StateObj:
-        name = "counter"
-        default = 1
-        cast = "int"
+    scope = load_python_scope(source)
+    context_fn, client_fn = resolve_component_callables(scope)
 
-        def init(self) -> int:
-            return 2
+    context = context_fn({"price": 7})
+    props, state, actions, lifecycle = normalize_client_spec(client_fn({"price": 7}))
 
-    class Spec:
-        props = {"x": 1}
-        state = [StateObj]
-        methods = ["do"]
-        lifecycle = {"mounted": ["do"]}
-
-        def state(self) -> list[Any]:
-            return [StateObj()]
-
-        def actions(self) -> None:
-            return None
-
-        def methods(self) -> None:
-            return None
-
-        def lifecycle(self) -> dict[str, list[str]]:
-            return {"updated": ["do"]}
-
-        def do(self) -> dict[str, Any]:
-            return {"op": "log", "value": "x"}
-
-    props2, state2, actions2, lifecycle2 = normalize_client_spec(Spec())
-    assert props2["x"] == 1
-    assert state2["counter"]["default"] == 1
-    assert "do" in actions2
-    assert lifecycle2["onUpdate"] == []
-
-
-def test_scope_state_methods_and_infer_helpers_extra_paths() -> None:
-    # Given / When: normalize_state_source receives invalid shape
-    try:
-        normalize_state_source(123, owner=None)
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    # Given / When: state item string requires owner and must exist
-    try:
-        normalize_state_item("StateCls", None)
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    try:
-        normalize_state_item("Missing", SimpleNamespace())
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    class BadState:
-        default = 1
-
-    try:
-        normalize_state_item(BadState(), None)
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    class GoodState:
-        name = "count"
-        default = 1
-
-        def init(self) -> int:
-            return 2
-
-    out = normalize_state_item(GoodState(), None)
-    assert callable(out["init"])
-
-    # Given / When: methods resolver branches
-    assert resolve_methods_actions(None, owner=None) == {}
-    assert resolve_methods_actions({"a": {"op": "log", "value": 1}}, owner=None)["a"]["op"] == "log"
-    try:
-        resolve_methods_actions([1], owner=SimpleNamespace())
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-    try:
-        resolve_methods_actions(1, owner=None)
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
-
-    # Given / When: normalize method callable resolves callable and string refs
-    owner = SimpleNamespace(run=lambda: {"op": "log", "value": "ok"})
-    assert callable(_normalize_method_callable("run", owner.run, owner))
-    assert callable(_normalize_method_callable("run", "run", owner))
-
-    # Given / When: infer_action_methods skips type attributes
-    class O:
-        ValueType = dict
-
-        def act(self) -> None:
-            return None
-
-    assert infer_action_methods(O()) == ["act"]
-
-
-def test_scope_invoke_method_and_lifecycle_noop_paths() -> None:
-    # Given: method callable with custom __builtins__ object forcing non-dict restoration path
-    class BuiltinsObj:
-        pass
-
-    class CallableObj:
-        __globals__ = {"__builtins__": BuiltinsObj()}
-
-        def __call__(self) -> None:
-            raise TypeError("force second call")
-
-    result = invoke_method_callable("x", CallableObj(), owner=None)
-    assert result["state"] == "__noop__"
-
-    # Given: lifecycle hook returning no-op should be filtered
-    class Owner:
-        def onCreate(self) -> None:
-            return None
-
-    lifecycle = normalize_lifecycle_methods(Owner())
-    assert lifecycle["onCreate"] == []
-
-    # Given / When: normalize_lifecycle_spec receives None
-    lifecycle_spec = normalize_lifecycle_spec(None)
-    assert lifecycle_spec["onMount"] == []
-
-
-def test_scope_remaining_normalization_paths() -> None:
-    # Given / When: raw_spec None branch
-    props, state, actions, lifecycle = normalize_client_spec(None)
-    assert props == {}
+    assert context["display"] == "$7.00"
+    assert context["is_cheap"] is True
+    assert props["price"] == 7
     assert state == {}
     assert actions == {}
-    assert lifecycle["onCreate"] == []
+    assert lifecycle["onMount"] == []
 
-    # Given / When: props/state/methods/lifecycle lower-case attribute branches
-    class SpecAttr:
-        props = {"a": 1}
-        state = [StateField(name="count", default=0, cast="int")]
-        methods = ["do"]
-        lifecycle = {"on_mount": ["do"]}
 
-        def do(self) -> dict[str, Any]:
-            return {"op": "log", "value": "ok"}
+def test_scope_setup_infers_actions_and_lifecycle_from_local_functions() -> None:
+    source = """
+class Features(Component):
+    def setup(self, props):
+        state = {"count": 0}
+        data = {"title": "x"}
 
-    props2, state2, actions2, lifecycle2 = normalize_client_spec(SpecAttr())
-    assert props2["a"] == 1
-    assert state2["count"]["cast"] == "int"
-    assert "do" in actions2
-    assert lifecycle2["onMount"] == []
+        def reload_packages():
+            state["count"] += 1
 
-    # Given / When: props callable branch
-    class SpecPropsMethod:
-        def props(self) -> dict[str, int]:
-            return {"m": 2}
+        def mounted():
+            reload_packages()
+"""
 
-    props3, _, _, _ = normalize_client_spec(SpecPropsMethod())
-    assert props3["m"] == 2
+    scope = load_python_scope(source)
+    context_fn, client_fn = resolve_component_callables(scope)
+    assert callable(context_fn)
+    assert callable(client_fn)
 
-    # Given / When: lifecycle attr (non-callable) is normalized
-    class SpecLifecycleAttr:
-        lifecycle = {"created": ["x"]}
+    context = context_fn({})
+    props, state, actions, lifecycle = normalize_client_spec(client_fn({}))
 
-    _, _, _, lifecycle3 = normalize_client_spec(SpecLifecycleAttr())
-    assert lifecycle3["onCreate"] == []
+    assert context["title"] == "x"
+    assert state["count"] == 0
+    assert actions["reload_packages"]["op"] == "server_call"
+    assert actions["reload_packages"]["kind"] == "action"
+    assert lifecycle["onMount"][0]["op"] == "server_call"
 
-    # Given / When: props source branches
-    class PropsClass:
-        x = 1
 
-    assert normalize_props_source(None) == {}
-    assert normalize_props_source(PropsClass)["x"] == 1
-    assert normalize_props_source(SimpleNamespace(y=2))["y"] == 2
-    try:
-        normalize_props_source(1)
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("Expected ValueError")
+def test_scope_lifecycle_merges_nested_action_results_without_return() -> None:
+    source = """
+class Features(Component):
+    def setup(self, props):
+        state = {"mounted": False, "reload_count": 0, "status": "idle"}
 
-    # Given / When: mapping methods callable normalization branch
-    owner = SimpleNamespace(do=lambda: {"op": "set", "state": "a", "value": 1})
-    actions_map = resolve_methods_actions({"do": "do"}, owner)
-    assert actions_map["do"]["op"] == "set"
+        def reload_packages():
+            state["reload_count"] += 1
+            state["status"] = "updated"
+            return {"pypi": {"available": True, "latest": "1.2.3"}}
+
+        def mounted():
+            state["mounted"] = True
+            reload_packages()
+
+        return {
+            "props": props,
+            "state": state,
+            "data": {"pypi": {"available": False, "latest": ""}},
+            "actions": {"reload_packages": reload_packages},
+            "lifecycle": {"mounted": mounted},
+        }
+"""
+
+    patch = execute_setup_server_callable(
+        source,
+        kind="lifecycle",
+        name="mounted",
+        props={},
+        state={},
+    )
+
+    assert patch["state"]["mounted"] is True
+    assert patch["state"]["reload_count"] == 1
+    assert patch["state"]["status"] == "updated"
+    assert patch["props"]["pypi"]["available"] is True
+    assert patch["props"]["pypi"]["latest"] == "1.2.3"
+
+
+def test_scope_lifecycle_captures_print_logs() -> None:
+    source = """
+class Features(Component):
+    def setup(self, props):
+        state = {"count": 0}
+
+        def increment():
+            print("incrementing counter")
+            state["count"] += 1
+
+        def mounted():
+            print("component mounted")
+            increment()
+            print("finished mounting")
+
+        return {
+            "props": props,
+            "state": state,
+            "actions": {"increment": increment},
+            "lifecycle": {"mounted": mounted},
+        }
+"""
+
+    patch = execute_setup_server_callable(
+        source,
+        kind="lifecycle",
+        name="mounted",
+        props={},
+        state={},
+    )
+
+    assert patch["state"]["count"] == 1
+    assert "__lua_logs__" in patch["props"]
+    assert isinstance(patch["props"]["__lua_logs__"], list)
+    assert "component mounted" in patch["props"]["__lua_logs__"]
+    assert "incrementing counter" in patch["props"]["__lua_logs__"]
+    assert "finished mounting" in patch["props"]["__lua_logs__"]
+
+
+def test_scope_action_mutating_data_without_return_updates_props_patch() -> None:
+    source = """
+class Features(Component):
+    def setup(self, props):
+        state = {"count": 0}
+        data = {"pypi": {"latest": "", "available": False}}
+
+        def reload_packages():
+            state["count"] += 1
+            data["pypi"] = {"latest": "1.2.3", "available": True}
+
+"""
+
+    patch = execute_setup_server_callable(
+        source,
+        kind="action",
+        name="reload_packages",
+        props={},
+        state={},
+    )
+
+    assert patch["state"]["count"] == 1
+    assert patch["props"]["pypi"]["latest"] == "1.2.3"
+    assert patch["props"]["pypi"]["available"] is True

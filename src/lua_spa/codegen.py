@@ -32,20 +32,33 @@ def build_client_script(python_block: str) -> str:
         python_block: The <python> block source code.
 
     Returns:
-        JavaScript code defining a setup() function, or empty string if no client() found.
+        JavaScript code defining a setup() function, or empty string if no component setup is defined.
     """
     local_scope = load_python_scope(python_block)
     _, client_factory = resolve_component_callables(local_scope)
     if client_factory is None:
         return ""
 
-    raw_spec = client_factory()
+    try:
+        raw_spec = client_factory({})
+    except TypeError:
+        raw_spec = client_factory()
     props_spec, state_spec, actions_spec, lifecycle_spec = normalize_client_spec(raw_spec)
 
     state_fields = list(state_spec.items())
-    lines: list[str] = ["function setup({ useState, props }) {"]
+    lines: list[str] = ["function setup({ useState, props, componentName }) {"]
     props_literal = _js_literal(props_spec)
-    lines.append(f"  const resolvedProps = Object.assign({{}}, {props_literal}, props || {{}});")
+    lines.append("  const incomingProps = props || {};")
+    lines.append(
+        "  const contextSync = (incomingProps.__context && typeof incomingProps.__context === 'object')"
+        " ? incomingProps.__context : {};"
+    )
+    lines.append(
+        f"  const resolvedProps = Object.assign({{}}, {props_literal}, contextSync, incomingProps);"
+    )
+    lines.append("  if (Object.prototype.hasOwnProperty.call(resolvedProps, '__context')) {")
+    lines.append("    delete resolvedProps.__context;")
+    lines.append("  }")
 
     for prop_name, default_value in props_spec.items():
         prop_key = _js_literal(str(prop_name))
@@ -81,6 +94,67 @@ def build_client_script(python_block: str) -> str:
         setter_by_state[state_name] = setter_var
         value_by_state[state_name] = value_var
 
+    state_pairs = [f"{key}: {value_by_state[key]}" for key in value_by_state]
+    lines.append("  const state = {" + ", ".join(state_pairs) + "};")
+    lines.append("  const [__props_version, __set_props_version] = useState(0);")
+    lines.append("  function __touchProps() {")
+    lines.append("    __set_props_version(function (value) { return value + 1; });")
+    lines.append("  }")
+    lines.append("  function __applyServerPatch(patch) {")
+    lines.append("    if (!patch || typeof patch !== 'object') {")
+    lines.append("      return;")
+    lines.append("    }")
+    lines.append("    var patchProps = patch.props;")
+    lines.append("    if (patchProps && typeof patchProps === 'object') {")
+    lines.append("      var __lua_logs__ = patchProps.__lua_logs__;")
+    lines.append("      if (Array.isArray(__lua_logs__)) {")
+    lines.append("        __lua_logs__.forEach(function (msg) {")
+    lines.append("          console.log('[lua-spa]', msg);")
+    lines.append("        });")
+    lines.append("      }")
+    lines.append("      Object.keys(patchProps).forEach(function (key) {")
+    lines.append("        if (key !== '__lua_logs__') {")
+    lines.append("          resolvedProps[key] = patchProps[key];")
+    lines.append("        }")
+    lines.append("      });")
+    lines.append("      __touchProps();")
+    lines.append("    }")
+    lines.append("    var patchState = patch.state;")
+    lines.append("    if (patchState && typeof patchState === 'object') {")
+    for state_name, setter in setter_by_state.items():
+        state_key = _js_literal(state_name)
+        lines.append(
+            f"      if (Object.prototype.hasOwnProperty.call(patchState, {state_key})) "
+            + "{ "
+            + setter
+            + f"(function () {{ return patchState[{state_key}]; }}); }}"
+        )
+    lines.append("    }")
+    lines.append("  }")
+    lines.append("  function __serverCall(kind, name) {")
+    lines.append("    if (!componentName) {")
+    lines.append("      return;")
+    lines.append("    }")
+    lines.append("    fetch('/__lua_spa_action', {")
+    lines.append("      method: 'POST',")
+    lines.append("      headers: { 'Content-Type': 'application/json' },")
+    lines.append("      body: JSON.stringify({")
+    lines.append("        component: componentName,")
+    lines.append("        kind: kind,")
+    lines.append("        name: name,")
+    lines.append("        props: resolvedProps,")
+    lines.append("        state: state,")
+    lines.append("      }),")
+    lines.append("    })")
+    lines.append("      .then(function (response) { return response.json(); })")
+    lines.append("      .then(function (payload) {")
+    lines.append("        if (!payload || payload.ok !== true) {")
+    lines.append("          return;")
+    lines.append("        }")
+    lines.append("        __applyServerPatch(payload.result || {});")
+    lines.append("      })")
+    lines.append("      .catch(function () {});")
+    lines.append("  }")
     lines.append("  const actions = {")
 
     for action_name_raw, action_cfg in actions_spec.items():
@@ -113,9 +187,6 @@ def build_client_script(python_block: str) -> str:
                 lines.append(f"      __callAction({_js_literal(lifecycle_operation)});")
         lines.append("    },")
     lines.append("  };")
-
-    state_pairs = [f"{key}: {value_by_state[key]}" for key in value_by_state]
-    lines.append("  const state = {" + ", ".join(state_pairs) + "};")
 
     lines.append("  return {")
     lines.append("    props: resolvedProps,")
@@ -219,6 +290,27 @@ def _normalize_action_operation(action_cfg: Any) -> dict[str, Any]:
     if op_kind == "log":
         return {"op": "log", "value": action_cfg.get("value")}
 
+    if op_kind == "set_prop":
+        prop_name = action_cfg.get("prop")
+        if prop_name is None:
+            raise ValueError("set_prop action requires 'prop'")
+        return {
+            "op": "set_prop",
+            "prop": str(prop_name),
+            "value": action_cfg.get("value"),
+        }
+
+    if op_kind == "server_call":
+        kind_name = str(action_cfg.get("kind") or "action")
+        callable_name = str(action_cfg.get("name") or "")
+        if callable_name == "":
+            raise ValueError("server_call action requires 'name'")
+        return {
+            "op": "server_call",
+            "kind": kind_name,
+            "name": callable_name,
+        }
+
     state_name = action_cfg.get("state")
     if state_name is None:
         raise ValueError("Action config must include 'state'")
@@ -273,6 +365,30 @@ def _js_action_statement(
         if not isinstance(js_code, str):
             raise ValueError("js action requires string field 'value'")
         return js_code
+
+    if str(operation.get("op", "")) == "set_prop":
+        prop_name = operation.get("prop")
+        if not isinstance(prop_name, str) or prop_name.strip() == "":
+            raise ValueError("set_prop operation requires string 'prop'")
+        value_literal = _js_runtime_value_expression(operation.get("value"), "resolvedProps")
+        prop_literal = _js_literal(prop_name)
+        return f"resolvedProps[{prop_literal}] = {value_literal};"
+
+    if str(operation.get("op", "")) == "server_call":
+        kind_name = str(operation.get("kind") or "action")
+        callable_name = str(operation.get("name") or "")
+        if callable_name == "":
+            raise ValueError("server_call operation requires 'name'")
+        if kind_name == "lifecycle":
+            key_literal = _js_literal(callable_name)
+            return (
+                "window.__luaSpaLifecycleOnce = window.__luaSpaLifecycleOnce || {}; "
+                f"if (!window.__luaSpaLifecycleOnce[componentName + ':' + {key_literal}]) {{ "
+                f"window.__luaSpaLifecycleOnce[componentName + ':' + {key_literal}] = true; "
+                f"__serverCall({_js_literal(kind_name)}, {_js_literal(callable_name)}); "
+                "}"
+            )
+        return f"__serverCall({_js_literal(kind_name)}, {_js_literal(callable_name)});"
 
     state_name = str(operation["state"])
     if state_name not in setter_by_state:
@@ -358,3 +474,8 @@ def _js_literal(value: Any) -> str:
         A JSON string suitable for embedding in JavaScript.
     """
     return json.dumps(value, ensure_ascii=True)
+
+
+# Define Props class for client() method compatibility
+class Props:
+    pass

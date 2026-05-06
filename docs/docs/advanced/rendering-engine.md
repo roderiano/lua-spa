@@ -92,10 +92,10 @@ The template context adds `state`, `props`, and `py` on top of these globals.
 
 ```python
 context = {
-    "state":  {...},  # from client() state spec
+    "state":  {...},  # from setup() state
     "props":  {...},  # from parent or initial_props
-    "py":     {...},  # from context(props) return value
+    "py":     {...},  # from setup().data
 }
 ```
 
-`build_python_context(props, component)` and `build_server_state(component)` in `renderer.py` assemble this dict before rendering.
+`build_python_context(...)` and `build_server_state(...)` in `renderer.py` assemble this dict from `setup(self, props)` output before rendering.

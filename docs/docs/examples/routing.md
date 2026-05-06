@@ -71,8 +71,14 @@ class App(Component):
 ```html
 <python>
 class UserDetail(Component):
-    def context(self, props):
-        return {"user_id": props.get("id", "unknown")}
+  def setup(self, props):
+    return {
+      "props": props,
+      "state": {},
+      "data": {"user_id": props.get("id", "unknown")},
+      "actions": {},
+      "lifecycle": {},
+    }
 </python>
 
 <template>

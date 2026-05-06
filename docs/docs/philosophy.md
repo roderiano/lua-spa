@@ -15,7 +15,7 @@ lua-spa asks: **what if Python handled it all?**
 
 ### Python is a great frontend language
 
-Python's readability and expressiveness make it ideal for UI logic. `context()` for server data and `client()` for reactive behavior feel natural to Python developers. No JSX, no TypeScript generics, no `useEffect` dependency arrays.
+Python's readability and expressiveness make it ideal for UI logic. `setup(self, props)` unifies server data (`data`) and reactive behavior (`state/actions/lifecycle`) in one contract. No JSX, no TypeScript generics, no `useEffect` dependency arrays.
 
 ### SSR should be the default, not the exception
 

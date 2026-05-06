@@ -5,17 +5,19 @@ title: Props
 
 # Props
 
-Props are values passed from a parent component (or the framework bootstrap) into a child component.
+Props are input values passed from parent components (or bootstrap `initial_props`) into a component.
+
+In lua-spa, props defaults are declared in `setup(self, props)`.
 
 ## Passing props
 
-### From parent template
+From parent template:
 
 ```html
 <Card title="Hello" count="42" active="true" />
 ```
 
-### From `spa.config.json`
+From `spa.config.json`:
 
 ```json
 {
@@ -23,45 +25,44 @@ Props are values passed from a parent component (or the framework bootstrap) int
 }
 ```
 
-## Receiving props on the server
-
-`context(props)` receives a plain Python dict:
+## Declaring props in `setup()`
 
 ```python
-def context(self, props):
-    title = props.get("title", "Default Title")
-    return {"title": title}
-```
-
-Then use it in the template:
-
-```html
-<template>
-  <h1>{{ title }}</h1>
-</template>
-```
-
-## Declaring props on the client
-
-List expected props with defaults inside `client()`:
-
-```python
-def client(self):
+class Card(Component):
+  def setup(self, props):
     return {
-        "props": {
-            "title": "Default Title",
-            "count": 0,
-            "active": False,
-        }
+      "props": {
+        "title": "Default Title",
+        "count": 0,
+        "active": False,
+        **props,
+      },
+      "state": {},
+      "data": {},
+      "actions": {},
+      "lifecycle": {},
     }
 ```
 
-The framework coerces incoming string attributes to the correct type:
-- `int` / `float` → `Number(...)`
-- `bool` → `Boolean(...)`
-- `str` → stays as-is
+The runtime merges defaults with incoming values and coerces scalar types (`int`/`float`/`bool`/`str`) safely.
 
-## Using props in templates
+## Reading props in setup and template
+
+`setup(self, props)` receives props as a Python dict:
+
+```python
+def setup(self, props):
+  title = props.get("title", "Default Title")
+  return {
+    "props": {"title": title, **props},
+    "state": {},
+    "data": {},
+    "actions": {},
+    "lifecycle": {},
+  }
+```
+
+Template:
 
 ```html
 <template>
@@ -70,21 +71,8 @@ The framework coerces incoming string attributes to the correct type:
 </template>
 ```
 
-## Props vs State
+## Rules
 
-```mermaid
-graph LR
-    P["props (read-only)"] -->|passed in| C[Component]
-    C --> S["state (reactive)"]
-    S -->|can seed from| P
-    C -->|renders| T[Template]
-    T -->|reads| P
-    T -->|reads| S
-```
-
-| | Props | State |
-|---|---|---|
-| Source | Parent / config | `client()` declaration |
-| Mutability | Read-only | Mutable via actions |
-| Scope | Server + client | Client only |
-| Syntax | `props.x` | `state.x` |
+- Define props defaults in `setup(self, props)`.
+- Use `props` for input values and `state` for reactive mutations.
+- Prefer returning prop patches from server callables when client should receive updated data.

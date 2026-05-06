@@ -5,10 +5,19 @@
 @import AppFooter from './Footer/Footer.lspa'
 @import NotFound from './NotFound/NotFound.lspa'
 @import Features from './Features/Features.lspa'
+@import ComponentTemplate from './ComponentTemplate/ComponentTemplate.lspa'
+@import ComponentTemplate from './ComponentTemplate/ComponentTemplate.lspa'
 
 <python>
 class App(Component):
-  pass
+  def setup(self, props):
+    return {
+      "props": props,
+      "state": {},
+      "data": {},
+      "actions": {},
+      "lifecycle": {},
+    }
 </python>
 
 <style src="./App.css"></style>

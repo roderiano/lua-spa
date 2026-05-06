@@ -5,7 +5,7 @@ title: Lifecycle Hooks
 
 # Lifecycle Hooks
 
-Lifecycle hooks let you run state operations at specific points in a component's life in the browser.
+Lifecycle hooks let you run actions at specific points in a component's life.
 
 ## Available hooks
 
@@ -33,9 +33,9 @@ stateDiagram-v2
 
 ---
 
-## Style 1 — direct Python methods (recommended)
+## Declaring lifecycle in setup
 
-Define methods directly on the component class using any of the accepted name variants. The framework detects them automatically and compiles them to the correct JS lifecycle hook.
+Declare lifecycle entries inside the `lifecycle` mapping returned by `setup(self, props)`.
 
 ### Accepted method names
 
@@ -50,33 +50,26 @@ Define methods directly on the component class using any of the accepted name va
 
 ```python
 class Dashboard(Component):
-    def client(self):
-        return {
-            "state": {
-                "ready":   False,
-                "count":   0,
-                "visible": True,
-            },
-            "actions": {
-                "increment": self.add("count"),
-            },
+    def setup(self, props):
+        state = {
+            "ready": False,
+            "count": 0,
+            "visible": True,
         }
 
-    # Runs once, before the component is added to the DOM
-    def on_create(self):
-        return self.set("count", 0)
+        def increment():
+            state["count"] += 1
 
-    # Runs once, right after the component is added to the DOM
-    def on_mount(self):
-        return self.set("ready", True)
+        def mounted():
+            state["ready"] = True
 
-    # Runs on every state update (re-render)
-    def on_update(self):
-        return self.add("count")   # track how many times it re-rendered
-
-    # Runs when the component is removed from the DOM
-    def on_unmount(self):
-        return self.set("visible", False)
+        return {
+            "props": props,
+            "state": state,
+            "data": {},
+            "actions": {"increment": increment},
+            "lifecycle": {"mounted": mounted},
+        }
 ```
 
 ```html
@@ -89,47 +82,50 @@ class Dashboard(Component):
 </template>
 ```
 
-> Each lifecycle method returns a **single operation** (`self.add`, `self.set`, etc.) or a **list of operations** executed in order.
+Callable lifecycle hooks run on server through `server_call` and may call one or more actions.
 
 ---
 
-## Style 2 — `lifecycle` dict inside `client()`
-
-If you prefer to keep everything inside `client()`, declare a `"lifecycle"` key. Values can be **action name strings** or **inline operation dicts**.
+Values can be action name strings, inline operation mappings, callables, or lists.
 
 ```python
-def client(self):
+def setup(self, props):
     return {
+        "props": props,
         "state": {"ready": False, "count": 0},
+        "data": {},
         "actions": {
-            "markLoaded": self.set("ready", True),
-            "increment":  self.add("count"),
+            "markLoaded": {"op": "set", "state": "ready", "value": True},
+            "increment":  {"op": "add", "state": "count", "value": 1},
         },
         "lifecycle": {
             "onMount":  ["markLoaded"],         # call a named action
-            "onUpdate": [self.add("count")],    # inline operation
+            "onUpdate": [{"op": "add", "state": "count", "value": 1}],
         },
     }
 ```
 
 ---
 
-## Combining both styles
+## Canonical hook names
 
-You can mix method-based and dict-based hooks in the same component. Method-based hooks **override** dict-based ones for the same hook name:
+Supported hook names after normalization: `onCreate`, `onMount`, `onUpdate`, `onUnmount`.
+
+Aliases like `created`, `mounted`, `updated`, `unmounted` are accepted.
 
 ```python
 class Page(Component):
-    def client(self):
+    def setup(self, props):
         return {
+            "props": props,
             "state": {"loaded": False, "visits": 0},
+            "data": {},
+            "actions": {},
             "lifecycle": {
-                "onMount": [self.set("loaded", True)],  # dict-based
+                "onMount": [{"op": "set", "state": "loaded", "value": True}],
+                "onUpdate": [{"op": "add", "state": "visits", "value": 1}],
             },
         }
-
-    def on_update(self):          # method-based — takes precedence for onUpdate
-        return self.add("visits")
 ```
 
 ---
@@ -139,10 +135,11 @@ class Page(Component):
 Both styles support returning a list of operations from a single hook:
 
 ```python
-def on_mount(self):
-    return [
-        self.set("ready", True),
-        self.set("count", 0),
-        self.add("visits"),
+"lifecycle": {
+    "onMount": [
+        {"op": "set", "state": "ready", "value": True},
+        {"op": "set", "state": "count", "value": 0},
+        {"op": "add", "state": "visits", "value": 1},
     ]
+}
 ```

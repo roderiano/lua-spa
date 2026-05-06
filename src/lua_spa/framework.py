@@ -21,6 +21,7 @@ from lua_spa.renderer import (
     interpolate,
     render_template_with_directives,
 )
+from lua_spa.scope import execute_setup_server_callable
 from lua_spa.router import Router
 from lua_spa.runtime_assets import SPA_RUNTIME_JS
 from lua_spa.server import SpaServer
@@ -251,10 +252,19 @@ class SpaFramework:
             }
             for name, component in self._components.items()
         }
+        entry_python_context: Mapping[str, Any] = {}
+        entry_component = self._components.get(self.entry_component)
+        if entry_component is not None:
+            entry_python_context = build_python_context(entry_component.python_block, props)
+
+        synced_props = dict(props)
+        if isinstance(entry_python_context, Mapping) and len(entry_python_context) > 0:
+            synced_props["__context"] = dict(entry_python_context)
+
         config = {
             "mountId": self.mount_id,
             "entry": self.entry_component,
-            "props": dict(props),
+            "props": synced_props,
             "router": self._router_config,
         }
 
@@ -373,6 +383,27 @@ class SpaFramework:
             )
 
         return rendered
+
+    def execute_server_callable(
+        self,
+        component_name: str,
+        kind: str,
+        callable_name: str,
+        props: Mapping[str, Any] | None,
+        state: Mapping[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Execute a setup action/lifecycle callable and return state/props patches."""
+        component = self._components.get(component_name)
+        if component is None:
+            raise ValueError(f"Unknown component: {component_name}")
+
+        return execute_setup_server_callable(
+            component.python_block,
+            kind=kind,
+            name=callable_name,
+            props=props,
+            state=state,
+        )
 
     def _render_tag_match(
         self,
