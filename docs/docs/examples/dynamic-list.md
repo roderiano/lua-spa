@@ -18,12 +18,15 @@ class TodoList(Component):
         return {}
 
     def client(self):
-        return {
-            "state": {
-                "items": ["Buy milk", "Write docs"],
-                "draft": "",
-            },
-        }
+    class State:
+      items = ["Buy milk", "Write docs"]
+      draft = ""
+
+    class ClientSpec:
+      State = State
+      Methods = ["setDraft", "clearAll", "addItem"]
+
+    return ClientSpec()
 
     def setDraft(self):
         self.state.draft = ""

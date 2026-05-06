@@ -18,7 +18,7 @@ flowchart TD
     C --> D["resolve_component_callables()"]
     D --> E["client() factory called"]
     E --> F["normalize_client_spec()"]
-    F --> G["props / state / actions / lifecycle dicts"]
+    F --> G["props / state / actions / lifecycle specs"]
     G --> H["build_client_script()"]
     H --> I["setup() JS function string"]
 ```
@@ -170,9 +170,9 @@ const state = { count: __state_0, label: __state_1 };
 
 ---
 
-### Actions — Style 1 (dict in `client()`)
+### Actions (Python methods)
 
-Dict-style actions use `self.add()`, `self.sub()`, `self.set()`, `self.toggle()` which return plain operation dicts. These are processed by `_normalize_action_operation()` then compiled by `_js_action_statement()`.
+Actions are defined as Python methods on the component class. The generator traces `self.state` mutations and compiles them to JS setters.
 
 | Python | Internal operation dict | Generated JS action body |
 |---|---|---|
@@ -182,13 +182,20 @@ Dict-style actions use `self.add()`, `self.sub()`, `self.set()`, `self.toggle()`
 | `self.set("flag", True)` | `{"op":"set","state":"flag","value":True}` | `__set_state_1(function(){return true;});` |
 | `self.toggle("flag")` | `{"op":"toggle","state":"flag"}` | `__set_state_1(function(v){return !v;});` |
 
-Full example (using Style 2 for comparison — same JS output):
+Full example:
 
 ```python
 # Python
 class Counter(Component):
-    def client(self):
-        return {"state": {"count": 0}}
+  def client(self):
+    class State:
+      count = 0
+
+    class ClientSpec:
+      State = State
+      Methods = ["increment", "reset"]
+
+    return ClientSpec()
 
     def increment(self):
         self.state.count += 1
@@ -213,9 +220,7 @@ const actions = {
 
 ---
 
-### Actions — Style 2 (Python methods, traced)
-
-Method-style actions are **traced**: the framework runs the method with `self.state` replaced by a `_TraceState` proxy that records each assignment and comparison as an operation dict.
+Method actions are **traced**: the framework runs each method with `self.state` replaced by a `_TraceState` proxy that records each assignment and comparison as an operation dict.
 
 ```python
 # Python

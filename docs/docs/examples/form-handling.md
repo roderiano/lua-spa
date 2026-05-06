@@ -18,14 +18,17 @@ class ContactForm(Component):
         return {}
 
     def client(self):
-        return {
-            "state": {
-                "name": "",
-                "email": "",
-                "submitted": False,
-                "error": "",
-            },
-        }
+    class State:
+      name = ""
+      email = ""
+      submitted = False
+      error = ""
+
+    class ClientSpec:
+      State = State
+      Methods = ["setName", "setEmail", "submit", "clearError"]
+
+    return ClientSpec()
 
     def setName(self):
         self.state.name = ""

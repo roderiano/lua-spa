@@ -5,17 +5,19 @@ title: Props
 
 # Props
 
-Props are values passed from a parent component (or the framework bootstrap) into a child component.
+Props are read-only input values passed from parent components (or from bootstrap `initial_props`) into a component.
+
+lua-spa uses one professional pattern for client props: **Python classes/objects only**.
 
 ## Passing props
 
-### From parent template
+From parent template:
 
 ```html
 <Card title="Hello" count="42" active="true" />
 ```
 
-### From `spa.config.json`
+From `spa.config.json`:
 
 ```json
 {
@@ -23,45 +25,38 @@ Props are values passed from a parent component (or the framework bootstrap) int
 }
 ```
 
-## Receiving props on the server
+## Declaring props in `client()`
 
-`context(props)` receives a plain Python dict:
+Declare a `Props` class with public attributes.
+
+```python
+class Card(Component):
+    def client(self):
+        class Props:
+            title = "Default Title"
+            count = 0
+            active = False
+
+        class ClientSpec:
+            pass
+
+        spec = ClientSpec()
+        spec.Props = Props
+        return spec
+```
+
+The runtime merges defaults with incoming values and coerces scalar types (`int`/`float`/`bool`/`str`) safely.
+
+## Reading props on server and template
+
+Server-side (`context`) receives props as a Python dict:
 
 ```python
 def context(self, props):
-    title = props.get("title", "Default Title")
-    return {"title": title}
+    return {"title": props.get("title", "Default Title")}
 ```
 
-Then use it in the template:
-
-```html
-<template>
-  <h1>{{ title }}</h1>
-</template>
-```
-
-## Declaring props on the client
-
-List expected props with defaults inside `client()`:
-
-```python
-def client(self):
-    return {
-        "props": {
-            "title": "Default Title",
-            "count": 0,
-            "active": False,
-        }
-    }
-```
-
-The framework coerces incoming string attributes to the correct type:
-- `int` / `float` → `Number(...)`
-- `bool` → `Boolean(...)`
-- `str` → stays as-is
-
-## Using props in templates
+Template:
 
 ```html
 <template>
@@ -70,21 +65,8 @@ The framework coerces incoming string attributes to the correct type:
 </template>
 ```
 
-## Props vs State
+## Rules
 
-```mermaid
-graph LR
-    P["props (read-only)"] -->|passed in| C[Component]
-    C --> S["state (reactive)"]
-    S -->|can seed from| P
-    C -->|renders| T[Template]
-    T -->|reads| P
-    T -->|reads| S
-```
-
-| | Props | State |
-|---|---|---|
-| Source | Parent / config | `client()` declaration |
-| Mutability | Read-only | Mutable via actions |
-| Scope | Server + client | Client only |
-| Syntax | `props.x` | `state.x` |
+- Use classes/objects/functions for props definitions.
+- Do not use declarative props dict specs inside `client()`.
+- Treat props as immutable input; mutate only state via methods/actions.

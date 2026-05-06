@@ -18,10 +18,19 @@ class Counter(Component):
         return {}
 
     def client(self):
-        return {
-            "props": {"label": "count", "step": 1},
-            "state": {"value": 0},
-        }
+    class Props:
+      label = "count"
+      step = 1
+
+    class State:
+      value = 0
+
+    class ClientSpec:
+      Props = Props
+      State = State
+      Methods = ["inc", "dec", "reset"]
+
+    return ClientSpec()
 
     def inc(self):
         self.state.value += 1
@@ -83,4 +92,4 @@ sequenceDiagram
 
 - Multiple instances of the same component each have **independent state**
 - `props.label` is passed from the parent as a static string attribute
-- `self.state.value += 1` in a method traces to `setValue(value + 1)` in JavaScript
+- `self.state.value += 1` in a method compiles to a reactive setter in JavaScript

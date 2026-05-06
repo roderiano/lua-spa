@@ -45,12 +45,21 @@ class MyComponent(Component):
         return {"title": props.get("title", "Default")}
 
     def client(self):
-        return {
-            "props":   {"title": "Default"},
-            "state":   {"count": 0},
-            "actions": {"inc": self.add("count")},
-            "lifecycle": {"onMount": ["inc"]},
-        }
+        class Props:
+            title = "Default"
+
+        class State:
+            count = 0
+
+        class ClientSpec:
+            Props = Props
+            State = State
+            Methods = ["inc"]
+
+        return ClientSpec()
+
+    def inc(self):
+        self.state.count += 1
 ```
 
 ### `context(self, props) → dict`
@@ -65,15 +74,20 @@ Called server-side when rendering the template. Returns a dict that becomes the 
 
 ### `client(self) → dict`
 
-Inspected at **build time** by the code generator to produce the `setup()` JavaScript function. The return value is a spec dict:
+Inspected at **build time** by the code generator to produce the `setup()` JavaScript function. The return value must be a Python object/class-based spec:
 
 ```python
-{
-    "props":     { "name": "default" },       # expected props + defaults
-    "state":     { "count": 0 },              # reactive state
-    "actions":   { "inc": self.add("count") }, # state mutations
-    "lifecycle": { "onMount": ["inc"] },       # lifecycle hooks
-}
+class ClientSpec:
+    class Props:
+        name = "default"
+
+    class State:
+        count = 0
+
+    Methods = ["inc"]
+
+def inc(self):
+    self.state.count += 1
 ```
 
 ## `ClientMethods`
@@ -117,22 +131,24 @@ self.toggle("visible")   # visible = !visible
 
 ## `StateField`
 
-Declarative state initialization. Use when state should be seeded from a prop.
+Declarative state field metadata. Use as class/object attributes when state should be seeded from a prop.
 
 ```python
 from lua_spa.types import StateField
 
 def client(self):
-    return {
-        "state": {
-            "count": StateField(
-                name="count",
-                from_prop="initialCount",
-                default=0,
-                cast="int",
-            )
-        }
-    }
+    class State:
+        count = StateField(
+            name="count",
+            from_prop="initialCount",
+            default=0,
+            cast="int",
+        )
+
+    class ClientSpec:
+        State = State
+
+    return ClientSpec()
 ```
 
 | Field | Type | Default | Description |
