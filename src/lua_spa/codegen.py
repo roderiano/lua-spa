@@ -358,3 +358,8 @@ def _js_literal(value: Any) -> str:
         A JSON string suitable for embedding in JavaScript.
     """
     return json.dumps(value, ensure_ascii=True)
+
+
+# Define Props class for client() method compatibility
+class Props:
+    pass

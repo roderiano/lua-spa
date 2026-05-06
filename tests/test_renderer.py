@@ -116,7 +116,7 @@ class App(Component):
 
     def client(self):
         class S:
-            State = [{"name": "count", "default": 1, "cast": "int"}]
+            State = [StateField(name="count", default=1, cast="int")]
         return S()
 """
 

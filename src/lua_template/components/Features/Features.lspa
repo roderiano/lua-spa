@@ -3,45 +3,49 @@
 <python>
 class Features(Component):
   def client(self):
-    return {
-      "props": {
-        "title": "lua-spa",
-        "subtitle": "Python Framework for Single Page Applications",
-        "tagline": "Combine Server Rendering with Client Hydration to build modern, fast SPAs with pure Python.",
-        "features": [
-          {
-            "icon": "🐍",
-            "title": "Pure Python",
-            "description": "Write component logic in Python while lua-spa handles runtime behavior.",
-          },
-          {
-            "icon": "⚡",
-            "title": "SSR + Hydration",
-            "description": "Render HTML on the server and hydrate it on the client without UI jumps.",
-          },
-          {
-            "icon": "🔌",
-            "title": "No Build Step",
-            "description": "Start quickly with a simple Python workflow and zero frontend bundling.",
-          },
-          {
-            "icon": "🧩",
-            "title": "Component System",
-            "description": "Compose reusable .lspa components with template, Python, and style together.",
-          },
-          {
-            "icon": "🗺️",
-            "title": "Built-in Router",
-            "description": "Use nested routes, dynamic params, and wildcard fallbacks from configuration.",
-          },
-          {
-            "icon": "♻️",
-            "title": "Hot Reload",
-            "description": "Update files and instantly see changes while developing.",
-          },
-        ],
-      }
-    }
+    class Props:
+      title = "lua-spa"
+      subtitle = "Python Framework for Single Page Applications"
+      tagline = "Combine Server Rendering with Client Hydration to build modern, fast SPAs with pure Python."
+      features = [
+        {
+          "icon": "🐍",
+          "title": "Pure Python",
+          "description": "Write component logic in Python while lua-spa handles runtime behavior.",
+        },
+        {
+          "icon": "⚡",
+          "title": "SSR + Hydration",
+          "description": "Render HTML on the server and hydrate it on the client without UI jumps.",
+        },
+        {
+          "icon": "🔌",
+          "title": "No Build Step",
+          "description": "Start quickly with a simple Python workflow and zero frontend bundling.",
+        },
+        {
+          "icon": "🧩",
+          "title": "Component System",
+          "description": "Compose reusable .lspa components with template, Python, and style together.",
+        },
+        {
+          "icon": "🗺️",
+          "title": "Built-in Router",
+          "description": "Use nested routes, dynamic params, and wildcard fallbacks from configuration.",
+        },
+        {
+          "icon": "♻️",
+          "title": "Hot Reload",
+          "description": "Update files and instantly see changes while developing.",
+        },
+      ]
+
+    class ClientSpec:
+      pass
+
+    spec = ClientSpec()
+    spec.Props = Props
+    return spec
 </python>
 
 <template>

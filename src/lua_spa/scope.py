@@ -191,25 +191,9 @@ def normalize_client_spec(
         )
 
     if isinstance(raw_spec, Mapping):
-        mapping_props_spec = normalize_props_source(
-            _extract_mapping_value(raw_spec, ["props", "Props"], {})
+        raise ValueError(
+            "client() must return a Python object/class instance; declarative dict specs are not supported"
         )
-        mapping_state_spec = normalize_state_source(
-            _extract_mapping_value(raw_spec, ["state", "State"], {}), owner=None
-        )
-        mapping_actions_spec = _extract_mapping_value(raw_spec, ["actions", "methods"], {})
-        methods_spec = _extract_mapping_value(raw_spec, ["Methods"], None)
-        lifecycle_spec_raw = _extract_mapping_value(raw_spec, ["lifecycle", "Lifecycle"], {})
-
-        if not isinstance(mapping_actions_spec, Mapping):
-            raise ValueError("client().actions must be a mapping")
-
-        normalized_actions = dict(mapping_actions_spec)
-        if methods_spec is not None:
-            normalized_actions.update(resolve_methods_actions(methods_spec, owner=None))
-
-        mapping_lifecycle_spec = normalize_lifecycle_spec(lifecycle_spec_raw)
-        return mapping_props_spec, mapping_state_spec, normalized_actions, mapping_lifecycle_spec
 
     props_spec: dict[str, Any] = {}
     state_spec: dict[str, Any] = {}
@@ -247,30 +231,25 @@ def normalize_client_spec(
         method_state = state_method()
         state_spec = normalize_state_source(method_state, owner=raw_spec)
 
-    actions_method = getattr(raw_spec, "actions", None)
-    if callable(actions_method):
-        method_actions = actions_method()
-        if method_actions is None:
-            method_actions = {}
-        if not isinstance(method_actions, Mapping):
-            raise ValueError("client().actions() must return a mapping")
-        actions_spec.update(dict(method_actions))
-
     methods_method = getattr(raw_spec, "methods", None)
+    methods_spec: Any = None
     if callable(methods_method):
-        method_actions = methods_method()
-        if method_actions is None:
-            method_actions = {}
-        if not isinstance(method_actions, Mapping):
-            raise ValueError("client().methods() must return a mapping")
-        actions_spec.update(dict(method_actions))
+        methods_spec = methods_method()
+
+    actions_attr = getattr(raw_spec, "actions", None)
+    if actions_attr is not None:
+        raise ValueError(
+            "Declarative actions are not supported. Define Python methods and list them in methods()/Methods, or rely on inferred public methods"
+        )
 
     methods_attr = getattr(raw_spec, "Methods", None)
     if methods_attr is None:
         lower_methods_attr = getattr(raw_spec, "methods", None)
         if lower_methods_attr is not None and not callable(lower_methods_attr):
             methods_attr = lower_methods_attr
-    if methods_attr is not None:
+    if methods_spec is not None:
+        actions_spec.update(resolve_methods_actions(methods_spec, owner=raw_spec))
+    elif methods_attr is not None:
         actions_spec.update(resolve_methods_actions(methods_attr, owner=raw_spec))
     else:
         inferred_methods = infer_action_methods(raw_spec)
@@ -291,7 +270,8 @@ def normalize_client_spec(
 
     method_lifecycle = normalize_lifecycle_methods(raw_spec)
     for hook_name, action_names in method_lifecycle.items():
-        lifecycle_spec[hook_name] = action_names
+        if len(action_names) > 0:
+            lifecycle_spec[hook_name] = action_names
 
     return props_spec, state_spec, actions_spec, lifecycle_spec
 
@@ -301,12 +281,14 @@ def normalize_props_source(raw_props: Any) -> dict[str, Any]:
     if raw_props is None:
         return {}
     if isinstance(raw_props, Mapping):
-        return dict(raw_props)
+        raise ValueError(
+            "Declarative props dicts are not supported. Use a Props class or props() returning an object"
+        )
     if isinstance(raw_props, type):
         return _extract_class_properties(raw_props)
     if hasattr(raw_props, "__dict__"):
         return _extract_object_properties(raw_props)
-    raise ValueError("client().props must be mapping or object with public variables")
+    raise ValueError("client().props must be a class or object with public variables")
 
 
 def normalize_state_source(raw_state: Any, owner: Any | None) -> dict[str, Any]:
@@ -319,7 +301,15 @@ def normalize_state_source(raw_state: Any, owner: Any | None) -> dict[str, Any]:
         return {}
 
     if isinstance(raw_state, Mapping):
-        return dict(raw_state)
+        raise ValueError(
+            "Declarative state dicts are not supported. Use a State class/object or a list of StateField/classes"
+        )
+
+    if isinstance(raw_state, type):
+        return _normalize_state_attributes(_extract_class_properties(raw_state))
+
+    if hasattr(raw_state, "__dict__"):
+        return _normalize_state_attributes(_extract_object_properties(raw_state))
 
     if isinstance(raw_state, (list, tuple, set)):
         normalized: dict[str, Any] = {}
@@ -334,7 +324,35 @@ def normalize_state_source(raw_state: Any, owner: Any | None) -> dict[str, Any]:
                 normalized[state_item["name"]]["init"] = state_item["init"]
         return normalized
 
-    raise ValueError("State must be a mapping or a list of state classes")
+    raise ValueError("State must be a class/object or a list of StateField/classes")
+
+
+def _normalize_state_attributes(values: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize class/object state attributes into a state spec mapping."""
+    normalized: dict[str, Any] = {}
+    for name, value in values.items():
+        if isinstance(value, StateField):
+            normalized_name = (
+                value.name if isinstance(value.name, str) and value.name.strip() != "" else name
+            )
+            normalized[normalized_name] = {
+                "from_prop": value.from_prop,
+                "default": value.default,
+                "cast": value.cast,
+            }
+            continue
+        if isinstance(value, type):
+            state_item = normalize_state_item(value, owner=None)
+            normalized[state_item["name"]] = {
+                "from_prop": state_item["from_prop"],
+                "default": state_item["default"],
+                "cast": state_item["cast"],
+            }
+            if "init" in state_item:
+                normalized[state_item["name"]]["init"] = state_item["init"]
+            continue
+        normalized[name] = value
+    return normalized
 
 
 def normalize_state_item(item: Any, owner: Any | None) -> dict[str, Any]:
@@ -344,18 +362,7 @@ def normalize_state_item(item: Any, owner: Any | None) -> dict[str, Any]:
     Raises ValueError if the item is malformed.
     """
     if isinstance(item, Mapping):
-        name = item.get("name")
-        if not isinstance(name, str) or name.strip() == "":
-            raise ValueError("State item mapping must include a string 'name'")
-        result = {
-            "name": name,
-            "from_prop": item.get("from_prop"),
-            "default": item.get("default"),
-            "cast": str(item.get("cast", "raw")),
-        }
-        if "init" in item and callable(item.get("init")):
-            result["init"] = item.get("init")
-        return result
+        raise ValueError("State list items cannot be dicts. Use StateField or state classes")
 
     if isinstance(item, StateField):
         return {
@@ -409,13 +416,24 @@ def resolve_methods_actions(methods_spec: Any, owner: Any | None) -> dict[str, A
         return resolved
 
     if isinstance(methods_spec, Mapping):
-        for action_name, action_callable in methods_spec.items():
-            action_name_str = str(action_name)
-            if isinstance(action_callable, Mapping):
-                resolved[action_name_str] = action_callable
+        raise ValueError(
+            "methods/actions mappings are not supported. Use methods list (names) or methods objects/classes"
+        )
+
+    if isinstance(methods_spec, type):
+        for action_name, action_callable in vars(methods_spec).items():
+            if action_name.startswith("_"):
                 continue
-            callable_ref = _normalize_method_callable(action_name_str, action_callable, owner)
-            resolved[action_name_str] = invoke_method_callable(action_name_str, callable_ref, owner)
+            callable_ref = _normalize_method_callable(action_name, action_callable, owner)
+            resolved[action_name] = invoke_method_callable(action_name, callable_ref, owner)
+        return resolved
+
+    if hasattr(methods_spec, "__dict__") and not isinstance(methods_spec, str):
+        for action_name, action_callable in vars(methods_spec).items():
+            if action_name.startswith("_"):
+                continue
+            callable_ref = _normalize_method_callable(action_name, action_callable, owner)
+            resolved[action_name] = invoke_method_callable(action_name, callable_ref, owner)
         return resolved
 
     if isinstance(methods_spec, (list, tuple, set)):
@@ -430,7 +448,7 @@ def resolve_methods_actions(methods_spec: Any, owner: Any | None) -> dict[str, A
             resolved[item] = invoke_method_callable(item, method_ref, owner)
         return resolved
 
-    raise ValueError("Methods must be a mapping of callables or a list of method names")
+    raise ValueError("Methods must be a class/object of callables or a list of method names")
 
 
 def _normalize_method_callable(action_name: str, candidate: Any, owner: Any | None) -> Any:
