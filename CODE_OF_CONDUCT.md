@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="src/lua_template/static/logo.png" alt="lua-spa logo" width="120" height="120" />
+  <img src="src/moon_template/static/logo.png" alt="moon-spa logo" width="120" height="120" />
   <h1><strong>LUA-SPA CODE OF CONDUCT</strong></h1>
 </div>
 

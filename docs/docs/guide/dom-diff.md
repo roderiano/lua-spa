@@ -5,7 +5,7 @@ title: DOM Diffing
 
 # DOM Diffing
 
-lua-spa includes a lightweight DOM diffing engine inspired by React's reconciler. It updates only the parts of the DOM that actually changed.
+moon-spa includes a lightweight DOM diffing engine inspired by React's reconciler. It updates only the parts of the DOM that actually changed.
 
 ## Why diff?
 

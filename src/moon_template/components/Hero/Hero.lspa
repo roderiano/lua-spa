@@ -3,10 +3,10 @@
 <template>
   <main class="hero">
     <div class="hero__logo" aria-hidden="true">
-      <img src="/static/logo.png" alt="lua-spa logo" />
+      <img src="/static/logo.png" alt="moon-spa logo" />
     </div>
 
-    <h1 class="hero__title">lua-spa</h1>
+    <h1 class="hero__title">moon-spa</h1>
     <p class="hero__subtitle">Python Framework for Single Page Applications</p>
     <p class="hero__tagline">Combine the power of Server Rendering with Client Hydration - build modern, fast SPAs with pure Python.</p>
     

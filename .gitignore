@@ -35,4 +35,4 @@ docs/build/
 .env
 .env.*
 
-lua_template_temp/
+moon_template_temp/

@@ -28,14 +28,16 @@ class _TraceCondition:
 class _PropReference:
     """Represents a reference to a component prop, captured during method execution.
 
-    Used to track which props are accessed so they can be evaluated at runtime
+    Used to track which props are accessed so they can be evamoonted at runtime
     on the client side rather than baked into the compiled code.
     """
 
     name: str
     default: Any = None
 
-    def _binary(self, op: str, other: Any, reverse: bool = False) -> "_BinaryExpression":
+    def _binary(
+        self, op: str, other: Any, reverse: bool = False
+    ) -> "_BinaryExpression":
         left = other if reverse else self
         right = self if reverse else other
         return _BinaryExpression(op=op, left=left, right=right)
@@ -94,7 +96,9 @@ class _CastReference:
     cast: str
     value: Any
 
-    def _binary(self, op: str, other: Any, reverse: bool = False) -> "_BinaryExpression":
+    def _binary(
+        self, op: str, other: Any, reverse: bool = False
+    ) -> "_BinaryExpression":
         left = other if reverse else self
         right = self if reverse else other
         return _BinaryExpression(op=op, left=left, right=right)

@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 
-import lua_spa.server as server_module
-from lua_spa.server import SpaServer, _SpaHandler
+import moon_spa.server as server_module
+from moon_spa.server import SpaServer, _SpaHandler
 
 
 def test_server_has_static_serve_method() -> None:
@@ -44,7 +44,7 @@ def test_spa_handler_static_and_index_paths() -> None:
     handler = object.__new__(_SpaHandler)
     responses: list[int] = []
     errors: list[int] = []
-    handler.server = SimpleNamespace(lua_framework=_FakeFramework())  # type: ignore[assignment]
+    handler.server = SimpleNamespace(moon_framework=_FakeFramework())  # type: ignore[assignment]
     handler.wfile = io.BytesIO()
     handler.send_response = lambda code: responses.append(int(code))  # type: ignore[method-assign,misc,assignment]
     handler.send_header = lambda _key, _value: None  # type: ignore[method-assign,assignment]
@@ -92,7 +92,9 @@ def test_spa_server_serve_invokes_http_server(monkeypatch: Any) -> None:
     assert called["served"] is True
 
 
-def test_spa_server_reload_uses_relative_watch_path(monkeypatch: Any, tmp_path: Path) -> None:
+def test_spa_server_reload_uses_relative_watch_path(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
     # Given: reload is enabled and framework has a _view_file under cwd/src
     called: dict[str, Any] = {"thread_args": None}
 
@@ -117,7 +119,7 @@ def test_spa_server_reload_uses_relative_watch_path(monkeypatch: Any, tmp_path: 
             return None
 
     root = tmp_path
-    view_file = root / "src" / "lua_template" / "index.lspa"
+    view_file = root / "src" / "moon_template" / "index.lspa"
     view_file.parent.mkdir(parents=True)
     view_file.write_text("<template></template>", encoding="utf-8")
 
@@ -157,7 +159,7 @@ def test_spa_handler_injects_reload_script_only_when_enabled() -> None:
             return "<html><body>ok</body></html>"
 
     handler = object.__new__(_SpaHandler)
-    handler.server = SimpleNamespace(lua_framework=_FakeFramework(), reload_enabled=True)  # type: ignore[assignment]
+    handler.server = SimpleNamespace(moon_framework=_FakeFramework(), reload_enabled=True)  # type: ignore[assignment]
     handler.path = "/"
     handler.wfile = io.BytesIO()
     handler.send_response = lambda _code: None  # type: ignore[method-assign,assignment]
@@ -182,7 +184,7 @@ def test_spa_handler_skips_reload_script_when_disabled() -> None:
             return "<html><body>ok</body></html>"
 
     handler = object.__new__(_SpaHandler)
-    handler.server = SimpleNamespace(lua_framework=_FakeFramework(), reload_enabled=False)  # type: ignore[assignment]
+    handler.server = SimpleNamespace(moon_framework=_FakeFramework(), reload_enabled=False)  # type: ignore[assignment]
     handler.path = "/"
     handler.wfile = io.BytesIO()
     handler.send_response = lambda _code: None  # type: ignore[method-assign,assignment]
@@ -228,7 +230,9 @@ def test_watch_files_rebuilds_before_notifying(monkeypatch: Any) -> None:
     monkeypatch.setattr(server_module.os, "walk", fake_walk)
     monkeypatch.setattr(server_module.os.path, "getmtime", fake_getmtime)
     monkeypatch.setattr(server_module.time, "sleep", fake_sleep)
-    monkeypatch.setattr(server_module, "_notify_clients", lambda: events.append("notify"))
+    monkeypatch.setattr(
+        server_module, "_notify_clients", lambda: events.append("notify")
+    )
 
     # When: the watcher runs until our controlled stop condition
     with pytest.raises(_StopWatch):
@@ -309,7 +313,9 @@ def test_watch_files_without_reload_method_still_notifies(monkeypatch: Any) -> N
     monkeypatch.setattr(server_module.os, "walk", fake_walk)
     monkeypatch.setattr(server_module.os.path, "getmtime", fake_getmtime)
     monkeypatch.setattr(server_module.time, "sleep", fake_sleep)
-    monkeypatch.setattr(server_module, "_notify_clients", lambda: events.append("notify"))
+    monkeypatch.setattr(
+        server_module, "_notify_clients", lambda: events.append("notify")
+    )
 
     # When: the watcher runs until our controlled stop condition
     with pytest.raises(_StopWatch):
@@ -357,7 +363,7 @@ def test_spa_handler_reload_sse_endpoint(monkeypatch: Any) -> None:
     handler = object.__new__(_SpaHandler)
     responses: list[int] = []
     headers: list[tuple[str, str]] = []
-    handler.server = SimpleNamespace(lua_framework=SimpleNamespace(), reload_enabled=True)  # type: ignore[assignment]
+    handler.server = SimpleNamespace(moon_framework=SimpleNamespace(), reload_enabled=True)  # type: ignore[assignment]
     handler.path = "/__reload__"
     handler.wfile = io.BytesIO()
     handler.send_response = lambda code: responses.append(int(code))  # type: ignore[method-assign,misc,assignment]
@@ -365,7 +371,9 @@ def test_spa_handler_reload_sse_endpoint(monkeypatch: Any) -> None:
     handler.end_headers = lambda: None  # type: ignore[method-assign]
 
     monkeypatch.setattr(
-        server_module.time, "sleep", lambda _seconds: (_ for _ in ()).throw(RuntimeError("stop"))
+        server_module.time,
+        "sleep",
+        lambda _seconds: (_ for _ in ()).throw(RuntimeError("stop")),
     )
 
     # When: SSE endpoint is handled
@@ -408,7 +416,9 @@ def test_watch_files_skips_non_watched_and_missing_files(monkeypatch: Any) -> No
 
     # When / Then: watcher loop tolerates ignored/missing files and does not notify
     with pytest.raises(_StopWatch):
-        server_module._watch_files(".", SimpleNamespace(build_view=lambda: "<html></html>"))
+        server_module._watch_files(
+            ".", SimpleNamespace(build_view=lambda: "<html></html>")
+        )
 
     assert state["notify"] == 0
 
@@ -443,7 +453,9 @@ def test_spa_server_serve_starts_reload_thread(monkeypatch: Any) -> None:
     monkeypatch.setattr(server_module, "ThreadingHTTPServer", FakeServer)
     monkeypatch.setattr(server_module.threading, "Thread", FakeThread)
 
-    framework = SimpleNamespace(_view_file=Path("C:/tmp/project/src/lua_template/index.lspa"))
+    framework = SimpleNamespace(
+        _view_file=Path("C:/tmp/project/src/moon_template/index.lspa")
+    )
 
     # When: serving with reload enabled
     SpaServer.serve(framework, "127.0.0.1", 8001, reload=True)
@@ -457,7 +469,7 @@ def test_spa_server_serve_starts_reload_thread(monkeypatch: Any) -> None:
 def test_spa_handler_post_invalid_path_returns_404() -> None:
     handler = object.__new__(_SpaHandler)
     errors: list[int] = []
-    handler.server = SimpleNamespace(lua_framework=SimpleNamespace())  # type: ignore[assignment]
+    handler.server = SimpleNamespace(moon_framework=SimpleNamespace())  # type: ignore[assignment]
     handler.path = "/invalid"
     handler.headers = {}
     handler.rfile = io.BytesIO(b"{}")
@@ -475,8 +487,8 @@ def test_spa_handler_post_invalid_path_returns_404() -> None:
 def test_spa_handler_post_invalid_json_returns_400() -> None:
     handler = object.__new__(_SpaHandler)
     errors: list[int] = []
-    handler.server = SimpleNamespace(lua_framework=SimpleNamespace())  # type: ignore[assignment]
-    handler.path = "/__lua_spa_action"
+    handler.server = SimpleNamespace(moon_framework=SimpleNamespace())  # type: ignore[assignment]
+    handler.path = "/__moon_spa_action"
     handler.headers = {"Content-Length": "3"}
     handler.rfile = io.BytesIO(b"{x}")
     handler.wfile = io.BytesIO()
@@ -493,8 +505,8 @@ def test_spa_handler_post_invalid_json_returns_400() -> None:
 def test_spa_handler_post_missing_component_or_name_returns_400() -> None:
     handler = object.__new__(_SpaHandler)
     errors: list[int] = []
-    handler.server = SimpleNamespace(lua_framework=SimpleNamespace())  # type: ignore[assignment]
-    handler.path = "/__lua_spa_action"
+    handler.server = SimpleNamespace(moon_framework=SimpleNamespace())  # type: ignore[assignment]
+    handler.path = "/__moon_spa_action"
     handler.headers = {"Content-Length": "2"}
     handler.rfile = io.BytesIO(b"{}")
     handler.wfile = io.BytesIO()
@@ -510,12 +522,14 @@ def test_spa_handler_post_missing_component_or_name_returns_400() -> None:
 
 def test_spa_handler_post_callable_error_returns_json_400() -> None:
     framework = SimpleNamespace(
-        execute_server_callable=lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("boom"))
+        execute_server_callable=lambda **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("boom")
+        )
     )
     handler = object.__new__(_SpaHandler)
     responses: list[int] = []
-    handler.server = SimpleNamespace(lua_framework=framework)  # type: ignore[assignment]
-    handler.path = "/__lua_spa_action"
+    handler.server = SimpleNamespace(moon_framework=framework)  # type: ignore[assignment]
+    handler.path = "/__moon_spa_action"
     payload = b'{"component":"App","name":"reload_packages"}'
     handler.headers = {"Content-Length": str(len(payload))}
     handler.rfile = io.BytesIO(payload)
@@ -537,8 +551,8 @@ def test_spa_handler_post_success_returns_json_200() -> None:
     )
     handler = object.__new__(_SpaHandler)
     responses: list[int] = []
-    handler.server = SimpleNamespace(lua_framework=framework)  # type: ignore[assignment]
-    handler.path = "/__lua_spa_action"
+    handler.server = SimpleNamespace(moon_framework=framework)  # type: ignore[assignment]
+    handler.path = "/__moon_spa_action"
     payload = b'{"component":"App","name":"reload_packages","props":{},"state":{}}'
     handler.headers = {"Content-Length": str(len(payload))}
     handler.rfile = io.BytesIO(payload)
@@ -586,7 +600,7 @@ def test_spa_server_reload_falls_back_when_relpath_raises(monkeypatch: Any) -> N
         lambda _watch_path, _cwd: (_ for _ in ()).throw(ValueError("different drives")),
     )
 
-    view_file = Path("C:/tmp/project/src/lua_template/index.lspa")
+    view_file = Path("C:/tmp/project/src/moon_template/index.lspa")
     framework = SimpleNamespace(_view_file=view_file)
 
     SpaServer.serve(framework, "127.0.0.1", 8002, reload=True)

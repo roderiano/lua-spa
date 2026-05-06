@@ -7,7 +7,7 @@ title: Actions
 
 Actions are the only way to mutate state.
 
-lua-spa uses `setup(self, props)` actions declared explicitly in `actions` or inferred from local callables when `setup` omits a return mapping.
+moon-spa uses `setup(self, props)` actions declared explicitly in `actions` or inferred from local callables when `setup` omits a return mapping.
 
 ## Standard action pattern
 

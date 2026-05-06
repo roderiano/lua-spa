@@ -7,7 +7,7 @@ title: Props
 
 Props are input values passed from parent components (or bootstrap `initial_props`) into a component.
 
-In lua-spa, props defaults are declared in `setup(self, props)`.
+In moon-spa, props defaults are declared in `setup(self, props)`.
 
 ## Passing props
 
@@ -44,7 +44,7 @@ class Card(Component):
     }
 ```
 
-You can also omit `return` entirely. In that case, lua-spa infers `props` from the local
+You can also omit `return` entirely. In that case, moon-spa infers `props` from the local
 `props` variable created in `setup(self, props)`:
 
 ```python
@@ -93,4 +93,4 @@ Template:
 - Define props defaults in `setup(self, props)`.
 - `setup` may return a mapping or omit `return` and rely on server inference.
 - Use `props` for input values and `state` for reactive mutations.
-- Server callables may return explicit prop patches, but mutating `data` is also enough because lua-spa patches those keys automatically.
+- Server callables may return explicit prop patches, but mutating `data` is also enough because moon-spa patches those keys automatically.

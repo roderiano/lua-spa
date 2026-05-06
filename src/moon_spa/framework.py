@@ -14,20 +14,22 @@ import re
 from pathlib import Path
 from typing import Any, Mapping
 
-from lua_spa.loader import ComponentLoader
-from lua_spa.renderer import (
+from moon_spa.loader import ComponentLoader
+from moon_spa.renderer import (
     build_python_context,
     build_server_state,
     interpolate,
     render_template_with_directives,
 )
-from lua_spa.scope import execute_setup_server_callable
-from lua_spa.router import Router
-from lua_spa.runtime_assets import SPA_RUNTIME_JS
-from lua_spa.server import SpaServer
-from lua_spa.types import ComponentDefinition, load_lua_template_config
+from moon_spa.scope import execute_setup_server_callable
+from moon_spa.router import Router
+from moon_spa.runtime_assets import SPA_RUNTIME_JS
+from moon_spa.server import SpaServer
+from moon_spa.types import ComponentDefinition, load_moon_template_config
 
-_ATTR_PATTERN = re.compile(r"([:@A-Za-z_][A-Za-z0-9_:\-]*)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')")
+_ATTR_PATTERN = re.compile(
+    r"([:@A-Za-z_][A-Za-z0-9_:\-]*)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')"
+)
 _STYLE_SRC_PATTERN = re.compile(
     r"<style\s+[^>]*src\s*=\s*(?:\"([^\"]+)\"|'([^']+)')[^>]*>\s*</style>",
     re.IGNORECASE,
@@ -42,27 +44,27 @@ class SpaFramework:
     """
 
     @classmethod
-    def from_lua_template_directory(cls, lua_template_dir: Path) -> SpaFramework:
-        """Create a framework instance using only definitions under lua_template/.
+    def from_moon_template_directory(cls, moon_template_dir: Path) -> SpaFramework:
+        """Create a framework instance using only definitions under moon_template/.
 
-        Loads spa.config.json from lua_template_dir and creates a framework configured
+        Loads spa.config.json from moon_template_dir and creates a framework configured
         with that settings.
 
         Args:
-            lua_template_dir: Path to the lua_template directory containing spa.config.json
+            moon_template_dir: Path to the moon_template directory containing spa.config.json
                      and a components/ subdirectory.
 
         Returns:
             A configured SpaFramework instance.
 
         Raises:
-            FileNotFoundError: If spa.config.json or the lua_template file doesn't exist.
+            FileNotFoundError: If spa.config.json or the moon_template file doesn't exist.
         """
-        config = load_lua_template_config(lua_template_dir / "spa.config.json")
+        config = load_moon_template_config(moon_template_dir / "spa.config.json")
         return cls(
-            view_file=lua_template_dir / "index.lspa",
-            components_dir=lua_template_dir / "components",
-            static_dir=lua_template_dir / "static",
+            view_file=moon_template_dir / "index.lspa",
+            components_dir=moon_template_dir / "components",
+            static_dir=moon_template_dir / "static",
             mount_id=config.mount_id,
             default_props=config.initial_props,
             host=config.host,
@@ -81,7 +83,7 @@ class SpaFramework:
         default_props: Mapping[str, Any] | None = None,
         host: str = "127.0.0.1",
         port: int = 8000,
-        page_title: str = "lua-spa",
+        page_title: str = "moon-spa",
         router: Mapping[str, Any] | None = None,
     ) -> None:
         """Initialize a SPA framework instance.
@@ -101,7 +103,9 @@ class SpaFramework:
         """
         self._view_file = view_file
         self._components_dir = components_dir
-        self._static_dir = static_dir if static_dir is not None else view_file.parent / "static"
+        self._static_dir = (
+            static_dir if static_dir is not None else view_file.parent / "static"
+        )
         self.entry_component = entry_component
         self.mount_id = mount_id
         self.page_title = page_title
@@ -160,8 +164,12 @@ class SpaFramework:
             spa_outlet = self._render_component(self.entry_component, initial_props)
         bootstrap = self._build_bootstrap_block(initial_props)
 
-        page = page_shell.replace("{{ SPA_MOUNT_ID }}", html.escape(self.mount_id, quote=True))
-        page = page.replace("{{ SPA_PAGE_TITLE }}", html.escape(self.page_title, quote=False))
+        page = page_shell.replace(
+            "{{ SPA_MOUNT_ID }}", html.escape(self.mount_id, quote=True)
+        )
+        page = page.replace(
+            "{{ SPA_PAGE_TITLE }}", html.escape(self.page_title, quote=False)
+        )
         page = page.replace("{{ SPA_OUTLET }}", spa_outlet)
         page = page.replace("{{ SPA_BOOTSTRAP }}", bootstrap)
         return page
@@ -195,7 +203,9 @@ class SpaFramework:
                 candidate = self._static_dir / candidate_name
                 if candidate.exists() and candidate.is_file():
                     mime_type, _ = mimetypes.guess_type(str(candidate))
-                    return candidate.read_bytes(), (mime_type or "application/octet-stream")
+                    return candidate.read_bytes(), (
+                        mime_type or "application/octet-stream"
+                    )
             return None
 
         if not request_path.startswith("/static/"):
@@ -219,7 +229,9 @@ class SpaFramework:
         mime_type, _ = mimetypes.guess_type(str(candidate))
         return candidate.read_bytes(), (mime_type or "application/octet-stream")
 
-    def serve(self, host: str | None = None, port: int | None = None, reload: bool = False) -> None:
+    def serve(
+        self, host: str | None = None, port: int | None = None, reload: bool = False
+    ) -> None:
         """Start the HTTP server.
 
         Blocks indefinitely, serving the SPA on the specified host and port.
@@ -235,7 +247,7 @@ class SpaFramework:
     def _build_bootstrap_block(self, props: Mapping[str, Any]) -> str:
         """Build the bootstrap JSON payloads and runtime script.
 
-        Creates the lua-spa-registry (component definitions) and lua-spa-config
+        Creates the moon-spa-registry (component definitions) and moon-spa-config
         (entry point and props), then embeds the client-side runtime JavaScript.
 
         Args:
@@ -255,7 +267,9 @@ class SpaFramework:
         entry_python_context: Mapping[str, Any] = {}
         entry_component = self._components.get(self.entry_component)
         if entry_component is not None:
-            entry_python_context = build_python_context(entry_component.python_block, props)
+            entry_python_context = build_python_context(
+                entry_component.python_block, props
+            )
 
         synced_props = dict(props)
         if isinstance(entry_python_context, Mapping) and len(entry_python_context) > 0:
@@ -272,15 +286,15 @@ class SpaFramework:
         config_payload = self._serialize_json_payload(config)
 
         return (
-            '<script type="application/json" id="lua-spa-registry">'
+            '<script type="application/json" id="moon-spa-registry">'
             + registry_payload
             + "</script>"
-            + '<script type="application/json" id="lua-spa-config">'
+            + '<script type="application/json" id="moon-spa-config">'
             + config_payload
             + "</script>"
             + "<script>"
             + SPA_RUNTIME_JS
-            + "\nwindow.LuaSpaRuntime.bootstrap();</script>"
+            + "\nwindow.SpaRuntime.bootstrap();</script>"
         )
 
     def _serialize_json_payload(self, payload: Mapping[str, Any]) -> str:
@@ -298,7 +312,7 @@ class SpaFramework:
     def _render_component(self, name: str, props: Mapping[str, Any]) -> str:
         """Render a component to HTML with the given props.
 
-        Calls component.context() for server state, evaluates {{ }} expressions,
+        Calls component.context() for server state, evamoontes {{ }} expressions,
         applies l-if conditionals, and recursively expands child components.
 
         Args:
@@ -345,7 +359,9 @@ class SpaFramework:
         }
         return self._expand_child_components(route_template, context)
 
-    def _expand_child_components(self, template: str, context: Mapping[str, Any]) -> str:
+    def _expand_child_components(
+        self, template: str, context: Mapping[str, Any]
+    ) -> str:
         """Recursively expand custom component tags into their rendered HTML.
 
         Processes largest component names first to avoid conflicts (e.g., render
@@ -378,7 +394,9 @@ class SpaFramework:
                 rendered,
             )
             rendered = self_closing_pattern.sub(
-                lambda match: self._render_tag_match(component_name, match.group(1), "", context),
+                lambda match: self._render_tag_match(
+                    component_name, match.group(1), "", context
+                ),
                 rendered,
             )
 
@@ -428,12 +446,14 @@ class SpaFramework:
             child_props["children"] = inner_html
         return self._render_component(component_name, child_props)
 
-    def _parse_attributes(self, attrs_raw: str, context: Mapping[str, Any]) -> dict[str, Any]:
+    def _parse_attributes(
+        self, attrs_raw: str, context: Mapping[str, Any]
+    ) -> dict[str, Any]:
         """Parse HTML attributes and interpolate their values.
 
         Args:
             attrs_raw: Raw attribute string.
-            context: Rendering context for expression evaluation.
+            context: Rendering context for expression evamoontion.
 
         Returns:
             Dict mapping attribute names to interpolated values.

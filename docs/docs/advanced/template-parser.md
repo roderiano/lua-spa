@@ -5,7 +5,7 @@ title: Template Parser
 
 # Template Parser & Component Loader
 
-`lua_spa.loader.ComponentLoader`
+`moon_spa.loader.ComponentLoader`
 
 Reads `.lspa` files from disk, extracts their sections, and builds the component registry.
 

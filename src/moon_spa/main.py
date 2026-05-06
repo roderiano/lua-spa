@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 from typing import Sequence
 
-from lua_spa.app import (
+from moon_spa.app import (
     create_default_framework,
     get_template_source_directory,
     resolve_template_directory,
@@ -99,17 +99,19 @@ def _create_component(component_name: str, destination: str) -> tuple[Path, Path
 def _serve(reload: bool = False) -> None:
     framework = create_default_framework()
     host, port = framework.server_address
-    print(f"Serving lua-spa at http://{host}:{port}")
+    print(f"Serving moon-spa at http://{host}:{port}")
     framework.serve(reload=reload)
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="lua-spa", description="lua-spa framework CLI")
+    parser = argparse.ArgumentParser(
+        prog="moon-spa", description="moon-spa framework CLI"
+    )
     subparsers = parser.add_subparsers(dest="command")
 
     serve_parser = subparsers.add_parser(
         "serve",
-        help="Start the lua-spa development server.",
+        help="Start the moon-spa development server.",
     )
 
     serve_parser.add_argument(
@@ -120,7 +122,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     create_parser = subparsers.add_parser(
         "create",
-        help="Create a new project from the lua_template scaffold.",
+        help="Create a new project from the moon_template scaffold.",
     )
     create_parser.add_argument(
         "project_name",
@@ -135,7 +137,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     new_parser = subparsers.add_parser(
         "new",
-        help="Generate framework resources inside an existing lua_template project.",
+        help="Generate framework resources inside an existing moon_template project.",
     )
     new_subparsers = new_parser.add_subparsers(dest="new_command")
 
@@ -151,14 +153,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "path",
         nargs="?",
         default=".",
-        help="Project root where lua_template lives (default: current directory).",
+        help="Project root where moon_template lives (default: current directory).",
     )
 
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    """Run CLI commands for the lua-spa framework."""
+    """Run CLI commands for the moon-spa framework."""
     parser = _build_parser()
     args = parser.parse_args(argv)
 

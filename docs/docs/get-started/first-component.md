@@ -81,7 +81,7 @@ sequenceDiagram
   JS->>JS: hydrate + bind actions
     JS->>JS: hydrate DOM (diff + patch)
     Note over JS: User clicks "+"
-  JS->>Python: POST /__lua_spa_action (action=increment)
+  JS->>Python: POST /__moon_spa_action (action=increment)
   Python->>JS: patch {state, props}
   JS->>JS: apply patch and re-render
 ```
@@ -93,4 +93,4 @@ sequenceDiagram
 | `setup(self, props)` | Declares props, state, data, actions and lifecycle |
 | `state.count` | Reads reactive state in the template |
 | `@click="action"` | Binds a DOM event to an action |
-| callable action | Runs through `POST /__lua_spa_action` and patches state/props |
+| callable action | Runs through `POST /__moon_spa_action` and patches state/props |

@@ -5,7 +5,7 @@ title: Templating
 
 # Templating
 
-lua-spa templates are HTML files with a concise set of directives. Templates are processed **server-side first**, then hydrated client-side.
+moon-spa templates are HTML files with a concise set of directives. Templates are processed **server-side first**, then hydrated client-side.
 
 ## Interpolation `{{ }}`
 
@@ -35,7 +35,7 @@ The context available inside `{{ }}`:
 Rules:
 - Attributes on **any** HTML element
 - `l-else` / `l-else-if` must immediately follow the sibling element with `l-if` / `l-else-if`
-- The expression is evaluated in the full context (`state`, `props`, `py`)
+- The expression is evamoonted in the full context (`state`, `props`, `py`)
 
 ## List rendering `i-for`
 
@@ -97,7 +97,7 @@ The value is the action name inferred from `setup(self, props)` local callables.
 <img :src="props.imageUrl" />
 ```
 
-`:` evaluates the expression and applies the result to the attribute name.
+`:` evamoontes the expression and applies the result to the attribute name.
 
 ## Processing order (server-side)
 

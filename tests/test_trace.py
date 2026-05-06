@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lua_spa.trace import (
+from moon_spa.trace import (
     _CastReference,
     _PropReference,
     _TraceCondition,

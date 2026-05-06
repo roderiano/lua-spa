@@ -11,7 +11,7 @@ import sys
 from types import FunctionType
 from typing import Any, Mapping
 
-from lua_spa.trace import (
+from moon_spa.trace import (
     _py_bool,
     _py_float,
     _py_int,
@@ -19,7 +19,7 @@ from lua_spa.trace import (
     _TraceProps,
     _TraceState,
 )
-from lua_spa.types import Component, StateField
+from moon_spa.types import Component, StateField
 
 _CLIENT_RESERVED_NAMES = {
     "Props",
@@ -83,14 +83,18 @@ def resolve_component_instance(local_scope: Mapping[str, Any]) -> Any | None:
         try:
             return component_factory()
         except TypeError as error:
-            raise ValueError("component() must be callable without arguments") from error
+            raise ValueError(
+                "component() must be callable without arguments"
+            ) from error
 
     explicit_component = local_scope.get("Component")
     if isinstance(explicit_component, type) and explicit_component is not Component:
         try:
             return explicit_component()
         except TypeError as error:
-            raise ValueError("Component class must be instantiable without arguments") from error
+            raise ValueError(
+                "Component class must be instantiable without arguments"
+            ) from error
 
     concrete_components: list[type[Any]] = []
     for value in local_scope.values():
@@ -106,7 +110,9 @@ def resolve_component_instance(local_scope: Mapping[str, Any]) -> Any | None:
         try:
             return component_class()
         except TypeError as error:
-            raise ValueError("Component subclass must be instantiable without arguments") from error
+            raise ValueError(
+                "Component subclass must be instantiable without arguments"
+            ) from error
 
     return None
 
@@ -140,7 +146,9 @@ def resolve_component_callables(
     def _context_from_setup(props: Any) -> Any:
         setup_props = dict(props) if isinstance(props, Mapping) else {}
         try:
-            setup_result_raw, setup_locals = _invoke_setup_with_locals(method_setup, setup_props)
+            setup_result_raw, setup_locals = _invoke_setup_with_locals(
+                method_setup, setup_props
+            )
             setup_result = _coerce_setup_result(
                 component_instance,
                 setup_result_raw,
@@ -157,7 +165,9 @@ def resolve_component_callables(
 
     def _client_from_setup(props: Any | None = None) -> Any:
         setup_props = dict(props) if isinstance(props, Mapping) else {}
-        setup_result_raw, setup_locals = _invoke_setup_with_locals(method_setup, setup_props)
+        setup_result_raw, setup_locals = _invoke_setup_with_locals(
+            method_setup, setup_props
+        )
         setup_result = _coerce_setup_result(
             component_instance,
             setup_result_raw,
@@ -176,9 +186,13 @@ def resolve_component_callables(
     client_factory = _client_from_setup
 
     if context_factory is not None and not callable(context_factory):
-        raise ValueError("Component python block must define callable setup(self, props)")
+        raise ValueError(
+            "Component python block must define callable setup(self, props)"
+        )
     if client_factory is not None and not callable(client_factory):
-        raise ValueError("Component python block must define callable setup(self, props)")
+        raise ValueError(
+            "Component python block must define callable setup(self, props)"
+        )
 
     return context_factory, client_factory
 
@@ -307,7 +321,9 @@ def normalize_context_result(result: Any) -> dict[str, Any]:
 
     if hasattr(result, "__dict__"):
         values = vars(result)
-        return {key: value for key, value in values.items() if not str(key).startswith("_")}
+        return {
+            key: value for key, value in values.items() if not str(key).startswith("_")
+        }
 
     raise ValueError("context(props) must return a mapping or object with attributes")
 
@@ -391,7 +407,9 @@ def _normalize_setup_spec(
         if isinstance(action_value, Mapping):
             actions_spec[action_name_str] = dict(action_value)
             continue
-        raise ValueError(f"setup().actions['{action_name_str}'] must be callable or mapping")
+        raise ValueError(
+            f"setup().actions['{action_name_str}'] must be callable or mapping"
+        )
 
     raw_lifecycle = raw_spec.get("lifecycle", {})
     if raw_lifecycle is None:
@@ -443,7 +461,9 @@ def _normalize_setup_spec(
             lifecycle_spec[hook_name] = normalized_items
             continue
 
-        raise ValueError("setup().lifecycle values must be callable, string, list, or mapping")
+        raise ValueError(
+            "setup().lifecycle values must be callable, string, list, or mapping"
+        )
 
     return props_spec, state_spec, actions_spec, lifecycle_spec
 
@@ -469,7 +489,9 @@ def execute_setup_server_callable(
         raise ValueError("Component must define setup(self, props)")
 
     setup_props = dict(props or {})
-    setup_result_raw, setup_locals = _invoke_setup_with_locals(method_setup, setup_props)
+    setup_result_raw, setup_locals = _invoke_setup_with_locals(
+        method_setup, setup_props
+    )
     setup_result = _coerce_setup_result(
         component_instance,
         setup_result_raw,
@@ -508,7 +530,7 @@ def execute_setup_server_callable(
     if isinstance(props, Mapping):
         for key, value in props.items():
             key_name = str(key)
-            if key_name == "__lua_logs__":
+            if key_name == "__moon_logs__":
                 continue
             props_patch[key_name] = value
     tracked_action_results: list[Any] = []
@@ -591,7 +613,9 @@ def execute_setup_server_callable(
             raise ValueError("setup().lifecycle must be a mapping")
         hook_value = lifecycle.get(name)
         if callable(hook_value):
-            hook_callable = _rewire_callable_closure(hook_value, action_replacements_by_id)
+            hook_callable = _rewire_callable_closure(
+                hook_value, action_replacements_by_id
+            )
             builtins.print = _trace_print
             try:
                 result = hook_callable()
@@ -618,7 +642,9 @@ def execute_setup_server_callable(
                 actions = {}
             for entry in hook_value:
                 if callable(entry):
-                    entry_callable = _rewire_callable_closure(entry, action_replacements_by_id)
+                    entry_callable = _rewire_callable_closure(
+                        entry, action_replacements_by_id
+                    )
                     try:
                         result = entry_callable()
                     except TypeError:
@@ -636,9 +662,9 @@ def execute_setup_server_callable(
         elif hook_value is not None:
             raise ValueError(f"Unsupported lifecycle hook value for {name}")
     for message in trace_logs:
-        if "__lua_logs__" not in props_patch:
-            props_patch["__lua_logs__"] = []
-        props_patch["__lua_logs__"].append(message)
+        if "__moon_logs__" not in props_patch:
+            props_patch["__moon_logs__"] = []
+        props_patch["__moon_logs__"].append(message)
 
     if isinstance(setup_data_obj, Mapping):
         for data_key, data_value in setup_data_obj.items():
@@ -650,7 +676,9 @@ def execute_setup_server_callable(
     for tracked in tracked_action_results:
         _merge_result(tracked)
 
-    current_state = dict(setup_state_obj) if isinstance(setup_state_obj, Mapping) else setup_state
+    current_state = (
+        dict(setup_state_obj) if isinstance(setup_state_obj, Mapping) else setup_state
+    )
     return {
         "state": current_state,
         "props": props_patch,
@@ -665,7 +693,9 @@ def _make_closure_cell(value: Any) -> Any:
     return None
 
 
-def _rewire_callable_closure(callable_obj: Any, replacements_by_id: Mapping[int, Any]) -> Any:
+def _rewire_callable_closure(
+    callable_obj: Any, replacements_by_id: Mapping[int, Any]
+) -> Any:
     """Replace closure callables by identity so lifecycle hooks call wrapped actions."""
     if len(replacements_by_id) == 0:
         return callable_obj
@@ -739,13 +769,19 @@ def _normalize_setup_action_callable(
     for state_name, before_value in before_state.items():
         after_value = after_state.get(state_name)
         if after_value != before_value:
-            if isinstance(before_value, (int, float)) and isinstance(after_value, (int, float)):
+            if isinstance(before_value, (int, float)) and isinstance(
+                after_value, (int, float)
+            ):
                 delta = after_value - before_value
                 if delta > 0:
-                    steps.append({"op": "add", "state": str(state_name), "value": delta})
+                    steps.append(
+                        {"op": "add", "state": str(state_name), "value": delta}
+                    )
                     continue
                 if delta < 0:
-                    steps.append({"op": "sub", "state": str(state_name), "value": abs(delta)})
+                    steps.append(
+                        {"op": "sub", "state": str(state_name), "value": abs(delta)}
+                    )
                     continue
             steps.append({"op": "set", "state": str(state_name), "value": after_value})
 
@@ -819,7 +855,9 @@ def _normalize_state_attributes(values: Mapping[str, Any]) -> dict[str, Any]:
     for name, value in values.items():
         if isinstance(value, StateField):
             normalized_name = (
-                value.name if isinstance(value.name, str) and value.name.strip() != "" else name
+                value.name
+                if isinstance(value.name, str) and value.name.strip() != ""
+                else name
             )
             normalized[normalized_name] = {
                 "from_prop": value.from_prop,
@@ -848,7 +886,9 @@ def normalize_state_item(item: Any, owner: Any | None) -> dict[str, Any]:
     Raises ValueError if the item is malformed.
     """
     if isinstance(item, Mapping):
-        raise ValueError("State list items cannot be dicts. Use StateField or state classes")
+        raise ValueError(
+            "State list items cannot be dicts. Use StateField or state classes"
+        )
 
     if isinstance(item, StateField):
         return {
@@ -870,7 +910,9 @@ def normalize_state_item(item: Any, owner: Any | None) -> dict[str, Any]:
         try:
             state_source = state_source()
         except TypeError as error:
-            raise ValueError("State classes must be instantiable without arguments") from error
+            raise ValueError(
+                "State classes must be instantiable without arguments"
+            ) from error
 
     name = getattr(state_source, "name", None)
     if not isinstance(name, str) or name.strip() == "":
@@ -910,22 +952,32 @@ def resolve_methods_actions(methods_spec: Any, owner: Any | None) -> dict[str, A
         for action_name, action_callable in vars(methods_spec).items():
             if action_name.startswith("_"):
                 continue
-            callable_ref = _normalize_method_callable(action_name, action_callable, owner)
-            resolved[action_name] = invoke_method_callable(action_name, callable_ref, owner)
+            callable_ref = _normalize_method_callable(
+                action_name, action_callable, owner
+            )
+            resolved[action_name] = invoke_method_callable(
+                action_name, callable_ref, owner
+            )
         return resolved
 
     if hasattr(methods_spec, "__dict__") and not isinstance(methods_spec, str):
         for action_name, action_callable in vars(methods_spec).items():
             if action_name.startswith("_"):
                 continue
-            callable_ref = _normalize_method_callable(action_name, action_callable, owner)
-            resolved[action_name] = invoke_method_callable(action_name, callable_ref, owner)
+            callable_ref = _normalize_method_callable(
+                action_name, action_callable, owner
+            )
+            resolved[action_name] = invoke_method_callable(
+                action_name, callable_ref, owner
+            )
         return resolved
 
     if isinstance(methods_spec, (list, tuple, set)):
         for item in methods_spec:
             if not isinstance(item, str):
-                raise ValueError("Methods iterable must contain method names as strings")
+                raise ValueError(
+                    "Methods iterable must contain method names as strings"
+                )
             if owner is None:
                 raise ValueError("Methods names require a client object instance")
             method_ref = getattr(owner, item, None)
@@ -934,10 +986,14 @@ def resolve_methods_actions(methods_spec: Any, owner: Any | None) -> dict[str, A
             resolved[item] = invoke_method_callable(item, method_ref, owner)
         return resolved
 
-    raise ValueError("Methods must be a class/object of callables or a list of method names")
+    raise ValueError(
+        "Methods must be a class/object of callables or a list of method names"
+    )
 
 
-def _normalize_method_callable(action_name: str, candidate: Any, owner: Any | None) -> Any:
+def _normalize_method_callable(
+    action_name: str, candidate: Any, owner: Any | None
+) -> Any:
     """Resolve a method callable reference into an actual callable.
 
     If candidate is already callable, return it. If it's a string, look it up
@@ -958,7 +1014,9 @@ def _normalize_method_callable(action_name: str, candidate: Any, owner: Any | No
     raise ValueError(f"Methods entry '{action_name}' must be a callable function")
 
 
-def invoke_method_callable(action_name: str, method_callable: Any, owner: Any | None) -> Any:
+def invoke_method_callable(
+    action_name: str, method_callable: Any, owner: Any | None
+) -> Any:
     """Invoke a method callable with full Python execution, capturing state mutations.
 
     Executes the method with tracing proxies to record state mutations. Allows
@@ -971,8 +1029,12 @@ def invoke_method_callable(action_name: str, method_callable: Any, owner: Any | 
     trace_state = _TraceState()
     props_proxy = _TraceProps()
 
-    restore_props = swap_attribute(owner, "props", props_proxy) if owner is not None else None
-    restore_state = swap_attribute(owner, "state", trace_state) if owner is not None else None
+    restore_props = (
+        swap_attribute(owner, "props", props_proxy) if owner is not None else None
+    )
+    restore_state = (
+        swap_attribute(owner, "state", trace_state) if owner is not None else None
+    )
 
     result = None
     trace_logs: list[Any] = []
@@ -988,7 +1050,9 @@ def invoke_method_callable(action_name: str, method_callable: Any, owner: Any | 
 
     try:
         builtins.print = _trace_print
-        globals_builtins = getattr(method_callable, "__globals__", {}).get("__builtins__")
+        globals_builtins = getattr(method_callable, "__globals__", {}).get(
+            "__builtins__"
+        )
         if isinstance(globals_builtins, dict):
             original_globals_print = globals_builtins.get("print", builtins.print)
             globals_builtins["print"] = _trace_print
@@ -1040,7 +1104,9 @@ def invoke_method_callable(action_name: str, method_callable: Any, owner: Any | 
     return {"op": "multi", "steps": trace_state.operations}
 
 
-def swap_attribute(owner: Any | None, attribute_name: str, replacement: Any) -> Any | None:
+def swap_attribute(
+    owner: Any | None, attribute_name: str, replacement: Any
+) -> Any | None:
     """Temporarily swap an attribute on owner, returning a restore function.
 
     If owner is None, returns None. Otherwise returns a callable that restores
@@ -1141,7 +1207,9 @@ def _extract_object_properties(source_object: Any) -> dict[str, Any]:
     return result
 
 
-def _extract_mapping_value(source: Mapping[str, Any], keys: list[str], default: Any) -> Any:
+def _extract_mapping_value(
+    source: Mapping[str, Any], keys: list[str], default: Any
+) -> Any:
     """Return the first value from source[key] for key in keys, or default."""
     for key in keys:
         if key in source:

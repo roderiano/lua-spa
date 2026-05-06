@@ -5,7 +5,7 @@ title: Routing
 
 # Routing
 
-lua-spa has a built-in router configured entirely in `spa.config.json`. No extra code needed.
+moon-spa has a built-in router configured entirely in `spa.config.json`. No extra code needed.
 
 ## Basic setup
 
@@ -24,7 +24,7 @@ lua-spa has a built-in router configured entirely in `spa.config.json`. No extra
 
 With routing enabled, rendering is driven by `router.routes`.
 
-When `"initial_path": "/"`, lua-spa starts from the route that matches `"/"`.
+When `"initial_path": "/"`, moon-spa starts from the route that matches `"/"`.
 
 Example layout route:
 

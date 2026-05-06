@@ -5,7 +5,7 @@ title: Router API
 
 # Router API
 
-`lua_spa.router.Router`
+`moon_spa.router.Router`
 
 Resolves URL paths to cascaded component trees.
 
@@ -50,7 +50,7 @@ classDiagram
 Create a Router from a config dict (same shape as the `"router"` key in `spa.config.json`):
 
 ```python
-from lua_spa.router import Router
+from moon_spa.router import Router
 
 router = Router.from_config({
     "routes": [

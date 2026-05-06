@@ -2,6 +2,6 @@
 
 <template>
   <footer class="footer">
-    <p>Open Source - MIT License - Made with lua-spa</p>
+    <p>Open Source - MIT License - Made with moon-spa</p>
   </footer>
 </template>

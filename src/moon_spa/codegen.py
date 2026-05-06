@@ -10,12 +10,12 @@ import json
 from types import SimpleNamespace
 from typing import Any, Mapping
 
-from lua_spa.scope import (
+from moon_spa.scope import (
     load_python_scope,
     normalize_client_spec,
     resolve_component_callables,
 )
-from lua_spa.trace import _BinaryExpression, _CastReference, _PropReference
+from moon_spa.trace import _BinaryExpression, _CastReference, _PropReference
 
 
 def build_client_script(python_block: str) -> str:
@@ -43,10 +43,14 @@ def build_client_script(python_block: str) -> str:
         raw_spec = client_factory({})
     except TypeError:
         raw_spec = client_factory()
-    props_spec, state_spec, actions_spec, lifecycle_spec = normalize_client_spec(raw_spec)
+    props_spec, state_spec, actions_spec, lifecycle_spec = normalize_client_spec(
+        raw_spec
+    )
 
     state_fields = list(state_spec.items())
-    lines: list[str] = ["function setup({ useState, props, componentName, componentInstanceId }) {"]
+    lines: list[str] = [
+        "function setup({ useState, props, componentName, componentInstanceId }) {"
+    ]
     props_literal = _js_literal(props_spec)
     lines.append("  const incomingProps = props || {};")
     lines.append(
@@ -56,7 +60,9 @@ def build_client_script(python_block: str) -> str:
     lines.append(
         f"  const resolvedProps = Object.assign({{}}, {props_literal}, contextSync, incomingProps);"
     )
-    lines.append("  if (Object.prototype.hasOwnProperty.call(resolvedProps, '__context')) {")
+    lines.append(
+        "  if (Object.prototype.hasOwnProperty.call(resolvedProps, '__context')) {"
+    )
     lines.append("    delete resolvedProps.__context;")
     lines.append("  }")
 
@@ -106,14 +112,14 @@ def build_client_script(python_block: str) -> str:
     lines.append("    }")
     lines.append("    var patchProps = patch.props;")
     lines.append("    if (patchProps && typeof patchProps === 'object') {")
-    lines.append("      var __lua_logs__ = patchProps.__lua_logs__;")
-    lines.append("      if (Array.isArray(__lua_logs__)) {")
-    lines.append("        __lua_logs__.forEach(function (msg) {")
-    lines.append("          console.log('[lua-spa]', msg);")
+    lines.append("      var __moon_logs__ = patchProps.__moon_logs__;")
+    lines.append("      if (Array.isArray(__moon_logs__)) {")
+    lines.append("        __moon_logs__.forEach(function (msg) {")
+    lines.append("          console.log('[moon-spa]', msg);")
     lines.append("        });")
     lines.append("      }")
     lines.append("      Object.keys(patchProps).forEach(function (key) {")
-    lines.append("        if (key !== '__lua_logs__') {")
+    lines.append("        if (key !== '__moon_logs__') {")
     lines.append("          resolvedProps[key] = patchProps[key];")
     lines.append("        }")
     lines.append("      });")
@@ -136,7 +142,7 @@ def build_client_script(python_block: str) -> str:
     lines.append("      return Promise.resolve(null);")
     lines.append("    }")
     lines.append("    function __sendServerCall(requestProps, requestState) {")
-    lines.append("      return fetch('/__lua_spa_action', {")
+    lines.append("      return fetch('/__moon_spa_action', {")
     lines.append("        method: 'POST',")
     lines.append("        headers: { 'Content-Type': 'application/json' },")
     lines.append("        body: JSON.stringify({")
@@ -158,23 +164,33 @@ def build_client_script(python_block: str) -> str:
     lines.append("    }")
     lines.append("    var requestPromise;")
     lines.append("    if (kind === 'lifecycle') {")
-    lines.append("      window.__luaSpaLifecycleChain = window.__luaSpaLifecycleChain || {};")
-    lines.append("      window.__luaSpaLifecycleSnapshot = window.__luaSpaLifecycleSnapshot || {};")
-    lines.append("      window.__luaSpaLifecyclePending = window.__luaSpaLifecyclePending || {};")
+    lines.append(
+        "      window.__moonSpaLifecycleChain = window.__moonSpaLifecycleChain || {};"
+    )
+    lines.append(
+        "      window.__moonSpaLifecycleSnapshot = window.__moonSpaLifecycleSnapshot || {};"
+    )
+    lines.append(
+        "      window.__moonSpaLifecyclePending = window.__moonSpaLifecyclePending || {};"
+    )
     lines.append(
         "      var scopePrefix = String(componentName || '') + ':' + String(componentInstanceId || 'global');"
     )
     lines.append("      var pendingKey = scopePrefix + ':' + String(name || '');")
     lines.append(
-        "      var previousChain = window.__luaSpaLifecycleChain[scopePrefix] || Promise.resolve();"
+        "      var previousChain = window.__moonSpaLifecycleChain[scopePrefix] || Promise.resolve();"
     )
     lines.append("      requestPromise = previousChain")
     lines.append("        .catch(function () {})")
     lines.append("        .then(function () {")
-    lines.append("          var lifecycleSnapshot = window.__luaSpaLifecycleSnapshot[scopePrefix];")
+    lines.append(
+        "          var lifecycleSnapshot = window.__moonSpaLifecycleSnapshot[scopePrefix];"
+    )
     lines.append("          var requestProps = resolvedProps;")
     lines.append("          var requestState = state;")
-    lines.append("          if (lifecycleSnapshot && typeof lifecycleSnapshot === 'object') {")
+    lines.append(
+        "          if (lifecycleSnapshot && typeof lifecycleSnapshot === 'object') {"
+    )
     lines.append(
         "            if (lifecycleSnapshot.props && typeof lifecycleSnapshot.props === 'object') {"
     )
@@ -190,15 +206,19 @@ def build_client_script(python_block: str) -> str:
     lines.append("        })")
     lines.append("        .then(function (payload) {")
     lines.append("          if (payload && payload.ok === true && payload.result) {")
-    lines.append("            window.__luaSpaLifecycleSnapshot[scopePrefix] = payload.result;")
+    lines.append(
+        "            window.__moonSpaLifecycleSnapshot[scopePrefix] = payload.result;"
+    )
     lines.append("          }")
     lines.append("          return payload;")
     lines.append("        });")
-    lines.append("      window.__luaSpaLifecycleChain[scopePrefix] = requestPromise;")
-    lines.append("      window.__luaSpaLifecyclePending[pendingKey] = requestPromise;")
+    lines.append("      window.__moonSpaLifecycleChain[scopePrefix] = requestPromise;")
+    lines.append("      window.__moonSpaLifecyclePending[pendingKey] = requestPromise;")
     lines.append("      requestPromise.finally(function () {")
-    lines.append("        if (window.__luaSpaLifecyclePending[pendingKey] === requestPromise) {")
-    lines.append("          delete window.__luaSpaLifecyclePending[pendingKey];")
+    lines.append(
+        "        if (window.__moonSpaLifecyclePending[pendingKey] === requestPromise) {"
+    )
+    lines.append("          delete window.__moonSpaLifecyclePending[pendingKey];")
     lines.append("        }")
     lines.append("      });")
     lines.append("    } else {")
@@ -211,7 +231,9 @@ def build_client_script(python_block: str) -> str:
     for action_name_raw, action_cfg in actions_spec.items():
         action_name = str(action_name_raw)
         action_operation = _normalize_action_operation(action_cfg)
-        action_body = _js_action_statement(action_operation, setter_by_state, value_by_state)
+        action_body = _js_action_statement(
+            action_operation, setter_by_state, value_by_state
+        )
         lines.append(f"      {action_name}: function () {{")
         lines.append(f"        {action_body}")
         lines.append("      },")
@@ -260,12 +282,12 @@ def _js_initial_state_expression(config: Any, prop_var_name: str) -> str:
         prop_var_name: Name of the props variable in the generated JS.
 
     Returns:
-        A JavaScript expression evaluating to the initial state value.
+        A JavaScript expression evamoonting to the initial state value.
     """
     if isinstance(config, Mapping):
         init_candidate = config.get("init")
         if callable(init_candidate):
-            expression_value = _evaluate_state_init_callable(init_candidate)
+            expression_value = _evamoonte_state_init_callable(init_candidate)
             return _js_runtime_value_expression(expression_value, prop_var_name)
 
         from_prop = config.get("from_prop")
@@ -276,9 +298,7 @@ def _js_initial_state_expression(config: Any, prop_var_name: str) -> str:
 
         prop_expr = f"{prop_var_name}[{_js_literal(str(from_prop))}]"
         fallback = _js_literal(default_value)
-        base_expr = (
-            f"(({prop_expr}) !== undefined && ({prop_expr}) !== null ? ({prop_expr}) : {fallback})"
-        )
+        base_expr = f"(({prop_expr}) !== undefined && ({prop_expr}) !== null ? ({prop_expr}) : {fallback})"
 
         if cast_kind == "int":
             return f"Number({base_expr})"
@@ -293,7 +313,7 @@ def _js_initial_state_expression(config: Any, prop_var_name: str) -> str:
     return _js_runtime_value_expression(config, prop_var_name)
 
 
-def _evaluate_state_init_callable(init_callable: Any) -> Any:
+def _evamoonte_state_init_callable(init_callable: Any) -> Any:
     """Execute an init() callable to capture its state/prop accesses.
 
     Args:
@@ -302,7 +322,7 @@ def _evaluate_state_init_callable(init_callable: Any) -> Any:
     Returns:
         The value returned by the callable (may include _PropReference objects).
     """
-    from lua_spa.trace import _TraceProps
+    from moon_spa.trace import _TraceProps
 
     trace_self = SimpleNamespace(props=_TraceProps(), state=SimpleNamespace())
     try:
@@ -404,12 +424,16 @@ def _js_action_statement(
         for step in steps:
             if not isinstance(step, Mapping):
                 raise ValueError("multi action step must be a mapping")
-            statements.append(_js_action_statement(step, setter_by_state, value_by_state))
+            statements.append(
+                _js_action_statement(step, setter_by_state, value_by_state)
+            )
         return " ".join(statements)
 
     if str(operation.get("op", "")) == "log":
-        value_literal = _js_runtime_value_expression(operation.get("value"), "resolvedProps")
-        return f"console.log('[lua-spa]', {value_literal});"
+        value_literal = _js_runtime_value_expression(
+            operation.get("value"), "resolvedProps"
+        )
+        return f"console.log('[moon-spa]', {value_literal});"
 
     if str(operation.get("op", "")) == "js":
         js_code = operation.get("value")
@@ -421,7 +445,9 @@ def _js_action_statement(
         prop_name = operation.get("prop")
         if not isinstance(prop_name, str) or prop_name.strip() == "":
             raise ValueError("set_prop operation requires string 'prop'")
-        value_literal = _js_runtime_value_expression(operation.get("value"), "resolvedProps")
+        value_literal = _js_runtime_value_expression(
+            operation.get("value"), "resolvedProps"
+        )
         prop_literal = _js_literal(prop_name)
         return f"resolvedProps[{prop_literal}] = {value_literal};"
 
@@ -433,12 +459,12 @@ def _js_action_statement(
         if kind_name == "lifecycle":
             key_literal = _js_literal(callable_name)
             return (
-                "window.__luaSpaLifecycleOnce = window.__luaSpaLifecycleOnce || {}; "
-                "var __luaSpaLifecycleScope = String(componentName || '')"
+                "window.__moonSpaLifecycleOnce = window.__moonSpaLifecycleOnce || {}; "
+                "var __moonSpaLifecycleScope = String(componentName || '')"
                 " + ':' + String((typeof componentInstanceId !== 'undefined' && componentInstanceId !== null) ? componentInstanceId : 'global')"
                 f" + ':' + {key_literal}; "
-                "if (!window.__luaSpaLifecycleOnce[__luaSpaLifecycleScope]) { "
-                "window.__luaSpaLifecycleOnce[__luaSpaLifecycleScope] = true; "
+                "if (!window.__moonSpaLifecycleOnce[__moonSpaLifecycleScope]) { "
+                "window.__moonSpaLifecycleOnce[__moonSpaLifecycleScope] = true; "
                 f"__serverCall({_js_literal(kind_name)}, {_js_literal(callable_name)}); "
                 "}"
             )
@@ -450,7 +476,9 @@ def _js_action_statement(
 
     setter = setter_by_state[state_name]
     op_kind = str(operation.get("op", "set"))
-    value_literal = _js_runtime_value_expression(operation.get("value"), "resolvedProps")
+    value_literal = _js_runtime_value_expression(
+        operation.get("value"), "resolvedProps"
+    )
 
     if op_kind == "add":
         statement = f"{setter}(function (value) {{ return value + {value_literal}; }});"

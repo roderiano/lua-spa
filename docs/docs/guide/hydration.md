@@ -9,7 +9,7 @@ Hydration is the process of making server-rendered HTML interactive by attaching
 
 ## Overview
 
-lua-spa uses a **Server-Side Render → Hydrate** model:
+moon-spa uses a **Server-Side Render → Hydrate** model:
 
 ```mermaid
 sequenceDiagram
@@ -20,8 +20,8 @@ sequenceDiagram
     PY->>HTML: Render component tree (SSR)
     PY->>HTML: Embed registry JSON + bootstrap JSON
     HTML->>JS: Page delivered to browser
-    JS->>JS: Read lua-spa-registry (templates + scripts)
-    JS->>JS: Read lua-spa-config (entry + props)
+    JS->>JS: Read moon-spa-registry (templates + scripts)
+    JS->>JS: Read moon-spa-config (entry + props)
     JS->>JS: Call setup() for each component
     JS->>JS: useState() hooks initialized
     JS->>JS: diff(server DOM, virtual DOM)
@@ -34,10 +34,10 @@ sequenceDiagram
 When `build_view()` runs, `{{ SPA_BOOTSTRAP }}` is replaced with:
 
 ```html
-<script id="lua-spa-registry" type="application/json">
+<script id="moon-spa-registry" type="application/json">
   { "App": { "template": "...", "script": "..." }, ... }
 </script>
-<script id="lua-spa-config" type="application/json">
+<script id="moon-spa-config" type="application/json">
   { "entry": "App", "mountId": "app", "props": {} }
 </script>
 <script>/* SPA_RUNTIME_JS */</script>
@@ -76,4 +76,4 @@ function setup({ useState, props, componentName }) {
 
 `useState` is the framework's own hook — it schedules a re-render when the setter is called.
 
-For callable actions/lifecycle hooks, hydration uses `POST /__lua_spa_action` and applies state/props patches returned by the server.
+For callable actions/lifecycle hooks, hydration uses `POST /__moon_spa_action` and applies state/props patches returned by the server.
