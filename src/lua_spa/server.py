@@ -222,8 +222,16 @@ class SpaServer:
             watch_path = (
                 str(framework._view_file.parents[1]) if hasattr(framework, "_view_file") else "."
             )
-            threading.Thread(target=_watch_files, args=(watch_path, framework), daemon=True).start()
-            print(f"Live reload activated. Watching {watch_path} for file changes...")
+            try:
+                relative_watch_path = os.path.relpath(watch_path, os.getcwd())
+            except ValueError:
+                relative_watch_path = watch_path
+            threading.Thread(
+                target=_watch_files,
+                args=(relative_watch_path, framework),
+                daemon=True,
+            ).start()
+            print("Live reload activated. " f"Watching {relative_watch_path} for file changes...")
 
         with server:
             server.serve_forever()

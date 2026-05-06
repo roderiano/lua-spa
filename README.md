@@ -53,6 +53,15 @@ lua-spa create my_project
 lua-spa create my_project ./apps
 ```
 
+### Create a component from template
+
+``` bash
+lua-spa new component UserCard
+lua-spa new component UserCard ./apps/my_project
+```
+
+The CLI copies `ComponentTemplate`, renames files/content, and prints the exact created paths.
+
 
 
 ### Run the application
@@ -65,6 +74,12 @@ Enable hot reload:
 
 ``` bash
 poetry run lua-spa serve --reload
+```
+
+When reload is enabled, watcher logs use relative paths:
+
+``` text
+Live reload activated. Watching src for file changes...
 ```
 
 Open in browser:
@@ -134,5 +149,7 @@ Components are `.lspa` files composed of:
 -   `<python>` block with a `Component` subclass implementing `setup(self, props)`
 -   `<template>` block (HTML)
 
-`setup(self, props)` returns a mapping with `props`, `state`, `data`, `actions`, and `lifecycle`.
+`setup(self, props)` can return a mapping with `props`, `state`, `data`, `actions`, and `lifecycle`,
+or omit return and let the server infer these sections from local variables/functions.
 Callable `actions` and `lifecycle` entries are executed through the `POST /__lua_spa_action` bridge.
+When actions/lifecycle mutate `data`, those keys are patched back to client props automatically.

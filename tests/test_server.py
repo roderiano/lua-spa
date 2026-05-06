@@ -92,6 +92,51 @@ def test_spa_server_serve_invokes_http_server(monkeypatch: Any) -> None:
     assert called["served"] is True
 
 
+def test_spa_server_reload_uses_relative_watch_path(monkeypatch: Any, tmp_path: Path) -> None:
+    # Given: reload is enabled and framework has a _view_file under cwd/src
+    called: dict[str, Any] = {"thread_args": None}
+
+    class FakeServer:
+        def __init__(self, _address: tuple[str, int], _handler: Any) -> None:
+            return None
+
+        def __enter__(self) -> "FakeServer":
+            return self
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            return None
+
+        def serve_forever(self) -> None:
+            return None
+
+    class FakeThread:
+        def __init__(self, target: Any, args: tuple[Any, ...], daemon: bool) -> None:
+            called["thread_args"] = args
+
+        def start(self) -> None:
+            return None
+
+    root = tmp_path
+    view_file = root / "src" / "lua_template" / "index.lspa"
+    view_file.parent.mkdir(parents=True)
+    view_file.write_text("<template></template>", encoding="utf-8")
+
+    framework = SimpleNamespace(_view_file=view_file)
+
+    monkeypatch.chdir(root)
+    monkeypatch.setattr(server_module, "ThreadingHTTPServer", FakeServer)
+    monkeypatch.setattr(server_module.threading, "Thread", FakeThread)
+    server_module._watch_started.clear()
+
+    # When: serving with reload enabled
+    SpaServer.serve(framework, "127.0.0.1", 8000, reload=True)
+
+    # Then: watcher receives relative path "src"
+    assert called["thread_args"] is not None
+    assert called["thread_args"][0] == "src"
+    server_module._watch_started.clear()
+
+
 def test_handler_log_message_noop_call() -> None:
     # Given: a bare _SpaHandler instance
     handler = object.__new__(_SpaHandler)
