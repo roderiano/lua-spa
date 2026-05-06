@@ -6,19 +6,28 @@ from typing import Any
 import pytest
 
 from lua_spa.scope import (
+    _coerce_setup_result,
+    _normalize_setup_action_callable,
+    _normalize_setup_spec,
+    _rewire_callable_closure,
     _extract_mapping_value,
     canonical_lifecycle_name,
     execute_setup_server_callable,
     infer_action_methods,
     invoke_method_callable,
     load_python_scope,
+    normalize_context_result,
     normalize_action_names,
     normalize_client_spec,
+    normalize_lifecycle_spec,
+    normalize_state_item,
     normalize_lifecycle_methods,
     normalize_props_source,
     normalize_state_source,
     resolve_component_callables,
+    resolve_component_instance,
     resolve_methods_actions,
+    swap_attribute,
 )
 from lua_spa.trace import _TraceState
 from lua_spa.types import Component, StateField
@@ -387,3 +396,161 @@ class Features(Component):
     assert patch["state"]["count"] == 1
     assert patch["props"]["pypi"]["latest"] == "1.2.3"
     assert patch["props"]["pypi"]["available"] is True
+
+
+def test_scope_context_normalization_mapping_object_and_invalid() -> None:
+    class ContextObject:
+        def __init__(self) -> None:
+            self.visible = 1
+            self._hidden = 2
+
+    assert normalize_context_result(None) == {}
+    assert normalize_context_result({"a": 1}) == {"a": 1}
+    assert normalize_context_result(ContextObject()) == {"visible": 1}
+    with pytest.raises(ValueError, match="context\(props\) must return"):
+        normalize_context_result(123)
+
+
+def test_scope_resolve_component_instance_errors_for_invalid_construction() -> None:
+    with pytest.raises(ValueError, match="component\(\) must be callable without arguments"):
+        resolve_component_instance({"component": lambda x: x})
+
+    class Broken(Component):
+        def __init__(self, required: int) -> None:
+            self.required = required
+
+    with pytest.raises(ValueError, match="Component class must be instantiable"):
+        resolve_component_instance({"Component": Broken})
+
+
+def test_scope_resolve_component_callables_rejects_non_component_scope() -> None:
+    with pytest.raises(ValueError, match="must define a Component subclass"):
+        resolve_component_callables({"x": 1})
+
+
+def test_scope_coerce_setup_result_invalid_non_mapping() -> None:
+    with pytest.raises(ValueError, match="must return a mapping or None"):
+        _coerce_setup_result(SimpleNamespace(), 1, {}, {})
+
+
+def test_scope_normalize_setup_spec_variants_and_errors() -> None:
+    def callable_hook() -> dict[str, Any]:
+        return {"ok": True}
+
+    normalized = _normalize_setup_spec(
+        {
+            "props": SimpleNamespace(title="demo"),
+            "state": SimpleNamespace(count=1),
+            "actions": {"save": {"op": "set", "state": "x", "value": 1}},
+            "lifecycle": {
+                "mounted": "save",
+                "updated": {"op": "log", "value": "updated"},
+                "unmounted": [callable_hook, "save", {"op": "log", "value": "bye"}],
+            },
+        }
+    )
+
+    props, state, actions, lifecycle = normalized
+    assert props["title"] == "demo"
+    assert state["count"] == 1
+    assert actions["save"]["op"] == "set"
+    assert lifecycle["onMount"] == ["save"]
+    assert lifecycle["onUpdate"][0]["op"] == "log"
+    assert len(lifecycle["onUnmount"]) == 3
+
+    with pytest.raises(ValueError, match="setup\(\)\.actions must be a mapping"):
+        _normalize_setup_spec({"actions": 1})
+
+    with pytest.raises(ValueError, match="setup\(\)\.lifecycle must be a mapping"):
+        _normalize_setup_spec({"lifecycle": 1})
+
+    with pytest.raises(ValueError, match="must be callable or mapping"):
+        _normalize_setup_spec({"actions": {"bad": 1}})
+
+
+def test_scope_execute_setup_server_callable_error_paths() -> None:
+    source_unknown_action = """
+class Features(Component):
+    def setup(self, props):
+        return {"props": props, "state": {}, "actions": {}, "lifecycle": {}}
+"""
+    with pytest.raises(ValueError, match="Unknown action"):
+        execute_setup_server_callable(source_unknown_action, "action", "missing", {}, {})
+
+    source_lifecycle_bad = """
+class Features(Component):
+    def setup(self, props):
+        return {
+            "props": props,
+            "state": {},
+            "actions": {},
+            "lifecycle": {"mounted": 1},
+        }
+"""
+    with pytest.raises(ValueError, match="Unsupported lifecycle hook value"):
+        execute_setup_server_callable(source_lifecycle_bad, "lifecycle", "mounted", {}, {})
+
+
+def test_scope_normalize_setup_action_callable_and_helpers() -> None:
+    state_backing = {"count": 1, "mode": "idle"}
+
+    def action() -> dict[str, Any]:
+        state_backing["count"] += 2
+        state_backing["mode"] = "done"
+        return {"toast": "ok"}
+
+    op = _normalize_setup_action_callable("action", action, state_backing)
+    assert op["op"] == "multi"
+    assert state_backing == {"count": 1, "mode": "idle"}
+
+    class Owner:
+        pass
+
+    owner = Owner()
+    restore = swap_attribute(owner, "temp", 10)
+    assert owner.temp == 10
+    assert restore is not None
+    restore()
+    assert not hasattr(owner, "temp")
+
+
+def test_scope_normalize_state_item_and_lifecycle_spec_errors() -> None:
+    class Stateful:
+        name = "qty"
+        from_prop = "initialQty"
+        default = 1
+        cast = "int"
+
+        def init(self) -> int:
+            return 1
+
+    owner = SimpleNamespace(Stateful=Stateful)
+    normalized = normalize_state_item("Stateful", owner)
+    assert normalized["name"] == "qty"
+    assert callable(normalized.get("init"))
+
+    with pytest.raises(ValueError, match="String state items require a client instance"):
+        normalize_state_item("Stateful", None)
+
+    with pytest.raises(ValueError, match="Unknown state class reference"):
+        normalize_state_item("MissingState", owner)
+
+    with pytest.raises(ValueError, match="client\(\)\.lifecycle must be a mapping"):
+        normalize_lifecycle_spec(1)
+
+    with pytest.raises(ValueError, match="Lifecycle action names must be strings"):
+        normalize_action_names(["ok", 1])
+
+
+def test_scope_rewire_callable_closure_keeps_callable_when_unmodified() -> None:
+    def outer() -> Any:
+        value = 1
+
+        def inner() -> int:
+            return value
+
+        return inner
+
+    callable_obj = outer()
+    rewired = _rewire_callable_closure(callable_obj, {})
+    assert rewired is callable_obj
