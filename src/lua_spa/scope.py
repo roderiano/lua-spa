@@ -7,6 +7,7 @@ then inspects and normalizes the resulting client specs (props, state, actions, 
 from __future__ import annotations
 
 import builtins
+import sys
 from types import FunctionType
 from typing import Any, Mapping
 
@@ -129,7 +130,16 @@ def resolve_component_callables(local_scope: Mapping[str, Any]) -> tuple[Any | N
 
     def _context_from_setup(props: Any) -> Any:
         setup_props = dict(props) if isinstance(props, Mapping) else {}
-        setup_result = method_setup(setup_props)
+        try:
+            setup_result_raw, setup_locals = _invoke_setup_with_locals(method_setup, setup_props)
+            setup_result = _coerce_setup_result(
+                component_instance,
+                setup_result_raw,
+                setup_props,
+                setup_locals,
+            )
+        except ValueError:
+            return {}
         if isinstance(setup_result, Mapping):
             setup_data = setup_result.get("data", {})
             if isinstance(setup_data, Mapping):
@@ -138,9 +148,17 @@ def resolve_component_callables(local_scope: Mapping[str, Any]) -> tuple[Any | N
 
     def _client_from_setup(props: Any | None = None) -> Any:
         setup_props = dict(props) if isinstance(props, Mapping) else {}
-        setup_result = method_setup(setup_props)
+        setup_result_raw, setup_locals = _invoke_setup_with_locals(method_setup, setup_props)
+        setup_result = _coerce_setup_result(
+            component_instance,
+            setup_result_raw,
+            setup_props,
+            setup_locals,
+        )
         if not isinstance(setup_result, Mapping):
-            raise ValueError("setup(self, props) must return a mapping")
+            raise ValueError(
+                "setup(self, props) must return a mapping or set component props/state/data/actions/lifecycle attributes"
+            )
         mapped_result = dict(setup_result)
         mapped_result["__setup_mapped__"] = True
         return mapped_result
@@ -171,6 +189,101 @@ def _build_client_factory(client_attr: Any) -> Any:
         return client_attr
 
     return _value_factory
+
+
+def _coerce_setup_result(
+    component_instance: Any,
+    setup_result: Any,
+    setup_props: Mapping[str, Any],
+    setup_locals: Mapping[str, Any] | None = None,
+) -> Mapping[str, Any]:
+    """Normalize setup output, supporting implicit component attribute mapping."""
+    if isinstance(setup_result, Mapping):
+        return setup_result
+
+    if setup_result is not None:
+        raise ValueError(
+            "setup(self, props) must return a mapping or None when using component attributes"
+        )
+
+    setup_locals_map = dict(setup_locals or {})
+
+    mapped_props = getattr(component_instance, "props", None)
+    if mapped_props is None and "props" in setup_locals_map:
+        mapped_props = setup_locals_map.get("props")
+
+    mapped_state = getattr(component_instance, "state", None)
+    if mapped_state is None and "state" in setup_locals_map:
+        mapped_state = setup_locals_map.get("state")
+
+    mapped_data = getattr(component_instance, "data", None)
+    if mapped_data is None and "data" in setup_locals_map:
+        mapped_data = setup_locals_map.get("data")
+
+    mapped_actions = getattr(component_instance, "actions", None)
+    if mapped_actions is None and "actions" in setup_locals_map:
+        mapped_actions = setup_locals_map.get("actions")
+
+    mapped_lifecycle = getattr(component_instance, "lifecycle", None)
+    if mapped_lifecycle is None and "lifecycle" in setup_locals_map:
+        mapped_lifecycle = setup_locals_map.get("lifecycle")
+
+    local_callables: dict[str, Any] = {
+        name: value
+        for name, value in setup_locals_map.items()
+        if isinstance(name, str) and not name.startswith("_") and callable(value)
+    }
+
+    inferred_lifecycle: dict[str, Any] = {}
+    for callable_name, callable_ref in local_callables.items():
+        try:
+            canonical_lifecycle_name(callable_name)
+        except ValueError:
+            continue
+        inferred_lifecycle[callable_name] = callable_ref
+
+    if mapped_lifecycle is None:
+        mapped_lifecycle = inferred_lifecycle
+
+    if mapped_actions is None:
+        mapped_actions = {
+            callable_name: callable_ref
+            for callable_name, callable_ref in local_callables.items()
+            if callable_name not in inferred_lifecycle
+        }
+
+    return {
+        "props": dict(setup_props) if mapped_props is None else mapped_props,
+        "state": {} if mapped_state is None else mapped_state,
+        "data": {} if mapped_data is None else mapped_data,
+        "actions": {} if mapped_actions is None else mapped_actions,
+        "lifecycle": {} if mapped_lifecycle is None else mapped_lifecycle,
+    }
+
+
+def _invoke_setup_with_locals(
+    method_setup: Any,
+    setup_props: Mapping[str, Any],
+) -> tuple[Any, dict[str, Any]]:
+    """Execute setup and capture local variables from its return frame."""
+    setup_callable = getattr(method_setup, "__func__", method_setup)
+    setup_code = getattr(setup_callable, "__code__", None)
+    captured_locals: dict[str, Any] = {}
+
+    previous_profile = sys.getprofile()
+
+    def _profile(frame: Any, event: str, arg: Any) -> Any:
+        if event == "return" and setup_code is not None and frame.f_code is setup_code:
+            captured_locals.update(dict(frame.f_locals))
+        return _profile
+
+    sys.setprofile(_profile)
+    try:
+        setup_result = method_setup(dict(setup_props))
+    finally:
+        sys.setprofile(previous_profile)
+
+    return setup_result, captured_locals
 
 
 def normalize_context_result(result: Any) -> dict[str, Any]:
@@ -347,9 +460,13 @@ def execute_setup_server_callable(
         raise ValueError("Component must define setup(self, props)")
 
     setup_props = dict(props or {})
-    setup_result = method_setup(setup_props)
-    if not isinstance(setup_result, Mapping):
-        raise ValueError("setup(self, props) must return a mapping")
+    setup_result_raw, setup_locals = _invoke_setup_with_locals(method_setup, setup_props)
+    setup_result = _coerce_setup_result(
+        component_instance,
+        setup_result_raw,
+        setup_props,
+        setup_locals,
+    )
 
     # Inject print ref into the local scope so nested functions see changes
     if isinstance(local_scope, dict):
@@ -359,6 +476,7 @@ def execute_setup_server_callable(
     setup_state: dict[str, Any] = (
         dict(setup_state_obj) if isinstance(setup_state_obj, Mapping) else {}
     )
+    setup_data_obj = setup_result.get("data", {})
 
     if isinstance(state, Mapping):
         for key, value in state.items():
@@ -501,6 +619,12 @@ def execute_setup_server_callable(
 
     for tracked in tracked_action_results:
         _merge_result(tracked)
+
+    if isinstance(setup_data_obj, Mapping):
+        for data_key, data_value in setup_data_obj.items():
+            data_key_str = str(data_key)
+            if data_key_str not in props_patch:
+                props_patch[data_key_str] = data_value
 
     current_state = dict(setup_state_obj) if isinstance(setup_state_obj, Mapping) else setup_state
     return {

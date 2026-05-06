@@ -128,10 +128,10 @@ framework.serve(reload=True)
 
 ### `execute_server_callable(component_name, kind, callable_name, props, state) -> dict`
 
-Executes callable actions/lifecycle hooks declared in `setup(self, props)` and returns patch payload:
+Executes callable actions/lifecycle hooks from `setup(self, props)` (explicit or inferred) and returns patch payload:
 
 - `state`: updated state snapshot
-- `props`: props/data patch to apply in browser
+- `props`: props/data patch to apply in browser (includes mutated `data` keys even when action returns `None`)
 
 Used internally by `POST /__lua_spa_action` runtime bridge.
 

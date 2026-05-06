@@ -100,23 +100,20 @@ function setup({ useState, props, componentName }) {
 
 ### Computed variables (`setup().data` → `py` namespace)
 
-`setup(self, props)` returns `data`, which is evaluated server-side and injected into render context as `py`.
+`setup(self, props)` can return a mapping, or omit `return` and let the server infer the spec.
+The `data` section is evaluated server-side and injected into render context as `py`.
 It is not compiled to JavaScript by itself; it is hydrated through props patches when returned by server callables.
 
 ```python
 # Python
 class Card(Component):
-  def setup(self, props):
+    def setup(self, props):
         price = props.get("price", 0)
-        return {
-      "props": props,
-      "state": {},
-      "data": {
-        "display":  f"${price:.2f}",
-        "is_cheap": price < 10,
-      },
-      "actions": {},
-      "lifecycle": {},
+    props = {**props}
+    state = {}
+    data = {
+            "display": f"${price:.2f}",
+            "is_cheap": price < 10,
         }
 ```
 
@@ -155,17 +152,13 @@ Example — full Python → JS compilation:
 ```python
 # Python
 class Counter(Component):
-  def setup(self, props):
-        return {
-      "props": props,
-            "state": {
-                "count": 0,
-                "label": "start",
-            },
-      "data": {},
-      "actions": {},
-      "lifecycle": {},
+    def setup(self, props):
+    props = {**props}
+    state = {
+            "count": 0,
+            "label": "start",
         }
+    data = {}
 ```
 
 ```js
@@ -224,17 +217,24 @@ const actions = {
 
 ---
 
-Callable actions are executed through the server bridge and return state/props patches.
+Callable actions are executed through the server bridge and generate state/props patches.
+If an action mutates `data`, updated `data` keys are automatically included in the props patch even when the action returns `None`.
+
+Latest behavior:
+- Action callables can update `data` directly (for example `data["pypi"] = refreshed`) without returning a mapping.
+- The server emits those `data` keys through props patching automatically.
 
 ```python
 # Python
 class Counter(Component):
-    def client(self):
-        return {"state": {"count": 0}}
+    def setup(self, props):
+        state = {"count": 0}
+        data = {"limit": 10}
 
-    def safe_increment(self):
-        if self.state.count < 10:    # comparison → captured as "cond"
-            self.state.count += 1    # += → captured as "add" op
+        def safe_increment():
+            if state["count"] < 10:
+                state["count"] += 1
+                data["limit"] = 10
 ```
 
 Tracing records:

@@ -33,18 +33,16 @@ Base class for all components. Available as `Component` in every `<python>` bloc
 ```python
 class MyComponent(Component):
     def setup(self, props):
+        props = {"title": "Default", **props}
         state = {"count": 0}
+        data = {"headline": "hello"}
 
         def inc():
             state["count"] += 1
 
-        return {
-            "props": {"title": "Default", **props},
-            "state": state,
-            "data": {"headline": "hello"},
-            "actions": {"inc": inc},
-            "lifecycle": {},
-        }
+        def mounted():
+            inc()
+
 ```
 
 ### `setup(self, props) → dict`
@@ -62,6 +60,14 @@ Called whenever the component is prepared for rendering/hydration. This is the o
 - `data`: server data exposed as `py.*` in templates
 - `actions`: mapping of action names to either callables or op mappings
 - `lifecycle`: mapping of lifecycle hook names to callables/strings/mappings/lists
+
+If `setup` returns `None`, the server infers the mapping automatically from:
+
+- local variables: `props`, `state`, `data`
+- local callables inferred as `actions`
+- lifecycle-named callables (like `mounted`, `created`, `on_mount`, etc) inferred as `lifecycle`
+
+When actions/lifecycle mutate `data`, those `data` keys are automatically emitted in the props patch even without returning a mapping from the action.
 
 ### Action operations
 
@@ -99,7 +105,13 @@ class Example(Component):
         state = {
             "count": StateField(name="count", from_prop="initialCount", default=0, cast="int")
         }
-        return {"props": props, "state": state, "data": {}, "actions": {}, "lifecycle": {}}
+        return {
+            "props": props,
+            "state": state,
+            "data": {},
+            "actions": {},
+            "lifecycle": {},
+        }
 ```
 
 | Field | Type | Default | Description |

@@ -136,6 +136,17 @@ class Features(Component):
       "status": "idle",
     }
 
+    data = {}
+    data["pypi"] = {
+      "available": False,
+      "error": "",
+      "versions": [],
+      "latest": "",
+      "author": "",
+      "maintainer": "",
+      "owner_matches": False,
+    }
+
     def reload_packages():
       refreshed = self.fetch_pypi_versions(
         props["package_name"],
@@ -144,33 +155,11 @@ class Features(Component):
       )
       state["reload_count"] += 1
       state["status"] = "updated"
-      return {"pypi": refreshed}
+      data["pypi"] = refreshed
 
     def mounted():
       state["mounted"] = True
       reload_packages()
-
-    return {
-      "props": props,
-      "state": state,
-      "data": {
-        "pypi": {
-          "available": False,
-          "error": "",
-          "versions": [],
-          "latest": "",
-          "author": "",
-          "maintainer": "",
-          "owner_matches": False,
-        },
-      },
-      "actions": {
-        "reload_packages": reload_packages,
-      },
-      "lifecycle": {
-        "mounted": mounted,
-      },
-    }
 </python>
 
 <template>

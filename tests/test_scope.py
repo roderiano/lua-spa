@@ -227,6 +227,64 @@ class Features(Component):
     assert lifecycle["onMount"][0]["op"] == "server_call"
 
 
+def test_scope_setup_automatic_mapping_without_return() -> None:
+    source = """
+class Card(Component):
+    def setup(self, props):
+        price = props.get("price", 0)
+        self.props = props
+        self.state = {}
+        self.data = {
+            "display": f"${price:.2f}",
+            "is_cheap": price < 10,
+        }
+        self.actions = {}
+        self.lifecycle = {}
+"""
+
+    scope = load_python_scope(source)
+    context_fn, client_fn = resolve_component_callables(scope)
+
+    context = context_fn({"price": 7})
+    props, state, actions, lifecycle = normalize_client_spec(client_fn({"price": 7}))
+
+    assert context["display"] == "$7.00"
+    assert context["is_cheap"] is True
+    assert props["price"] == 7
+    assert state == {}
+    assert actions == {}
+    assert lifecycle["onMount"] == []
+
+
+def test_scope_setup_infers_actions_and_lifecycle_from_local_functions() -> None:
+    source = """
+class Features(Component):
+    def setup(self, props):
+        state = {"count": 0}
+        data = {"title": "x"}
+
+        def reload_packages():
+            state["count"] += 1
+
+        def mounted():
+            reload_packages()
+"""
+
+    scope = load_python_scope(source)
+    context_fn, client_fn = resolve_component_callables(scope)
+    assert callable(context_fn)
+    assert callable(client_fn)
+
+    context = context_fn({})
+    props, state, actions, lifecycle = normalize_client_spec(client_fn({}))
+
+    assert context["title"] == "x"
+    assert state["count"] == 0
+    assert actions["reload_packages"]["op"] == "server_call"
+    assert actions["reload_packages"]["kind"] == "action"
+    assert lifecycle["onMount"][0]["op"] == "server_call"
+
+
 def test_scope_lifecycle_merges_nested_action_results_without_return() -> None:
     source = """
 class Features(Component):
@@ -303,3 +361,29 @@ class Features(Component):
     assert "component mounted" in patch["props"]["__lua_logs__"]
     assert "incrementing counter" in patch["props"]["__lua_logs__"]
     assert "finished mounting" in patch["props"]["__lua_logs__"]
+
+
+def test_scope_action_mutating_data_without_return_updates_props_patch() -> None:
+    source = """
+class Features(Component):
+    def setup(self, props):
+        state = {"count": 0}
+        data = {"pypi": {"latest": "", "available": False}}
+
+        def reload_packages():
+            state["count"] += 1
+            data["pypi"] = {"latest": "1.2.3", "available": True}
+
+"""
+
+    patch = execute_setup_server_callable(
+        source,
+        kind="action",
+        name="reload_packages",
+        props={},
+        state={},
+    )
+
+    assert patch["state"]["count"] == 1
+    assert patch["props"]["pypi"]["latest"] == "1.2.3"
+    assert patch["props"]["pypi"]["available"] is True

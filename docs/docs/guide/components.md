@@ -55,24 +55,33 @@ Components use one contract:
 
 | Function | Purpose | Runs on |
 |---|---|---|
-| `setup(self, props)` | Returns `props/state/data/actions/lifecycle` mapping | Server + compiled client runtime |
+| `setup(self, props)` | Defines `props/state/data/actions/lifecycle` (return mapping or let server infer automatically) | Server + compiled client runtime |
 
 ```python
 class MyComponent(Component):
   def setup(self, props):
+    props = {"name": "World", **props}
     state = {"visible": True}
+    data = {"greeting": f"Hello, {props.get('name', 'World')}"}
 
     def toggle():
       state["visible"] = not state["visible"]
 
-        return {
-      "props": {"name": "World", **props},
-      "state": state,
-      "data": {"greeting": f"Hello, {props.get('name', 'World')}"},
-      "actions": {"toggle": toggle},
-      "lifecycle": {},
-        }
+    def mounted():
+      toggle()
 ```
+
+When `setup` does not return a mapping, the server builds it automatically using:
+- Local variables: `props`, `state`, `data`
+- Local functions inferred as `actions`
+- Lifecycle-named functions (`mounted`, `created`, `on_mount`, etc.) inferred as `lifecycle`
+
+Inside action/lifecycle callables, mutating `data` is enough to patch props on the client.
+You no longer need to `return {"key": value}` just to sync computed data.
+
+Latest behavior:
+- `setup` may omit both `return` and `self.actions/self.lifecycle` assignments.
+- Server infers `actions` from local callables and `lifecycle` from lifecycle-named callables.
 
 ### `<template>` block
 

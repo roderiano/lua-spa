@@ -7,7 +7,7 @@ title: Actions
 
 Actions are the only way to mutate state.
 
-lua-spa uses `setup(self, props)` actions declared in the returned `actions` mapping.
+lua-spa uses `setup(self, props)` actions declared explicitly in `actions` or inferred from local callables when `setup` omits a return mapping.
 
 ## Standard action pattern
 
@@ -15,9 +15,11 @@ lua-spa uses `setup(self, props)` actions declared in the returned `actions` map
 class Counter(Component):
     def setup(self, props):
         state = {"count": 0, "visible": True}
+        data = {"lastChange": "init"}
 
         def increment():
             state["count"] += 1
+            data["lastChange"] = "increment"
 
         def decrement():
             state["count"] -= 1
@@ -28,18 +30,7 @@ class Counter(Component):
         def flip():
             state["visible"] = not state["visible"]
 
-        return {
-            "props": props,
-            "state": state,
-            "data": {},
-            "actions": {
-                "increment": increment,
-                "decrement": decrement,
-                "reset": reset,
-                "flip": flip,
-            },
-            "lifecycle": {},
-        }
+        # no return needed: server infers actions from local callables
 ```
 
 Template binding:
@@ -53,8 +44,9 @@ Template binding:
 ## Conditional actions
 
 ```python
-def increment(self):
-    ...
+def increment():
+    if state["count"] < 10:
+        state["count"] += 1
 ```
 
 For declarative operations, supported comparisons in `cond` are emitted as client-side guards: `<`, `<=`, `>`, `>=`, `==`, `!=`.
@@ -62,6 +54,9 @@ For declarative operations, supported comparisons in `cond` are emitted as clien
 ## Rules
 
 - Define actions inside `setup(self, props)`.
+- You may omit returned `actions` mapping; server can infer actions from local functions.
+- Functions named like lifecycle hooks (`mounted`, `created`, `on_mount`, etc.) are inferred as lifecycle, not actions.
 - Use callables when action logic should execute on server via `server_call`.
 - Use mapping operations (`set`, `add`, `sub`, `toggle`, `multi`, `log`) for direct client-side behavior.
 - Keep state mutations explicit and deterministic.
+- If an action mutates `data`, the resulting `data` keys are patched to props automatically without `return {...}`.
