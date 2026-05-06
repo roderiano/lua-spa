@@ -5,9 +5,9 @@ title: Props
 
 # Props
 
-Props are read-only input values passed from parent components (or from bootstrap `initial_props`) into a component.
+Props are input values passed from parent components (or bootstrap `initial_props`) into a component.
 
-lua-spa uses one professional pattern for client props: **Python classes/objects only**.
+In lua-spa, props defaults are declared in `setup(self, props)`.
 
 ## Passing props
 
@@ -25,35 +25,41 @@ From `spa.config.json`:
 }
 ```
 
-## Declaring props in `client()`
-
-Declare a `Props` class with public attributes.
+## Declaring props in `setup()`
 
 ```python
 class Card(Component):
-    def client(self):
-        class Props:
-            title = "Default Title"
-            count = 0
-            active = False
-
-        class ClientSpec:
-            pass
-
-        spec = ClientSpec()
-        spec.Props = Props
-        return spec
+  def setup(self, props):
+    return {
+      "props": {
+        "title": "Default Title",
+        "count": 0,
+        "active": False,
+        **props,
+      },
+      "state": {},
+      "data": {},
+      "actions": {},
+      "lifecycle": {},
+    }
 ```
 
 The runtime merges defaults with incoming values and coerces scalar types (`int`/`float`/`bool`/`str`) safely.
 
-## Reading props on server and template
+## Reading props in setup and template
 
-Server-side (`context`) receives props as a Python dict:
+`setup(self, props)` receives props as a Python dict:
 
 ```python
-def context(self, props):
-    return {"title": props.get("title", "Default Title")}
+def setup(self, props):
+  title = props.get("title", "Default Title")
+  return {
+    "props": {"title": title, **props},
+    "state": {},
+    "data": {},
+    "actions": {},
+    "lifecycle": {},
+  }
 ```
 
 Template:
@@ -67,6 +73,6 @@ Template:
 
 ## Rules
 
-- Use classes/objects/functions for props definitions.
-- Do not use declarative props dict specs inside `client()`.
-- Treat props as immutable input; mutate only state via methods/actions.
+- Define props defaults in `setup(self, props)`.
+- Use `props` for input values and `state` for reactive mutations.
+- Prefer returning prop patches from server callables when client should receive updated data.

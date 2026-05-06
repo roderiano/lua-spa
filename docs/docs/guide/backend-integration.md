@@ -74,4 +74,4 @@ user = db.get_user(session["user_id"])
 html = framework.build_view(props={"username": user.name, "role": user.role})
 ```
 
-The props flow into `context(props)` on the server and into `resolvedProps` on the client.
+The props flow into `setup(self, props)` on the server and into `resolvedProps` on the client.

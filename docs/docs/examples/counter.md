@@ -14,32 +14,25 @@ The simplest interactive component: a click counter with increment, decrement, a
 ```html
 <python>
 class Counter(Component):
-    def context(self, props):
-        return {}
+  def setup(self, props):
+    state = {"value": 0}
 
-    def client(self):
-    class Props:
-      label = "count"
-      step = 1
+    def inc():
+      state["value"] += 1
 
-    class State:
-      value = 0
+    def dec():
+      state["value"] -= 1
 
-    class ClientSpec:
-      Props = Props
-      State = State
-      Methods = ["inc", "dec", "reset"]
+    def reset():
+      state["value"] = 0
 
-    return ClientSpec()
-
-    def inc(self):
-        self.state.value += 1
-
-    def dec(self):
-        self.state.value -= 1
-
-    def reset(self):
-        self.state.value = 0
+    return {
+      "props": {"label": "count", "step": 1, **props},
+      "state": state,
+      "data": {},
+      "actions": {"inc": inc, "dec": dec, "reset": reset},
+      "lifecycle": {},
+    }
 </python>
 
 <template>
@@ -92,4 +85,4 @@ sequenceDiagram
 
 - Multiple instances of the same component each have **independent state**
 - `props.label` is passed from the parent as a static string attribute
-- `self.state.value += 1` in a method compiles to a reactive setter in JavaScript
+- Callable actions are normalized to server calls and patch state/props back to client

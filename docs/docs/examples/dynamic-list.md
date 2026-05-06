@@ -14,25 +14,27 @@ A todo list that adds and removes items — demonstrating `i-for` with reactive 
 ```html
 <python>
 class TodoList(Component):
-    def context(self, props):
-        return {}
+  def setup(self, props):
+    state = {"items": ["Buy milk", "Write docs"], "draft": ""}
 
-    def client(self):
-    class State:
-      items = ["Buy milk", "Write docs"]
-      draft = ""
+    def setDraft():
+      state["draft"] = ""
 
-    class ClientSpec:
-      State = State
-      Methods = ["setDraft", "clearAll", "addItem"]
+    def clearAll():
+      state["items"] = []
 
-    return ClientSpec()
+    def addItem():
+      if state["draft"]:
+        state["items"] = [*state["items"], state["draft"]]
+        state["draft"] = ""
 
-    def setDraft(self):
-        self.state.draft = ""
-
-    def clearAll(self):
-        self.state.items = []
+    return {
+      "props": props,
+      "state": state,
+      "data": {},
+      "actions": {"setDraft": setDraft, "clearAll": clearAll, "addItem": addItem},
+      "lifecycle": {},
+    }
 </python>
 
 <template>

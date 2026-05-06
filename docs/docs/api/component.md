@@ -13,15 +13,7 @@ Types and base classes used when writing `.lspa` component Python blocks.
 classDiagram
     class Component {
         <<base class>>
-        +context(props) dict
-        +client() dict
-    }
-
-    class ClientMethods {
-        +add(state, value=1) dict
-        +sub(state, value=1) dict
-        +set(state, value) dict
-        +toggle(state) dict
+        +setup(props) dict
     }
 
     class StateField {
@@ -32,7 +24,6 @@ classDiagram
     }
 
     Component <|-- UserComponent : subclasses
-    Component --> ClientMethods : inherits methods
 ```
 
 ## `Component`
@@ -41,93 +32,60 @@ Base class for all components. Available as `Component` in every `<python>` bloc
 
 ```python
 class MyComponent(Component):
-    def context(self, props):
-        return {"title": props.get("title", "Default")}
+    def setup(self, props):
+        state = {"count": 0}
 
-    def client(self):
-        class Props:
-            title = "Default"
+        def inc():
+            state["count"] += 1
 
-        class State:
-            count = 0
-
-        class ClientSpec:
-            Props = Props
-            State = State
-            Methods = ["inc"]
-
-        return ClientSpec()
-
-    def inc(self):
-        self.state.count += 1
+        return {
+            "props": {"title": "Default", **props},
+            "state": state,
+            "data": {"headline": "hello"},
+            "actions": {"inc": inc},
+            "lifecycle": {},
+        }
 ```
 
-### `context(self, props) → dict`
+### `setup(self, props) → dict`
 
-Called server-side when rendering the template. Returns a dict that becomes the `py` namespace in `{{ }}` expressions.
+Called whenever the component is prepared for rendering/hydration. This is the only supported component contract.
 
 | Parameter | Type | Description |
 |---|---|---|
 | `props` | `dict` | Props passed from parent or `initial_props` |
 
-**Returns:** Dict of template variables (accessible as `py.<key>` or directly by name in `{{ }}`).
+**Returns:** A mapping with keys:
 
-### `client(self) → dict`
+- `props`: merged props defaults
+- `state`: reactive state values
+- `data`: server data exposed as `py.*` in templates
+- `actions`: mapping of action names to either callables or op mappings
+- `lifecycle`: mapping of lifecycle hook names to callables/strings/mappings/lists
 
-Inspected at **build time** by the code generator to produce the `setup()` JavaScript function. The return value must be a Python object/class-based spec:
+### Action operations
 
-```python
-class ClientSpec:
-    class Props:
-        name = "default"
+Declarative action mappings support these operations:
 
-    class State:
-        count = 0
+- `set`, `add`, `sub`, `toggle`
+- `multi` (list of operations)
+- `log` (emits browser `console.log`)
+- `js` (raw JavaScript statement)
+- `set_prop` (updates `props` payload)
+- `server_call` (invokes `POST /__lua_spa_action`)
 
-    Methods = ["inc"]
+Callable actions/lifecycle hooks are normalized into `server_call` operations.
 
-def inc(self):
-    self.state.count += 1
-```
+### Lifecycle names
 
-## `ClientMethods`
+Supported canonical lifecycle hooks in generated client scripts:
 
-Mixin methods inherited by `Component`. Each returns an **operation dict** that the code generator translates to JavaScript.
+- `onCreate`
+- `onMount`
+- `onUpdate`
+- `onUnmount`
 
-### `add(state, value=1) → dict`
-
-Increment a state field.
-
-```python
-self.add("count")        # count += 1
-self.add("count", 5)     # count += 5
-```
-
-### `sub(state, value=1) → dict`
-
-Decrement a state field.
-
-```python
-self.sub("count")        # count -= 1
-self.sub("count", 2)     # count -= 2
-```
-
-### `set(state, value) → dict`
-
-Assign a fixed value to a state field.
-
-```python
-self.set("name", "lua-spa")
-self.set("count", 0)
-```
-
-### `toggle(state) → dict`
-
-Flip a boolean state field.
-
-```python
-self.toggle("visible")   # visible = !visible
-```
+Setup may declare aliases like `mounted`, which are normalized to canonical hook names.
 
 ## `StateField`
 
@@ -136,19 +94,12 @@ Declarative state field metadata. Use as class/object attributes when state shou
 ```python
 from lua_spa.types import StateField
 
-def client(self):
-    class State:
-        count = StateField(
-            name="count",
-            from_prop="initialCount",
-            default=0,
-            cast="int",
-        )
-
-    class ClientSpec:
-        State = State
-
-    return ClientSpec()
+class Example(Component):
+    def setup(self, props):
+        state = {
+            "count": StateField(name="count", from_prop="initialCount", default=0, cast="int")
+        }
+        return {"props": props, "state": state, "data": {}, "actions": {}, "lifecycle": {}}
 ```
 
 | Field | Type | Default | Description |

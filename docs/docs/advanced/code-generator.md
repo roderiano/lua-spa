@@ -7,7 +7,7 @@ title: Code Generator
 
 `lua_spa.codegen` · `lua_spa.scope` · `lua_spa.trace`
 
-These three modules form the **Python-to-JavaScript compiler** that turns a `client()` spec into a `setup()` JS function.
+These three modules form the **Python-to-JavaScript compiler** that turns `Component.setup(self, props)` output into a `setup()` JS function.
 
 ## Pipeline
 
@@ -16,7 +16,7 @@ flowchart TD
     A["&lt;python&gt; block source"] --> B["load_python_scope()"]
     B --> C["exec() in restricted env"]
     C --> D["resolve_component_callables()"]
-    D --> E["client() factory called"]
+    D --> E["setup(props) invoked"]
     E --> F["normalize_client_spec()"]
     F --> G["props / state / actions / lifecycle specs"]
     G --> H["build_client_script()"]
@@ -34,14 +34,12 @@ Executes the `<python>` block in a full Python environment (all built-ins availa
 
 ## `resolve_component_callables(scope)`
 
-Returns `(context_fn, client_fn)` by looking for:
-1. A `component()` callable factory
-2. An explicit `Component` subclass
-3. Any inferred `Component` subclass in the scope
+Returns `(context_fn, client_fn)` from a `Component` subclass implementing `setup(self, props)`.
+Legacy `context()/client()` and top-level setup styles are rejected.
 
 ## Tracing proxies (`lua_spa.trace`)
 
-When `client()` runs during code generation, `self.state` and `self.props` are replaced with **proxy objects** that record accesses instead of returning real values:
+When setup-derived operations are normalized, traced objects are used to preserve expression references and operation semantics.
 
 ```mermaid
 classDiagram
@@ -68,16 +66,16 @@ This allows expressions like `self.add("count", props.initialCount + 1)` to be c
 ## Generated `setup()` structure
 
 ```js
-function setup({ useState, props }) {
+function setup({ useState, props, componentName }) {
   // 1. Resolve and coerce props
   const resolvedProps = Object.assign({}, { name: "default" }, props || {});
 
   // 2. useState hooks
   const [__state_0, __set_state_0] = useState(0);
 
-  // 3. Actions object
+  // 3. Actions object + server bridge
   const actions = {
-    increment: function () { __set_state_0(__state_0 + 1); },
+    increment: function () { __serverCall("action", "increment"); },
     reset:     function () { __set_state_0(0); },
   };
 
@@ -100,19 +98,25 @@ function setup({ useState, props }) {
 
 ## Operation mapping
 
-### Computed variables (`context()` → `py` namespace)
+### Computed variables (`setup().data` → `py` namespace)
 
-`context(self, props)` is evaluated **server-side** by `build_python_context()` in `renderer.py`.
-It is never compiled to JavaScript — its result is a plain Python dict injected into the render context as `py`.
+`setup(self, props)` returns `data`, which is evaluated server-side and injected into render context as `py`.
+It is not compiled to JavaScript by itself; it is hydrated through props patches when returned by server callables.
 
 ```python
 # Python
 class Card(Component):
-    def context(self, props):
+  def setup(self, props):
         price = props.get("price", 0)
         return {
-            "display":  f"${price:.2f}",
-            "is_cheap": price < 10,
+      "props": props,
+      "state": {},
+      "data": {
+        "display":  f"${price:.2f}",
+        "is_cheap": price < 10,
+      },
+      "actions": {},
+      "lifecycle": {},
         }
 ```
 
@@ -135,9 +139,9 @@ Template access:
 
 ---
 
-### State (`client()` → `useState` hooks)
+### State (`setup().state` → `useState` hooks)
 
-Each state field in `client()` compiles to a `useState` hook. The initial value expression depends on how the field is declared:
+Each state field in `setup().state` compiles to a `useState` hook. The initial value expression depends on how the field is declared:
 
 | Python declaration | Internal spec | Generated JS |
 |---|---|---|
@@ -151,12 +155,16 @@ Example — full Python → JS compilation:
 ```python
 # Python
 class Counter(Component):
-    def client(self):
+  def setup(self, props):
         return {
+      "props": props,
             "state": {
                 "count": 0,
                 "label": "start",
             },
+      "data": {},
+      "actions": {},
+      "lifecycle": {},
         }
 ```
 
@@ -170,38 +178,34 @@ const state = { count: __state_0, label: __state_1 };
 
 ---
 
-### Actions (Python methods)
+### Actions (`setup().actions`)
 
-Actions are defined as Python methods on the component class. The generator traces `self.state` mutations and compiles them to JS setters.
+Actions are defined in `setup().actions` as operation mappings or callables.
 
 | Python | Internal operation dict | Generated JS action body |
 |---|---|---|
-| `self.add("count")` | `{"op":"add","state":"count","value":1}` | `__set_state_0(function(v){return v+1;});` |
-| `self.add("count", 5)` | `{"op":"add","state":"count","value":5}` | `__set_state_0(function(v){return v+5;});` |
-| `self.sub("count")` | `{"op":"sub","state":"count","value":1}` | `__set_state_0(function(v){return v-1;});` |
-| `self.set("flag", True)` | `{"op":"set","state":"flag","value":True}` | `__set_state_1(function(){return true;});` |
-| `self.toggle("flag")` | `{"op":"toggle","state":"flag"}` | `__set_state_1(function(v){return !v;});` |
+| `{"op":"add","state":"count","value":1}` | `{"op":"add","state":"count","value":1}` | `__set_state_0(function(v){return v+1;});` |
+| `{"op":"sub","state":"count","value":1}` | `{"op":"sub","state":"count","value":1}` | `__set_state_0(function(v){return v-1;});` |
+| `{"op":"set","state":"flag","value":True}` | `{"op":"set","state":"flag","value":True}` | `__set_state_1(function(){return true;});` |
+| `{"op":"toggle","state":"flag"}` | `{"op":"toggle","state":"flag"}` | `__set_state_1(function(v){return !v;});` |
+| `callable` | `{"op":"server_call","kind":"action","name":"..."}` | `__serverCall("action", "...");` |
 
 Full example:
 
 ```python
 # Python
 class Counter(Component):
-  def client(self):
-    class State:
-      count = 0
-
-    class ClientSpec:
-      State = State
-      Methods = ["increment", "reset"]
-
-    return ClientSpec()
-
-    def increment(self):
-        self.state.count += 1
-
-    def reset(self):
-        self.state.count = 0
+  def setup(self, props):
+    return {
+      "props": props,
+      "state": {"count": 0},
+      "data": {},
+      "actions": {
+        "increment": {"op": "add", "state": "count", "value": 1},
+        "reset": {"op": "set", "state": "count", "value": 0},
+      },
+      "lifecycle": {},
+    }
 ```
 
 ```js
@@ -220,7 +224,7 @@ const actions = {
 
 ---
 
-Method actions are **traced**: the framework runs each method with `self.state` replaced by a `_TraceState` proxy that records each assignment and comparison as an operation dict.
+Callable actions are executed through the server bridge and return state/props patches.
 
 ```python
 # Python

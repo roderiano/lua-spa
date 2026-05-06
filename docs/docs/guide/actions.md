@@ -7,34 +7,39 @@ title: Actions
 
 Actions are the only way to mutate state.
 
-lua-spa now uses one official action style: **Python methods**.
+lua-spa uses `setup(self, props)` actions declared in the returned `actions` mapping.
 
 ## Standard action pattern
 
 ```python
 class Counter(Component):
-    def client(self):
-        class State:
-            count = 0
-            visible = True
+    def setup(self, props):
+        state = {"count": 0, "visible": True}
 
-        class ClientSpec:
-            Methods = ["increment", "decrement", "reset", "flip"]
-            State = State
+        def increment():
+            state["count"] += 1
 
-        return ClientSpec()
+        def decrement():
+            state["count"] -= 1
 
-    def increment(self):
-        self.state.count += 1
+        def reset():
+            state["count"] = 0
 
-    def decrement(self):
-        self.state.count -= 1
+        def flip():
+            state["visible"] = not state["visible"]
 
-    def reset(self):
-        self.state.count = 0
-
-    def flip(self):
-        self.state.visible = not self.state.visible
+        return {
+            "props": props,
+            "state": state,
+            "data": {},
+            "actions": {
+                "increment": increment,
+                "decrement": decrement,
+                "reset": reset,
+                "flip": flip,
+            },
+            "lifecycle": {},
+        }
 ```
 
 Template binding:
@@ -49,15 +54,14 @@ Template binding:
 
 ```python
 def increment(self):
-    if self.state.count < 10:
-        self.state.count += 1
+    ...
 ```
 
-Supported comparisons are traced and emitted as client-side guards: `<`, `<=`, `>`, `>=`, `==`, `!=`.
+For declarative operations, supported comparisons in `cond` are emitted as client-side guards: `<`, `<=`, `>`, `>=`, `==`, `!=`.
 
 ## Rules
 
-- Define actions as Python methods.
-- Optionally whitelist methods with `Methods = [...]` or `methods()`.
-- Keep state writes inside methods (`self.state.x = ...`, `+=`, `-=`).
-- Do not use declarative `"actions": {...}` dict specs.
+- Define actions inside `setup(self, props)`.
+- Use callables when action logic should execute on server via `server_call`.
+- Use mapping operations (`set`, `add`, `sub`, `toggle`, `multi`, `log`) for direct client-side behavior.
+- Keep state mutations explicit and deterministic.

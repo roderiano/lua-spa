@@ -14,23 +14,34 @@ Let's build a click counter — the "Hello World" of reactive UIs.
 ```html
 <python>
 class Counter(Component):
-    def context(self, props):
-        return {"label": props.get("label", "clicks")}
+  def setup(self, props):
+    state = {"count": 0}
 
-    def client(self):
+    def increment():
+      state["count"] += 1
+
+    def decrement():
+      state["count"] -= 1
+
+    def reset():
+      state["count"] = 0
+
         return {
-            "state": {"count": 0},
+      "props": {"label": "clicks", **props},
+      "state": state,
+      "data": {},
             "actions": {
-                "increment": self.add("count"),
-                "decrement": self.sub("count"),
-                "reset":     self.set("count", 0),
+        "increment": increment,
+        "decrement": decrement,
+        "reset": reset,
             },
+      "lifecycle": {},
         }
 </python>
 
 <template>
   <div class="counter">
-    <p>{{ state.count }} {{ label }}</p>
+    <p>{{ state.count }} {{ props.label }}</p>
     <button @click="increment">+</button>
     <button @click="decrement">-</button>
     <button @click="reset">Reset</button>
@@ -62,7 +73,7 @@ sequenceDiagram
     participant Python as Python (server)
     participant JS as JavaScript (browser)
 
-    Python->>Python: context() → {label: "taps"}
+    Python->>Python: setup() → props/state/data/actions/lifecycle
     Python->>Python: render template → SSR HTML
     Python->>JS: bootstrap JSON (registry + config)
     JS->>JS: setup() → useState(0)
@@ -76,8 +87,7 @@ sequenceDiagram
 
 | Concept | What it does |
 |---|---|
-| `context(props)` | Provides server-side template variables |
-| `client()` | Declares reactive state + actions for the browser |
+| `setup(self, props)` | Declares props, state, data, actions and lifecycle |
 | `state.count` | Reads reactive state in the template |
 | `@click="action"` | Binds a DOM event to an action |
-| `self.add("count")` | Returns an `{op: "add", state: "count"}` operation |
+| callable action | Can mutate state and optionally return props patch |

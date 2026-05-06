@@ -43,7 +43,7 @@ Regex: `<python>(.*?)</python>` (case-insensitive, dotall)
 
 The extracted source is:
 1. Passed to `build_client_script()` for JS generation
-2. Stored as `ComponentDefinition.python_block` for server-side `context()` calls
+2. Stored as `ComponentDefinition.python_block` for server-side `setup(self, props)` execution
 
 ## `<style src="...">` inlining
 
@@ -81,7 +81,7 @@ Read-only view of the loaded registry.
 `.lspa` files **must not** contain `<script>` tags. This is enforced at load time:
 
 ```
-ValueError: Component 'MyComp' uses <script>; use a <python> block with client() instead
+ValueError: Component 'MyComp' uses <script>; use a <python> block with Component.setup(self, props)
 ```
 
-The reason: JavaScript is generated from Python. Mixing hand-written `<script>` tags would break the hydration contract.
+The reason: JavaScript is generated from Python setup specs. Mixing hand-written `<script>` tags would break the hydration contract.
