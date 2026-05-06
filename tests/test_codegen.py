@@ -211,7 +211,7 @@ class App(Component):
     script = build_client_script(python_block)
 
     # Then: lifecycle string action invokes __callAction and bool cast is generated
-    assert "__callAction(\"inc\")" in script
+    assert '__callAction("inc")' in script
     assert "Boolean(" in script
 
 

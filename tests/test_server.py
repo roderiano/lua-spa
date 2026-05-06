@@ -364,7 +364,9 @@ def test_spa_handler_reload_sse_endpoint(monkeypatch: Any) -> None:
     handler.send_header = lambda key, value: headers.append((str(key), str(value)))  # type: ignore[method-assign,assignment]
     handler.end_headers = lambda: None  # type: ignore[method-assign]
 
-    monkeypatch.setattr(server_module.time, "sleep", lambda _seconds: (_ for _ in ()).throw(RuntimeError("stop")))
+    monkeypatch.setattr(
+        server_module.time, "sleep", lambda _seconds: (_ for _ in ()).throw(RuntimeError("stop"))
+    )
 
     # When: SSE endpoint is handled
     handler.do_GET()

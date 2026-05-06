@@ -275,7 +275,9 @@ def test_renderer_conditional_chain_with_gaps_and_non_if_start() -> None:
     )
 
     # When: conditionals are processed
-    html = apply_server_conditionals(tpl, {"props": {"ok": False, "other": True}, "state": {}, "py": {}})
+    html = apply_server_conditionals(
+        tpl, {"props": {"ok": False, "other": True}, "state": {}, "py": {}}
+    )
 
     # Then: first chain is not collapsed due non-empty gap; second is ignored because it does not start with l-if
     assert "text" in html

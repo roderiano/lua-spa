@@ -50,11 +50,7 @@ def main() -> int:
 
         ruff_code, ruff_format_check_code, mypy_code = run_quality_checks()
 
-    return (
-        0
-        if all(code == 0 for code in (ruff_code, ruff_format_check_code, mypy_code))
-        else 1
-    )
+    return 0 if all(code == 0 for code in (ruff_code, ruff_format_check_code, mypy_code)) else 1
 
 
 if __name__ == "__main__":
