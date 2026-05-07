@@ -33,6 +33,13 @@ _CLIENT_RESERVED_NAMES = {
     "lifecycle",
 }
 
+_LIFECYCLE_HOOK_NAMES = {
+    "created",
+    "mounted",
+    "updated",
+    "unmounted",
+}
+
 
 def load_python_scope(python_block: str) -> dict[str, Any]:
     """Execute a component's Python block with full Python access.
@@ -236,9 +243,7 @@ def _coerce_setup_result(
 
     inferred_lifecycle: dict[str, Any] = {}
     for callable_name, callable_ref in local_callables.items():
-        try:
-            canonical_lifecycle_name(callable_name)
-        except ValueError:
+        if callable_name not in _LIFECYCLE_HOOK_NAMES:
             continue
         inferred_lifecycle[callable_name] = callable_ref
 
@@ -314,7 +319,7 @@ def normalize_client_spec(
     - props: public class/instance attributes (non-callable, non-reserved)
     - state: list of StateField-like objects or State attribute
     - actions/methods: public methods (excluding lifecycle and reserved names)
-    - lifecycle: onCreate, onMount, onUpdate, onUnmount hooks
+    - lifecycle: created, mounted, updated, unmounted hooks
 
     Returns empty dicts if raw_spec is None. Raises ValueError if format is invalid.
     """
@@ -341,10 +346,10 @@ def _normalize_setup_spec(
     state_spec: dict[str, Any] = {}
     actions_spec: dict[str, Any] = {}
     lifecycle_spec: dict[str, list[Any]] = {
-        "onCreate": [],
-        "onMount": [],
-        "onUpdate": [],
-        "onUnmount": [],
+        "created": [],
+        "mounted": [],
+        "updated": [],
+        "unmounted": [],
     }
 
     raw_props = raw_spec.get("props", {})
@@ -393,7 +398,9 @@ def _normalize_setup_spec(
         raise ValueError("setup().lifecycle must be a mapping")
 
     for hook_name_raw, hook_value in raw_lifecycle.items():
-        hook_name = canonical_lifecycle_name(str(hook_name_raw))
+        hook_name = str(hook_name_raw)
+        if hook_name not in _LIFECYCLE_HOOK_NAMES:
+            raise ValueError(f"Unknown lifecycle hook: {hook_name_raw}")
 
         if callable(hook_value):
             lifecycle_spec[hook_name] = [
@@ -1079,117 +1086,6 @@ def infer_action_methods(owner: Any) -> list[str]:
             result.append(name)
 
     return result
-
-
-def normalize_lifecycle_spec(raw_lifecycle: Any) -> dict[str, list[Any]]:
-    """Normalize a lifecycle mapping into canonical hook names and action lists.
-
-    Accepts a mapping with keys like "onCreate", "created", "on_create" etc.,
-    normalizing them to the canonical forms: onCreate, onMount, onUpdate, onUnmount.
-    Raises ValueError if not a mapping.
-    """
-    normalized: dict[str, list[Any]] = {
-        "onCreate": [],
-        "onMount": [],
-        "onUpdate": [],
-        "onUnmount": [],
-    }
-
-    if raw_lifecycle is None:
-        return normalized
-    if not isinstance(raw_lifecycle, Mapping):
-        raise ValueError("client().lifecycle must be a mapping")
-
-    for key, value in raw_lifecycle.items():
-        hook_name = canonical_lifecycle_name(str(key))
-        normalized[hook_name] = normalize_action_names(value)
-
-    return normalized
-
-
-def normalize_lifecycle_methods(owner: Any) -> dict[str, list[dict[str, Any]]]:
-    """Extract lifecycle method names from a client instance.
-
-    Looks for methods like created(), mounted(), on_create(), etc.,
-    normalizing to onCreate, onMount, onUpdate, onUnmount.
-    Returns a dict mapping hook name to traced operation dicts (including log operations).
-    """
-    method_order = [
-        ("onCreate", "onCreate"),
-        ("on_create", "onCreate"),
-        ("created", "onCreate"),
-        ("onMount", "onMount"),
-        ("on_mount", "onMount"),
-        ("mounted", "onMount"),
-        ("onUpdate", "onUpdate"),
-        ("on_update", "onUpdate"),
-        ("updated", "onUpdate"),
-        ("onUnmount", "onUnmount"),
-        ("on_unmount", "onUnmount"),
-        ("unmounted", "onUnmount"),
-    ]
-    normalized: dict[str, list[dict[str, Any]]] = {
-        "onCreate": [],
-        "onMount": [],
-        "onUpdate": [],
-        "onUnmount": [],
-    }
-    seen_hooks: set[str] = set()
-
-    for method_name, hook_name in method_order:
-        if hook_name in seen_hooks:
-            continue
-        candidate = getattr(owner, method_name, None)
-        if not callable(candidate):
-            continue
-        operation = invoke_method_callable(method_name, candidate, owner)
-        if isinstance(operation, Mapping):
-            if operation.get("op") == "set" and operation.get("state") == "__noop__":
-                seen_hooks.add(hook_name)
-                continue
-            normalized[hook_name].append(dict(operation))
-        seen_hooks.add(hook_name)
-
-    return normalized
-
-
-def canonical_lifecycle_name(name: str) -> str:
-    """Normalize a lifecycle hook name to a canonical form.
-
-    Accepts variations like "onCreate", "created", "on_create" etc.
-    Returns one of: onCreate, onMount, onUpdate, onUnmount.
-    Raises ValueError for unknown names.
-    """
-    lowered = name.replace("_", "").replace("-", "").lower()
-    if lowered in {"oncreate", "create", "created"}:
-        return "onCreate"
-    if lowered in {"onmount", "mount", "mounted"}:
-        return "onMount"
-    if lowered in {"onupdate", "update", "updated"}:
-        return "onUpdate"
-    if lowered in {"onunmount", "unmount", "unmounted", "destroy"}:
-        return "onUnmount"
-    raise ValueError(f"Unknown lifecycle hook: {name}")
-
-
-def normalize_action_names(raw_value: Any) -> list[str]:
-    """Normalize a value into a list of action name strings.
-
-    Accepts None (empty list), a single string, or a list/tuple of strings.
-    Raises ValueError if not one of these formats.
-    """
-    if raw_value is None:
-        return []
-    if isinstance(raw_value, str):
-        return [raw_value]
-    if isinstance(raw_value, (list, tuple)):
-        result: list[str] = []
-        for item in raw_value:
-            if not isinstance(item, str):
-                raise ValueError("Lifecycle action names must be strings")
-            result.append(item)
-        return result
-    raise ValueError("Lifecycle hook value must be string or list of strings")
 
 
 def _extract_class_properties(source_class: type[Any]) -> dict[str, Any]:

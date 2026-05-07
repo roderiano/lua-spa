@@ -11,24 +11,24 @@ Lifecycle hooks let you run actions at specific points in a component's life.
 
 | Hook | When it fires |
 |---|---|
-| `onCreate` | Component created (before DOM mount) |
-| `onMount` | Component added to the DOM |
-| `onUpdate` | Any state update (re-render) |
-| `onUnmount` | Component removed from the DOM |
+| `created` | Component instance created (before first mount) |
+| `mounted` | Component added to the DOM |
+| `updated` | After any state-driven re-render |
+| `unmounted` | Component removed from the DOM |
 
 ## Lifecycle flow
 
 ```mermaid
 stateDiagram-v2
     [*] --> Created: component instantiated
-    Created --> onCreate
-    onCreate --> Mounted: added to DOM
-    Mounted --> onMount
-    onMount --> Idle
-    Idle --> onUpdate: state changes
-    onUpdate --> Idle
-    Idle --> onUnmount: removed from DOM
-    onUnmount --> [*]
+    Created --> created
+    created --> Mounted: added to DOM
+    Mounted --> mounted
+    mounted --> Idle
+    Idle --> updated: state changes
+    updated --> Idle
+    Idle --> unmounted: removed from DOM
+    unmounted --> [*]
 ```
 
 ---
@@ -37,14 +37,14 @@ stateDiagram-v2
 
 Declare lifecycle entries inside the `lifecycle` mapping returned by `setup(self, props)`.
 
-### Accepted method names
+### Supported method names
 
-| Canonical hook | Accepted Python method names |
-|---|---|
-| `onCreate` | `on_create`, `onCreate`, `created` |
-| `onMount` | `on_mount`, `onMount`, `mounted` |
-| `onUpdate` | `on_update`, `onUpdate`, `updated` |
-| `onUnmount` | `on_unmount`, `onUnmount`, `unmounted` |
+Only these four lifecycle names are supported:
+
+- `created`
+- `mounted`
+- `updated`
+- `unmounted`
 
 ### Example
 
@@ -63,6 +63,10 @@ class Dashboard(Component):
         def mounted():
             state["ready"] = True
 
+        def unmounted():
+            state["ready"] = False
+
+        # Optional: The server can infer this return automatically.
         return {
             "props": props,
             "state": state,
@@ -99,31 +103,31 @@ def setup(self, props):
             "increment":  {"op": "add", "state": "count", "value": 1},
         },
         "lifecycle": {
-            "onMount":  ["markLoaded"],         # call a named action
-            "onUpdate": [{"op": "add", "state": "count", "value": 1}],
+            "mounted": ["markLoaded"],         # call a named action
+            "updated": [{"op": "add", "state": "count", "value": 1}],
         },
     }
 ```
 
 ---
 
-## Canonical hook names
+## Hook naming rules
 
-Supported hook names after normalization: `onCreate`, `onMount`, `onUpdate`, `onUnmount`.
-
-Aliases like `created`, `mounted`, `updated`, `unmounted` are accepted.
+Use the lifecycle keys exactly as `created`, `mounted`, `updated`, and `unmounted`.
+Legacy aliases such as `onMount` and `on_mount` are not supported.
 
 ```python
 class Page(Component):
     def setup(self, props):
+        # Optional: The server can infer this return automatically.
         return {
             "props": props,
             "state": {"loaded": False, "visits": 0},
             "data": {},
             "actions": {},
             "lifecycle": {
-                "onMount": [{"op": "set", "state": "loaded", "value": True}],
-                "onUpdate": [{"op": "add", "state": "visits", "value": 1}],
+                "mounted": [{"op": "set", "state": "loaded", "value": True}],
+                "updated": [{"op": "add", "state": "visits", "value": 1}],
             },
         }
 ```
@@ -136,7 +140,7 @@ Both styles support returning a list of operations from a single hook:
 
 ```python
 "lifecycle": {
-    "onMount": [
+    "mounted": [
         {"op": "set", "state": "ready", "value": True},
         {"op": "set", "state": "count", "value": 0},
         {"op": "add", "state": "visits", "value": 1},

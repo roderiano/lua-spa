@@ -158,3 +158,72 @@ class ComponentTemplate(Component):
     assert "Server Action Template" not in lspa_content
     assert "User Card" in lspa_content
     assert "./UserCard.css" in lspa_content
+
+
+def test_component_name_validation_and_humanize() -> None:
+    cli_main._validate_component_name("_Card1")
+
+    with pytest.raises(ValueError):
+        cli_main._validate_component_name("1Card")
+
+    assert cli_main._humanize_component_name("userCard") == "User Card"
+    assert cli_main._humanize_component_name("user_card") == "User Card"
+
+
+def test_resolve_template_dir_for_new_component_fallback(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fallback = tmp_path / "fallback"
+    fallback.mkdir()
+
+    def _raise_not_found(_: Path) -> Path:
+        raise FileNotFoundError("missing")
+
+    monkeypatch.setattr("lua_spa.main.resolve_template_directory", _raise_not_found)
+    monkeypatch.setattr("lua_spa.main.get_template_source_directory", lambda: fallback)
+
+    resolved = cli_main._resolve_template_dir_for_new_component(str(tmp_path))
+    assert resolved == fallback
+
+
+def test_create_component_raises_when_template_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    template_dir = tmp_path / "template"
+    components = template_dir / "components" / "ComponentTemplate"
+    components.mkdir(parents=True)
+    monkeypatch.setattr("lua_spa.main._resolve_template_dir_for_new_component", lambda _: template_dir)
+
+    with pytest.raises(FileNotFoundError, match="ComponentTemplate not found"):
+        cli_main._create_component("UserCard", str(tmp_path))
+
+
+def test_create_component_raises_when_target_exists(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    template_dir = tmp_path / "template"
+    source_dir = template_dir / "components" / "ComponentTemplate"
+    source_dir.mkdir(parents=True)
+    (source_dir / "ComponentTemplate.lspa").write_text("ComponentTemplate", encoding="utf-8")
+    (source_dir / "ComponentTemplate.css").write_text(".x{}", encoding="utf-8")
+    target_dir = template_dir / "components" / "UserCard"
+    target_dir.mkdir(parents=True)
+    monkeypatch.setattr("lua_spa.main._resolve_template_dir_for_new_component", lambda _: template_dir)
+
+    with pytest.raises(FileExistsError, match="Component directory already exists"):
+        cli_main._create_component("UserCard", str(tmp_path))
+
+
+def test_main_new_without_subcommand_returns_silently() -> None:
+    # Covers the branch where command is "new" but no resource type is provided.
+    assert main(["new"]) is None
+
+
+def test_new_component_command_exits_when_creator_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _boom(_: str, __: str) -> tuple[Path, Path]:
+        raise ValueError("invalid component")
+
+    monkeypatch.setattr("lua_spa.main._create_component", _boom)
+
+    with pytest.raises(SystemExit) as exc:
+        main(["new", "component", "Bad", "."])
+
+    assert exc.value.code == 1

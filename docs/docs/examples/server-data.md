@@ -13,7 +13,7 @@ Inject Python data (database results, API calls) into a component via `setup().d
 flowchart LR
     DB[(Database)] --> PY[Python]
     PY -->|build_view props| FW[SpaFramework]
-    FW -->|setup(props)| Component
+  FW -->|setup props| Component
     Component -->|py.users| Template
     Template --> Browser
 ```
@@ -45,8 +45,10 @@ import json
 
 class UserList(Component):
   def setup(self, props):
-        raw = props.get("users", "[]")
-        users = json.loads(raw) if isinstance(raw, str) else raw
+    raw = props.get("users", "[]")
+    users = json.loads(raw) if isinstance(raw, str) else raw
+
+    # Optional: The server can infer this return automatically.
     return {
       "props": props,
       "state": {},
@@ -74,3 +76,5 @@ class UserList(Component):
 | `state.*` | ❌ | ✅ |
 
 For data that only needs to render once (no client mutation), use `py`. For data the client needs to react to, seed a `StateField` from a prop.
+
+If a server action/lifecycle later mutates `data`, those keys are emitted back as props patch automatically via `POST /__lua_spa_action`.

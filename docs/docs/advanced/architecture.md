@@ -10,30 +10,39 @@ lua-spa is a Python-first SPA framework that blends **server-side rendering** wi
 ## High-level architecture
 
 ```mermaid
-graph TB
+flowchart TB
     subgraph Python ["Python (server)"]
         config["spa.config.json"]
         loader["ComponentLoader"]
         renderer["Renderer"]
         codegen["CodeGen"]
+        scope["Scope (setup inference)"]
         fw["SpaFramework"]
         server["SpaServer"]
     end
 
     subgraph Browser ["Browser (client)"]
+        boot["SSR page + bootstrap"]
         rt["SPA Runtime JS"]
         dom["DOM Diff/Patch"]
-        hooks["useState hooks"]
+        actions["Action dispatcher"]
+        sse["Reload stream listener"]
     end
 
     config --> fw
     fw --> loader
     loader --> renderer
     loader --> codegen
+    codegen --> scope
     fw --> server
-    server -->|HTML + Bootstrap JSON| Browser
+    server -->|HTML + Bootstrap JSON| boot
+    boot --> rt
+    rt -->|POST __lua_spa_action| server
+    server -->|state props patch JSON| rt
+    rt -->|GET __reload__ reload mode| server
     rt --> dom
-    rt --> hooks
+    rt --> actions
+    rt --> sse
 ```
 
 ## Request lifecycle
@@ -46,11 +55,14 @@ sequenceDiagram
     participant Loader as ComponentLoader
     participant Renderer as Renderer
     participant CG as CodeGen
+    participant Scope as Scope
 
     Client->>Server: GET /
     Server->>FW: build_view()
     FW->>Loader: load_entry("App")
     Loader->>Loader: parse .lspa files recursively
+    Loader->>Scope: resolve_component_callables()
+    Scope-->>Loader: setup spec (explicit or inferred)
     Loader->>CG: build_client_script(python_block)
     CG-->>Loader: setup() JS function
     Loader-->>FW: ComponentDefinition registry
@@ -60,12 +72,16 @@ sequenceDiagram
     FW-->>Server: complete HTML page
     Server-->>Client: 200 OK
     Client->>Client: runtime hydrates DOM
+    Client->>Server: POST /__lua_spa_action (callable action/lifecycle)
+    Server->>FW: execute_server_callable(...)
+    FW-->>Server: state/props patch
+    Server-->>Client: {ok, result}
 ```
 
 ## Module map
 
 ```mermaid
-graph LR
+flowchart LR
     main["main.py<br/><small>CLI entrypoint</small>"]
     app["app.py<br/><small>factory helpers</small>"]
     fw["framework.py<br/><small>SpaFramework</small>"]
@@ -98,4 +114,6 @@ graph LR
 1. **No build step** — The Python package ships a self-contained JS runtime. Users never run `npm`.
 2. **SSR first** — Every page load starts as server-rendered HTML. JavaScript enhances, not replaces.
 3. **Python is the authority** — Component logic lives in Python. JavaScript is generated automatically.
-4. **Zero client dependencies** — The browser runtime has no external npm dependencies.
+4. **Server-driven callables** — Callable actions/lifecycle run through `POST /__lua_spa_action` and patch state/props deterministically.
+5. **Inference by default** — `setup(self, props)` may omit return mapping; server infers props/state/data/actions/lifecycle.
+6. **Zero client dependencies** — The browser runtime has no external npm dependencies.

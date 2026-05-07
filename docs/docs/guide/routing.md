@@ -105,13 +105,14 @@ class PostArchive(Component):
       "year":  props.get("year"),
       "month": props.get("month"),
     }
-        return {
+    
+    return {
       "props": props,
       "state": {},
       "data": data,
       "actions": {},
       "lifecycle": {},
-        }
+    }
 </python>
 
 <template>

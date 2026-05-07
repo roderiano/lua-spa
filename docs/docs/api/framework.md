@@ -126,6 +126,9 @@ Starts the HTTP server. Blocks until interrupted.
 framework.serve(reload=True)
 ```
 
+When `reload=True`, the server exposes a Server-Sent Events stream at `GET /__reload__`
+and injects a browser listener that reloads the page when source files change.
+
 ### `execute_server_callable(component_name, kind, callable_name, props, state) -> dict`
 
 Executes callable actions/lifecycle hooks from `setup(self, props)` (explicit or inferred) and returns patch payload:
@@ -135,9 +138,66 @@ Executes callable actions/lifecycle hooks from `setup(self, props)` (explicit or
 
 Used internally by `POST /__lua_spa_action` runtime bridge.
 
-## Properties
+## Runtime HTTP endpoints
 
-| Property | Type | Description |
+
+Internal bridge used by generated `server_call` operations.
+
+Request body:
+
+```json
+{
+    "component": "Features",
+    "kind": "action",
+    "name": "reload_packages",
+    "props": {"versions_limit": 5},
+    "state": {"loading": false}
+}
+```
+
+`kind` values:
+- `action`
+- `lifecycle`
+
+Success response (`200`):
+
+```json
+{
+    "ok": true,
+    "result": {
+        "state": {"loading": false},
+        "props": {
+            "pypi": {"latest": "1.2.3", "available": true},
+            "__lua_logs__": ["refresh finished"]
+        }
+    }
+}
+```
+
+Error response (`400`):
+
+```json
+{
+    "ok": false,
+    "error": "Unknown action: reload_packages"
+}
+```
+
+### `GET /__reload__`
+
+Available when `serve(..., reload=True)` is enabled.
+
+- Content type: `text/event-stream`
+- Event payload emitted by server on file change:
+
+```text
+data: reload
+
+```
+
+Browser runtime behavior: on each message, it calls `window.location.reload()`.
+
+## Properties
 |---|---|---|
 | `component_names` | `tuple[str, ...]` | Names of all loaded components |
 | `server_address` | `tuple[str, int]` | `(host, port)` |

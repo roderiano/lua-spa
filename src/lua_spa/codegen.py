@@ -174,7 +174,7 @@ def build_client_script(python_block: str) -> str:
     lines.append("  }")
 
     lines.append("  const lifecycle = {")
-    for hook_name in ["onCreate", "onMount", "onUpdate", "onUnmount"]:
+    for hook_name in ["created", "mounted", "updated", "unmounted"]:
         operations = lifecycle_spec.get(hook_name, [])
         lines.append(f"    {hook_name}: function () {{")
         for lifecycle_operation in operations:

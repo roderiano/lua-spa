@@ -24,7 +24,7 @@ class App(Component):
 
 <template>
   <div class="page">
-    <AppStars />
+    <AppStars /> 
     <AppNav />
     {{ children }}
     <AppFooter />

@@ -48,7 +48,8 @@ poetry run pytest --cov=src/lua_spa --cov-report=term
 Lint & typing:
 
 ``` bash
-poetry run ruff check .
+poetry run ruff check src
+poetry run ruff format --check src
 poetry run mypy src
 ```
 
@@ -58,7 +59,8 @@ poetry run mypy src
 python scripts/precommit_quality_gate.py
 ```
 
-This runs linting, type-checking, and tests. All checks must pass before committing.
+This runs Ruff lint + Ruff format check (with auto-fix/format fallback when needed).
+Run `pytest` and `mypy` separately before opening a PR.
 
 ## Project layout (contributor view)
 
@@ -228,7 +230,8 @@ poetry run pytest --cov=src/lua_spa --cov-report=term
 Lint & typing:
 
 ``` bash
-poetry run ruff check .
+poetry run ruff check src
+poetry run ruff format --check src
 poetry run mypy src
 ```
 

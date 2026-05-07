@@ -43,9 +43,16 @@ class MyComponent(Component):
         def mounted():
             inc()
 
+        return {
+            "props": props,
+            "state": state,
+            "data": data,
+            "actions": {"inc": inc},
+            "lifecycle": {"mounted": mounted},
+        }
 ```
 
-### `setup(self, props) → dict`
+### `setup(self, props) → dict | None`
 
 Called whenever the component is prepared for rendering/hydration. This is the only supported component contract.
 
@@ -53,7 +60,7 @@ Called whenever the component is prepared for rendering/hydration. This is the o
 |---|---|---|
 | `props` | `dict` | Props passed from parent or `initial_props` |
 
-**Returns:** A mapping with keys:
+**Returns (or inferred when omitted):** A mapping with keys:
 
 - `props`: merged props defaults
 - `state`: reactive state values
@@ -65,7 +72,7 @@ If `setup` returns `None`, the server infers the mapping automatically from:
 
 - local variables: `props`, `state`, `data`
 - local callables inferred as `actions`
-- lifecycle-named callables (like `mounted`, `created`, `on_mount`, etc) inferred as `lifecycle`
+- lifecycle-named callables (`created`, `mounted`, `updated`, `unmounted`) inferred as `lifecycle`
 
 When actions/lifecycle mutate `data`, those `data` keys are automatically emitted in the props patch even without returning a mapping from the action.
 
@@ -86,12 +93,12 @@ Callable actions/lifecycle hooks are normalized into `server_call` operations.
 
 Supported canonical lifecycle hooks in generated client scripts:
 
-- `onCreate`
-- `onMount`
-- `onUpdate`
-- `onUnmount`
+- `created`
+- `mounted`
+- `updated`
+- `unmounted`
 
-Setup may declare aliases like `mounted`, which are normalized to canonical hook names.
+Use these names exactly in `setup().lifecycle`.
 
 ## `StateField`
 
@@ -102,9 +109,7 @@ from lua_spa.types import StateField
 
 class Example(Component):
     def setup(self, props):
-        state = {
-            "count": StateField(name="count", from_prop="initialCount", default=0, cast="int")
-        }
+        state = {"count": 0}
         return {
             "props": props,
             "state": state,
@@ -113,6 +118,9 @@ class Example(Component):
             "lifecycle": {},
         }
 ```
+
+`StateField` is supported by the runtime type system and normalization helpers.
+Use it when you need explicit metadata such as `from_prop`, `default`, and `cast`.
 
 | Field | Type | Default | Description |
 |---|---|---|---|

@@ -9,3 +9,5 @@ def test_runtime_assets_script_contains_bootstrap_api() -> None:
     # Then: it defines the LuaSpaRuntime bootstrap API
     assert "window.LuaSpaRuntime" in SPA_RUNTIME_JS
     assert "bootstrap" in SPA_RUNTIME_JS
+    assert "i-model" in SPA_RUNTIME_JS
+    assert 'kind: "model"' in SPA_RUNTIME_JS

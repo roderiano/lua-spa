@@ -6,6 +6,7 @@ into HTML by evaluating expressions in the context of props, state, and py objec
 
 from __future__ import annotations
 
+import html
 import re
 from types import SimpleNamespace
 from typing import Any, Mapping
@@ -34,6 +35,16 @@ _FOR_ATTR_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_MODEL_ATTR_PATTERN = re.compile(
+    r"\s(?P<model>i-model)\s*=\s*(?P<quote>\"|')(?P<expr>.*?)(?P=quote)",
+    re.IGNORECASE,
+)
+
+_TYPE_ATTR_PATTERN = re.compile(
+    r"\btype\s*=\s*(?P<quote>\"|')(?P<value>.*?)(?P=quote)",
+    re.IGNORECASE,
+)
+
 _SAFE_EVAL_GLOBALS: dict[str, Any] = {
     "__builtins__": {},
     "range": range,
@@ -43,7 +54,7 @@ _SAFE_EVAL_GLOBALS: dict[str, Any] = {
 
 
 def render_template_with_directives(template: str, context: Mapping[str, Any]) -> str:
-    """Process i-for, l-if/l-else-if/l-else, and interpolation in the correct order.
+    """Process i-for, l-if/l-else-if/l-else, i-model, and interpolation in order.
 
     Args:
         template: The HTML template string.
@@ -54,8 +65,61 @@ def render_template_with_directives(template: str, context: Mapping[str, Any]) -
     """
     html = apply_server_loops(template, context)
     html = apply_server_conditionals(html, context)
+    html = apply_i_model(html, context)
     html = interpolate(html, context)
     return html
+
+
+def apply_i_model(template: str, context: Mapping[str, Any]) -> str:
+    """Apply i-model by setting initial value/checked attributes server-side.
+
+    Args:
+        template: The HTML template string.
+        context: The evaluation context (props, state, py).
+
+    Returns:
+        HTML with i-model removed and initial input state materialized.
+    """
+    opening_tag_pattern = re.compile(
+        rf"<(?P<tag>[A-Za-z][\w:\-]*)\b(?P<attrs>{_ATTRS_FRAGMENT})>",
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    def _replace_model(match: re.Match[str]) -> str:
+        tag = match.group("tag")
+        attrs = match.group("attrs")
+        model_attr = _MODEL_ATTR_PATTERN.search(attrs)
+        if not model_attr:
+            return match.group(0)
+
+        model_expr = model_attr.group("expr")
+        resolved_value = evaluate_expression(model_expr, context)
+        clean_attrs = _MODEL_ATTR_PATTERN.sub("", attrs).strip()
+        lower_tag = tag.lower()
+
+        attrs_out: list[str] = []
+        if clean_attrs:
+            attrs_out.append(clean_attrs)
+
+        if lower_tag == "input":
+            input_type_match = _TYPE_ATTR_PATTERN.search(clean_attrs)
+            input_type = (
+                input_type_match.group("value").strip().lower() if input_type_match else "text"
+            )
+            if input_type in {"checkbox", "radio"}:
+                if bool(resolved_value):
+                    attrs_out.append("checked")
+            else:
+                safe_value = "" if resolved_value is None else str(resolved_value)
+                attrs_out.append(f'value="{html.escape(safe_value, quote=True)}"')
+        elif lower_tag in {"textarea", "select"}:
+            safe_value = "" if resolved_value is None else str(resolved_value)
+            attrs_out.append(f'value="{html.escape(safe_value, quote=True)}"')
+
+        attrs_part = f" {' '.join(attrs_out)}" if attrs_out else ""
+        return f"<{tag}{attrs_part}>"
+
+    return opening_tag_pattern.sub(_replace_model, template)
 
 
 def _normalize_iterable(value: Any) -> list[Any]:
@@ -223,6 +287,7 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
                     attrs_part = f" {clean_attrs}" if clean_attrs else ""
                     html = f"<{node['tag']}{attrs_part}>{node['body']}</{node['tag']}>"
                     # Recursive: process interpolation and other internal i-for
+                    html = apply_i_model(html, loop_ctx)
                     html = interpolate(html, loop_ctx)
                     html = apply_server_loops(html, loop_ctx)
                     html = apply_server_conditionals(html, loop_ctx)

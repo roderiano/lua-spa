@@ -25,19 +25,19 @@ Return a plain dict in `data` from `setup(self, props)`. Every key becomes a var
 
 ```python
 class Greeting(Component):
-  def setup(self, props):
+    def setup(self, props):
         name = props.get("name", "World")
-    data = {
-      "message":    f"Hello, {name}!",
-      "upper_name": name.upper(),
-      "char_count": len(name),
-    }
+        data = {
+            "message":    f"Hello, {name}!",
+            "upper_name": name.upper(),
+            "char_count": len(name),
+        }
         return {
-      "props": {"name": name, **props},
-      "state": {},
-      "data": data,
-      "actions": {},
-      "lifecycle": {},
+            "props": {"name": name, **props},
+            "state": {},
+            "data": data,
+            "actions": {},
+            "lifecycle": {},
         }
 ```
 
@@ -64,24 +64,24 @@ format strings, run conditionals, compute lists — anything:
 from datetime import date
 
 class InvoiceHeader(Component):
-  def setup(self, props):
+    def setup(self, props):
         total   = props.get("subtotal", 0) * 1.2          # add 20% tax
         due     = props.get("due_date", str(date.today()))
         overdue = due < str(date.today())
 
-    data = {
-      "total_with_tax": f"${total:.2f}",
-      "due_label":      f"Due: {due}",
-      "status":         "OVERDUE" if overdue else "Pending",
-      "status_class":   "danger"  if overdue else "info",
-    }
+        data = {
+            "total_with_tax": f"${total:.2f}",
+            "due_label":      f"Due: {due}",
+            "status":         "OVERDUE" if overdue else "Pending",
+            "status_class":   "danger"  if overdue else "info",
+        }
 
         return {
-      "props": props,
-      "state": {},
-      "data": data,
-      "actions": {},
-      "lifecycle": {},
+            "props": props,
+            "state": {},
+            "data": data,
+            "actions": {},
+            "lifecycle": {},
         }
 ```
 
@@ -106,11 +106,12 @@ Both can coexist in the same component:
 
 ```python
 class ProductCard(Component):
-  def setup(self, props):
+    def setup(self, props):
         price    = props.get("price", 0)
         discount = props.get("discount", 0)
         final    = price * (1 - discount / 100)
-    data = {
+
+        data = {
             "display_price":    f"${price:.2f}",
             "display_final":    f"${final:.2f}",
             "discount_label":   f"{discount}% off" if discount else "",
@@ -130,16 +131,30 @@ class ProductCard(Component):
     def to_cart():
       state["in_cart"] = True
 
+        state = {
+            "quantity": 1,
+            "in_cart": False,
+        }
+
+        def add():
+            state["quantity"] += 1
+
+        def remove():
+            state["quantity"] -= 1
+
+        def to_cart():
+            state["in_cart"] = True
+
         return {
-      "props": props,
-      "state": state,
-      "data": data,
+            "props": props,
+            "state": state,
+            "data": data,
             "actions": {
-        "add": add,
-        "remove": remove,
-        "to_cart": to_cart,
+                "add": add,
+                "remove": remove,
+                "to_cart": to_cart,
             },
-      "lifecycle": {},
+            "lifecycle": {},
         }
 ```
 
@@ -172,19 +187,19 @@ If `setup().data` is object-like, public attributes (no leading `_`) are extract
 
 ```python
 class Summary(Component):
-  def setup(self, props):
+     def setup(self, props):
         class Info:
             label  = props.get("label", "n/a").title()
             count  = len(props.get("items", []))
             plural = "s" if count != 1 else ""
 
-    return {
-      "props": props,
-      "state": {},
-      "data": Info(),
-      "actions": {},
-      "lifecycle": {},
-    }
+        return {
+            "props": props,
+            "state": {},
+            "data": Info(),
+            "actions": {},
+            "lifecycle": {},
+        }
 ```
 
 ```html

@@ -13,10 +13,10 @@ These three modules form the **Python-to-JavaScript compiler** that turns `Compo
 
 ```mermaid
 flowchart TD
-    A["&lt;python&gt; block source"] --> B["load_python_scope()"]
-    B --> C["exec() in restricted env"]
+  A["python block source"] --> B["load_python_scope()"]
+  B --> C["exec() in full Python env"]
     C --> D["resolve_component_callables()"]
-    D --> E["setup(props) invoked"]
+  D --> E["setup(self, props) invoked"]
     E --> F["normalize_client_spec()"]
     F --> G["props / state / actions / lifecycle specs"]
     G --> H["build_client_script()"]
@@ -30,7 +30,7 @@ flowchart TD
 Executes the `<python>` block in a full Python environment (all built-ins available). Adds:
 - `Component` base class
 - `StateField` dataclass
-- Tracing overrides for `int`, `float`, `str`, `bool` (so numeric defaults are captured correctly)
+- Tracing-aware overrides for `int`, `float`, `str`, `bool`
 
 ## `resolve_component_callables(scope)`
 
@@ -84,10 +84,10 @@ function setup({ useState, props, componentName }) {
 
   // 5. Lifecycle hooks
   const lifecycle = {
-    onCreate:  function () {},
-    onMount:   function () { __callAction("init"); },
-    onUpdate:  function () {},
-    onUnmount: function () {},
+    created:   function () {},
+    mounted:   function () { __callAction("init"); },
+    updated:   function () {},
+    unmounted: function () {},
   };
 
   // 6. Exposed state + return
@@ -109,11 +109,20 @@ It is not compiled to JavaScript by itself; it is hydrated through props patches
 class Card(Component):
     def setup(self, props):
         price = props.get("price", 0)
-    props = {**props}
-    state = {}
-    data = {
+        props = {**props}
+        state = {}
+        data = {
             "display": f"${price:.2f}",
             "is_cheap": price < 10,
+        }
+
+        # Optional: The server can infer this return automatically.
+        return {
+            "props": props,
+            "state": state,
+            "data": data,
+            "actions": {},
+            "lifecycle": {},
         }
 ```
 
@@ -159,6 +168,14 @@ class Counter(Component):
             "label": "start",
         }
     data = {}
+
+    return {
+      "props": props,
+      "state": state,
+      "data": data,
+      "actions": {},
+      "lifecycle": {},
+    }
 ```
 
 ```js
@@ -235,6 +252,14 @@ class Counter(Component):
             if state["count"] < 10:
                 state["count"] += 1
                 data["limit"] = 10
+
+        return {
+          "props": props,
+          "state": state,
+          "data": data,
+          "actions": {"safe_increment": safe_increment},
+          "lifecycle": {},
+        }
 ```
 
 Tracing records:

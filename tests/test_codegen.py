@@ -203,7 +203,7 @@ class App(Component):
             "state": state,
             "data": {},
             "actions": {"inc": inc},
-            "lifecycle": {"onMount": ["inc"]},
+            "lifecycle": {"mounted": ["inc"]},
         }
 """
 
@@ -229,12 +229,12 @@ class App(Component):
             "data": {},
             "actions": {"inc": inc},
             "lifecycle": {
-                "onCreate": [{"op": "set", "state": "count", "value": 2}],
+                "created": [{"op": "set", "state": "count", "value": 2}],
             },
         }
 """
     script = build_client_script(python_block)
-    assert "onCreate" in script
+    assert "created" in script
     assert "return 2" in script
 
     # Given / When: initial state expression branches
