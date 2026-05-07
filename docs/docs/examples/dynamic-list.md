@@ -28,6 +28,7 @@ class TodoList(Component):
         state["items"] = [*state["items"], state["draft"]]
         state["draft"] = ""
 
+    # Optional: The server can infer this return automatically.
     return {
       "props": props,
       "state": state,

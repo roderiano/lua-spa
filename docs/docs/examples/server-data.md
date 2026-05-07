@@ -47,6 +47,8 @@ class UserList(Component):
   def setup(self, props):
     raw = props.get("users", "[]")
     users = json.loads(raw) if isinstance(raw, str) else raw
+
+    # Optional: The server can infer this return automatically.
     return {
       "props": props,
       "state": {},

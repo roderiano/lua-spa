@@ -9,11 +9,11 @@ lua-spa templates are HTML files with a concise set of directives. Templates are
 
 ## Interpolation `{{ }}`
 
-Evaluate any Python/JavaScript expression:
+Interpolates an expression result into text or attribute content:
 
 ```html
 <p>{{ state.count }}</p>
-<p>{{ props.name.upper() }}</p>
+<p>{{ props.name }}</p>
 <p>{{ 2 + 2 }}</p>
 ```
 
@@ -54,6 +54,32 @@ Multi-target unpacking:
 </tr>
 ```
 
+Loop metadata is available as `loop`:
+
+```html
+<li i-for="item in props.items">
+  {{ loop.index }} - {{ item }}
+</li>
+```
+
+## Two-way binding `i-model`
+
+Use `i-model` for form controls:
+
+```html
+<input i-model="state.name" />
+<textarea i-model="state.message"></textarea>
+<select i-model="state.role">
+  <option value="admin">Admin</option>
+  <option value="user">User</option>
+</select>
+```
+
+Behavior:
+- Initial value is rendered from the bound state expression.
+- On input/change, runtime updates the bound `state` key and re-renders.
+- Works best with `state.*` paths.
+
 ## Event binding `@event`
 
 ```html
@@ -62,14 +88,16 @@ Multi-target unpacking:
 <form @submit="handleSubmit">...</form>
 ```
 
-The value must be the name of an action declared in `setup().actions`.
+The value is the action name inferred from `setup(self, props)` local callables.
 
 ## Dynamic attributes `:attr`
 
 ```html
-<div :class="state.visible ? 'show' : 'hide'">...</div>
+<div :class="state.visible and 'show' or 'hide'">...</div>
 <img :src="props.imageUrl" />
 ```
+
+`:` evaluates the expression and applies the result to the attribute name.
 
 ## Processing order (server-side)
 
@@ -77,9 +105,10 @@ The value must be the name of an action declared in `setup().actions`.
 flowchart TD
     A[Raw template] --> B["Apply i-for loops"]
     B --> C["Apply l-if / l-else conditionals"]
-    C --> D["Interpolate {{ }} expressions"]
-    D --> E[Rendered HTML string]
-    E --> F[Client hydration]
+  C --> D["Apply i-model initial value"]
+  D --> E["Interpolate {{ }} expressions"]
+  E --> F[Rendered HTML string]
+  F --> G[Client hydration]
 ```
 
 ## Template context reference

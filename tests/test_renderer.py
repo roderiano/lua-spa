@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from lua_spa.renderer import (
     _normalize_iterable,
+    apply_i_model,
     apply_server_conditionals,
     apply_server_loops,
     build_python_context,
@@ -54,6 +55,25 @@ def test_render_template_with_directives_handles_conditionals() -> None:
     # Then: the true branch is included and the false branch is excluded
     assert "ok" in html
     assert "no" not in html
+
+
+def test_render_template_with_directives_applies_i_model() -> None:
+    # Given: a template with i-model on text and checkbox inputs
+    template = (
+        '<div><input type="text" i-model="state.name"/>'
+        '<input type="checkbox" i-model="state.enabled"/></div>'
+    )
+
+    # When: directives are rendered with state values
+    html = render_template_with_directives(
+        template,
+        {"props": {}, "state": {"name": "Ana", "enabled": True}, "py": {}},
+    )
+
+    # Then: i-model is removed and initial values are materialized
+    assert "i-model" not in html
+    assert 'value="Ana"' in html
+    assert "checked" in html
 
 
 def test_renderer_helpers_and_expression_eval() -> None:
@@ -265,6 +285,17 @@ def test_renderer_loop_targets_and_reserved_keys_path() -> None:
     # Then: scalar multi-target fallback keeps unresolved placeholders as empty values
     assert "<li>-</li>" in html
     assert scoped["props"].pairs == [1, 2]
+
+
+def test_apply_i_model_leaves_unbound_tags_unchanged() -> None:
+    # Given: i-model in a non-form tag
+    template = '<div i-model="state.name">X</div>'
+
+    # When: apply_i_model is executed
+    html = apply_i_model(template, {"props": {}, "state": {"name": "A"}, "py": {}})
+
+    # Then: only i-model is stripped from the element
+    assert html == "<div>X</div>"
 
 
 def test_renderer_conditional_chain_with_gaps_and_non_if_start() -> None:

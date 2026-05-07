@@ -116,6 +116,7 @@ class Card(Component):
             "is_cheap": price < 10,
         }
 
+        # Optional: The server can infer this return automatically.
         return {
             "props": props,
             "state": state,

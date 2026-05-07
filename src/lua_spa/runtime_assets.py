@@ -384,11 +384,16 @@ SPA_RUNTIME_JS = r"""
           attribute.name === "l-if" ||
           attribute.name === "l-else-if" ||
           attribute.name === "l-else" ||
-          attribute.name === "i-for"
+          attribute.name === "i-for" ||
+          attribute.name === "i-model"
         ) {
           return;
         }
         if (attribute.name.indexOf("on:") === 0 || attribute.name.indexOf("@") === 0) {
+          return;
+        }
+        if (attribute.name.indexOf(":") === 0) {
+          componentProps[attribute.name.slice(1)] = evaluateRawExpression(attribute.value, context);
           return;
         }
         if (attribute.name === "__props") {
@@ -436,12 +441,14 @@ SPA_RUNTIME_JS = r"""
 
     var props = {};
     var events = {};
+    var modelExpr = node.getAttribute("i-model");
     Array.from(node.attributes).forEach(function (attribute) {
       if (
         attribute.name === "l-if" ||
         attribute.name === "l-else-if" ||
         attribute.name === "l-else" ||
-        attribute.name === "i-for"
+        attribute.name === "i-for" ||
+        attribute.name === "i-model"
       ) {
         return;
       }
@@ -449,10 +456,46 @@ SPA_RUNTIME_JS = r"""
         events[attribute.name.slice(3)] = attribute.value;
       } else if (attribute.name.indexOf("@") === 0) {
         events[attribute.name.slice(1)] = attribute.value;
+      } else if (attribute.name.indexOf(":") === 0) {
+        props[attribute.name.slice(1)] = evaluateRawExpression(attribute.value, context);
       } else {
         props[attribute.name] = interpolate(attribute.value, context);
       }
     });
+
+    if (typeof modelExpr === "string" && modelExpr.trim() !== "") {
+      modelExpr = modelExpr.trim();
+      var lowerTag = String(tagName).toLowerCase();
+      var modelEvent = null;
+
+      if (lowerTag === "input") {
+        var inputType = String(node.getAttribute("type") || "text").toLowerCase();
+        if (inputType === "checkbox" || inputType === "radio") {
+          props.checked = !!evaluateRawExpression(modelExpr, context);
+          modelEvent = "change";
+        } else {
+          var inputValue = evaluateRawExpression(modelExpr, context);
+          props.value = inputValue == null ? "" : inputValue;
+          modelEvent = "input";
+        }
+      } else if (lowerTag === "textarea") {
+        var textValue = evaluateRawExpression(modelExpr, context);
+        props.value = textValue == null ? "" : textValue;
+        modelEvent = "input";
+      } else if (lowerTag === "select") {
+        var selectedValue = evaluateRawExpression(modelExpr, context);
+        props.value = selectedValue == null ? "" : selectedValue;
+        modelEvent = "change";
+      }
+
+      if (modelEvent !== null) {
+        events[modelEvent] = {
+          kind: "model",
+          expr: modelExpr,
+          action: events[modelEvent] || null,
+        };
+      }
+    }
 
     return {
       type: "element",
@@ -1145,6 +1188,84 @@ SPA_RUNTIME_JS = r"""
   }
 
   function patchElementEvents(el, previous, next, currentComponent) {
+    function normalizeDescriptor(value) {
+      if (typeof value === "string") {
+        return { kind: "action", action: value };
+      }
+      if (value && typeof value === "object") {
+        return {
+          kind: value.kind || "action",
+          action: value.action || null,
+          expr: value.expr || "",
+        };
+      }
+      return { kind: "noop", action: null, expr: "" };
+    }
+
+    function descriptorKey(value) {
+      var normalized = normalizeDescriptor(value);
+      return [normalized.kind, normalized.action || "", normalized.expr || ""].join("|");
+    }
+
+    function assignPath(target, path, value) {
+      if (!target || !Array.isArray(path) || path.length === 0) {
+        return;
+      }
+      var cursor = target;
+      for (var index = 0; index < path.length - 1; index += 1) {
+        var segment = path[index];
+        if (!cursor[segment] || typeof cursor[segment] !== "object") {
+          cursor[segment] = {};
+        }
+        cursor = cursor[segment];
+      }
+      cursor[path[path.length - 1]] = value;
+    }
+
+    function resolveModelValue(eventName, event, element) {
+      var source = event && event.target ? event.target : element;
+      if (!source) {
+        return undefined;
+      }
+      if (eventName === "change" && source.type && (source.type === "checkbox" || source.type === "radio")) {
+        return !!source.checked;
+      }
+      if (Object.prototype.hasOwnProperty.call(source, "value")) {
+        return source.value;
+      }
+      return undefined;
+    }
+
+    function applyModelExpression(expr, eventName, event, element) {
+      if (!currentComponent || !currentComponent.state || typeof expr !== "string") {
+        return;
+      }
+      var trimmed = expr.trim();
+      if (!trimmed) {
+        return;
+      }
+      var nextValue = resolveModelValue(eventName, event, element);
+      if (trimmed.indexOf("state.") === 0) {
+        assignPath(currentComponent.state, trimmed.slice(6).split("."), nextValue);
+        currentComponent.update();
+        return;
+      }
+      if (Object.prototype.hasOwnProperty.call(currentComponent.state, trimmed)) {
+        currentComponent.state[trimmed] = nextValue;
+        currentComponent.update();
+      }
+    }
+
+    function invokeNamedAction(actionName, event) {
+      if (!currentComponent || !currentComponent.actions || typeof actionName !== "string") {
+        return;
+      }
+      var action = currentComponent.actions[actionName];
+      if (typeof action === "function") {
+        action(event);
+      }
+    }
+
     var listeners = el.__luaSpaListeners || {};
     var previousEvents = previous || {};
     var nextEvents = next || {};
@@ -1157,10 +1278,11 @@ SPA_RUNTIME_JS = r"""
     });
 
     Object.keys(nextEvents).forEach(function (eventName) {
-      var actionName = nextEvents[eventName];
-      var oldAction = previousEvents[eventName];
+      var descriptor = normalizeDescriptor(nextEvents[eventName]);
+      var oldKey = descriptorKey(previousEvents[eventName]);
+      var nextKey = descriptorKey(nextEvents[eventName]);
 
-      if (oldAction === actionName && listeners[eventName]) {
+      if (oldKey === nextKey && listeners[eventName]) {
         return;
       }
 
@@ -1169,14 +1291,12 @@ SPA_RUNTIME_JS = r"""
       }
 
       var nextListener = function (event) {
-        if (!currentComponent || !currentComponent.actions) {
+        if (descriptor.kind === "model") {
+          applyModelExpression(descriptor.expr, eventName, event, el);
+          invokeNamedAction(descriptor.action, event);
           return;
         }
-
-        var action = currentComponent.actions[actionName];
-        if (typeof action === "function") {
-          action(event);
-        }
+        invokeNamedAction(descriptor.action, event);
       };
 
       listeners[eventName] = nextListener;

@@ -72,6 +72,8 @@ class App(Component):
 <python>
 class UserDetail(Component):
   def setup(self, props):
+
+    # Optional: The server can infer this return automatically.
     return {
       "props": props,
       "state": {},
