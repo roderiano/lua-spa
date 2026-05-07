@@ -27,6 +27,7 @@ class Counter(Component):
     def reset():
       state["count"] = 0
 
+    # Optional: The server can infer this return automatically.
     return {
       "props": props,
       "state": state,

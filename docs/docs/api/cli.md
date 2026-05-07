@@ -58,6 +58,36 @@ Prints the server URL on startup:
 
 ```
 Serving lua-spa at http://127.0.0.1:8000
+
+With `--reload`, the watcher path is shown relative to the current working directory:
+
+```text
+Live reload activated. Watching src for file changes...
+```
+
+---
+
+### `lua-spa new component <name> [path]`
+
+Create a new component by copying `ComponentTemplate`, renaming files/content,
+and writing it into `lua_template/components/<name>/`.
+
+```bash
+lua-spa new component UserCard
+lua-spa new component UserCard ./apps/my_project
+```
+
+| Argument | Default | Description |
+|---|---|---|
+| `name` | — | Component name (Python identifier, e.g. `UserCard`) |
+| `path` | `.` | Project root where `lua_template` exists |
+
+CLI output includes the exact created locations:
+
+```text
+Component created at: <...>/components/UserCard/UserCard.lspa
+Style created at: <...>/components/UserCard/UserCard.css
+```
 ```
 
 With `--reload`, the watcher path is shown relative to the current working directory:

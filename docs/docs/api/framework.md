@@ -140,7 +140,6 @@ Used internally by `POST /__lua_spa_action` runtime bridge.
 
 ## Runtime HTTP endpoints
 
-### `POST /__lua_spa_action`
 
 Internal bridge used by generated `server_call` operations.
 
@@ -199,8 +198,6 @@ data: reload
 Browser runtime behavior: on each message, it calls `window.location.reload()`.
 
 ## Properties
-
-| Property | Type | Description |
 |---|---|---|
 | `component_names` | `tuple[str, ...]` | Names of all loaded components |
 | `server_address` | `tuple[str, int]` | `(host, port)` |

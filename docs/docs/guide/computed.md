@@ -117,6 +117,19 @@ class ProductCard(Component):
             "discount_label":   f"{discount}% off" if discount else "",
             "has_discount":     discount > 0,
         }
+    state = {
+      "quantity": 1,
+      "in_cart": False,
+    }
+
+    def add():
+      state["quantity"] += 1
+
+    def remove():
+      state["quantity"] -= 1
+
+    def to_cart():
+      state["in_cart"] = True
 
         state = {
             "quantity": 1,

@@ -364,7 +364,9 @@ def test_spa_handler_reload_sse_endpoint(monkeypatch: Any) -> None:
     handler.send_header = lambda key, value: headers.append((str(key), str(value)))  # type: ignore[method-assign,assignment]
     handler.end_headers = lambda: None  # type: ignore[method-assign]
 
-    monkeypatch.setattr(server_module.time, "sleep", lambda _seconds: (_ for _ in ()).throw(RuntimeError("stop")))
+    monkeypatch.setattr(
+        server_module.time, "sleep", lambda _seconds: (_ for _ in ()).throw(RuntimeError("stop"))
+    )
 
     # When: SSE endpoint is handled
     handler.do_GET()
@@ -450,3 +452,144 @@ def test_spa_server_serve_starts_reload_thread(monkeypatch: Any) -> None:
     assert called["served"] is True
     assert called["thread_started"] is True
     assert called["thread_args"][0].replace("\\", "/").endswith("project/src")
+
+
+def test_spa_handler_post_invalid_path_returns_404() -> None:
+    handler = object.__new__(_SpaHandler)
+    errors: list[int] = []
+    handler.server = SimpleNamespace(lua_framework=SimpleNamespace())  # type: ignore[assignment]
+    handler.path = "/invalid"
+    handler.headers = {}
+    handler.rfile = io.BytesIO(b"{}")
+    handler.wfile = io.BytesIO()
+    handler.send_error = lambda code, _message: errors.append(int(code))  # type: ignore[method-assign,misc,assignment]
+    handler.send_response = lambda _code: None  # type: ignore[method-assign,assignment]
+    handler.send_header = lambda _key, _value: None  # type: ignore[method-assign,assignment]
+    handler.end_headers = lambda: None  # type: ignore[method-assign]
+
+    handler.do_POST()
+
+    assert errors[-1] == int(HTTPStatus.NOT_FOUND)
+
+
+def test_spa_handler_post_invalid_json_returns_400() -> None:
+    handler = object.__new__(_SpaHandler)
+    errors: list[int] = []
+    handler.server = SimpleNamespace(lua_framework=SimpleNamespace())  # type: ignore[assignment]
+    handler.path = "/__lua_spa_action"
+    handler.headers = {"Content-Length": "3"}
+    handler.rfile = io.BytesIO(b"{x}")
+    handler.wfile = io.BytesIO()
+    handler.send_error = lambda code, _message: errors.append(int(code))  # type: ignore[method-assign,misc,assignment]
+    handler.send_response = lambda _code: None  # type: ignore[method-assign,assignment]
+    handler.send_header = lambda _key, _value: None  # type: ignore[method-assign,assignment]
+    handler.end_headers = lambda: None  # type: ignore[method-assign]
+
+    handler.do_POST()
+
+    assert errors[-1] == int(HTTPStatus.BAD_REQUEST)
+
+
+def test_spa_handler_post_missing_component_or_name_returns_400() -> None:
+    handler = object.__new__(_SpaHandler)
+    errors: list[int] = []
+    handler.server = SimpleNamespace(lua_framework=SimpleNamespace())  # type: ignore[assignment]
+    handler.path = "/__lua_spa_action"
+    handler.headers = {"Content-Length": "2"}
+    handler.rfile = io.BytesIO(b"{}")
+    handler.wfile = io.BytesIO()
+    handler.send_error = lambda code, _message: errors.append(int(code))  # type: ignore[method-assign,misc,assignment]
+    handler.send_response = lambda _code: None  # type: ignore[method-assign,assignment]
+    handler.send_header = lambda _key, _value: None  # type: ignore[method-assign,assignment]
+    handler.end_headers = lambda: None  # type: ignore[method-assign]
+
+    handler.do_POST()
+
+    assert errors[-1] == int(HTTPStatus.BAD_REQUEST)
+
+
+def test_spa_handler_post_callable_error_returns_json_400() -> None:
+    framework = SimpleNamespace(
+        execute_server_callable=lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
+    handler = object.__new__(_SpaHandler)
+    responses: list[int] = []
+    handler.server = SimpleNamespace(lua_framework=framework)  # type: ignore[assignment]
+    handler.path = "/__lua_spa_action"
+    payload = b'{"component":"App","name":"reload_packages"}'
+    handler.headers = {"Content-Length": str(len(payload))}
+    handler.rfile = io.BytesIO(payload)
+    handler.wfile = io.BytesIO()
+    handler.send_error = lambda _code, _message: None  # type: ignore[method-assign,assignment]
+    handler.send_response = lambda code: responses.append(int(code))  # type: ignore[method-assign,misc,assignment]
+    handler.send_header = lambda _key, _value: None  # type: ignore[method-assign,assignment]
+    handler.end_headers = lambda: None  # type: ignore[method-assign]
+
+    handler.do_POST()
+
+    assert responses[-1] == int(HTTPStatus.BAD_REQUEST)
+    assert b'"ok": false' in handler.wfile.getvalue()
+
+
+def test_spa_handler_post_success_returns_json_200() -> None:
+    framework = SimpleNamespace(
+        execute_server_callable=lambda **_kwargs: {"state": {}, "props": {"ok": True}}
+    )
+    handler = object.__new__(_SpaHandler)
+    responses: list[int] = []
+    handler.server = SimpleNamespace(lua_framework=framework)  # type: ignore[assignment]
+    handler.path = "/__lua_spa_action"
+    payload = b'{"component":"App","name":"reload_packages","props":{},"state":{}}'
+    handler.headers = {"Content-Length": str(len(payload))}
+    handler.rfile = io.BytesIO(payload)
+    handler.wfile = io.BytesIO()
+    handler.send_error = lambda _code, _message: None  # type: ignore[method-assign,assignment]
+    handler.send_response = lambda code: responses.append(int(code))  # type: ignore[method-assign,misc,assignment]
+    handler.send_header = lambda _key, _value: None  # type: ignore[method-assign,assignment]
+    handler.end_headers = lambda: None  # type: ignore[method-assign]
+
+    handler.do_POST()
+
+    assert responses[-1] == int(HTTPStatus.OK)
+    assert b'"ok": true' in handler.wfile.getvalue()
+
+
+def test_spa_server_reload_falls_back_when_relpath_raises(monkeypatch: Any) -> None:
+    called: dict[str, Any] = {}
+
+    class FakeServer:
+        def __init__(self, _address: tuple[str, int], _handler: Any) -> None:
+            return None
+
+        def __enter__(self) -> "FakeServer":
+            return self
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            return None
+
+        def serve_forever(self) -> None:
+            return None
+
+    class FakeThread:
+        def __init__(self, target: Any, args: tuple[Any, ...], daemon: bool) -> None:
+            called["args"] = args
+
+        def start(self) -> None:
+            return None
+
+    server_module._watch_started.clear()
+    monkeypatch.setattr(server_module, "ThreadingHTTPServer", FakeServer)
+    monkeypatch.setattr(server_module.threading, "Thread", FakeThread)
+    monkeypatch.setattr(
+        server_module.os.path,
+        "relpath",
+        lambda _watch_path, _cwd: (_ for _ in ()).throw(ValueError("different drives")),
+    )
+
+    view_file = Path("C:/tmp/project/src/lua_template/index.lspa")
+    framework = SimpleNamespace(_view_file=view_file)
+
+    SpaServer.serve(framework, "127.0.0.1", 8002, reload=True)
+
+    assert called["args"][0].replace("\\", "/").endswith("project/src")
+    server_module._watch_started.clear()

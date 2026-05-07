@@ -213,29 +213,23 @@ def test_framework_template_router_cascades_children_inside_layout() -> None:
     framework._router_config = {
         "initial_path": "/features",
         "routes": [
-			{
-				"path": "/features",
-				"component": "App",
-				"children": [
-					{
-						"index": True,
-						"component": "Hero"
-					},
-					{
-						"path": "features",
-						"component": "Features"
-					},
-					{
-						"path": "*",
-						"component": "NotFound",
-						"props": {
-							"title": "Page not found",
-							"subtitle": "The requested route does not exist"
-						}
-					}
-				]
-			}
-		]
+            {
+                "path": "/features",
+                "component": "App",
+                "children": [
+                    {"index": True, "component": "Hero"},
+                    {"path": "features", "component": "Features"},
+                    {
+                        "path": "*",
+                        "component": "NotFound",
+                        "props": {
+                            "title": "Page not found",
+                            "subtitle": "The requested route does not exist",
+                        },
+                    },
+                ],
+            }
+        ],
     }
 
     # When: building the server-side HTML
@@ -268,4 +262,3 @@ def test_framework_router_wildcard_notfound_component_is_rendered() -> None:
     # Then: wildcard route renders the configured NotFound component
     assert "404" in html
     assert "The page you're looking for doesn't exist or has been moved." in html
-
