@@ -72,7 +72,7 @@ If `setup` returns `None`, the server infers the mapping automatically from:
 
 - local variables: `props`, `state`, `data`
 - local callables inferred as `actions`
-- lifecycle-named callables (like `mounted`, `created`, `on_mount`, etc) inferred as `lifecycle`
+- lifecycle-named callables (`created`, `mounted`, `updated`, `unmounted`) inferred as `lifecycle`
 
 When actions/lifecycle mutate `data`, those `data` keys are automatically emitted in the props patch even without returning a mapping from the action.
 
@@ -93,12 +93,12 @@ Callable actions/lifecycle hooks are normalized into `server_call` operations.
 
 Supported canonical lifecycle hooks in generated client scripts:
 
-- `onCreate`
-- `onMount`
-- `onUpdate`
-- `onUnmount`
+- `created`
+- `mounted`
+- `updated`
+- `unmounted`
 
-Setup may declare aliases like `mounted`, which are normalized to canonical hook names.
+Use these names exactly in `setup().lifecycle`.
 
 ## `StateField`
 

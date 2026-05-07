@@ -54,6 +54,6 @@ With `--reload`, the server polls all watched files every 500ms. Components are 
 | Goal | Approach |
 |---|---|
 | Reduce initial props | Only pass what the entry component needs |
-| Avoid unnecessary re-renders | Don't use `onUpdate` lifecycle for side effects that don't need every update |
+| Avoid unnecessary re-renders | Don't use `updated` lifecycle for side effects that don't need every update |
 | Large lists | Use `key` attributes to help the differ reuse nodes |
 | Static content | Put non-interactive content outside the mounted `#app` div in `index.lspa` |

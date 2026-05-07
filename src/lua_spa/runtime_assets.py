@@ -964,7 +964,7 @@ SPA_RUNTIME_JS = r"""
 
         if (!instance.hasCreated) {
           instance.hasCreated = true;
-          invokeLifecycle(instance, "onCreate");
+          invokeLifecycle(instance, "created");
         }
 
         if (!instance.isMounted) {
@@ -976,14 +976,14 @@ SPA_RUNTIME_JS = r"""
           instance.isMounted = true;
           instance.subTree = nextTree;
           vnode.el = nextTree.el;
-          invokeLifecycle(instance, "onMount");
+          invokeLifecycle(instance, "mounted");
           return;
         }
 
         patch(instance.subTree, nextTree, instance.container, instance.anchor, app, instance);
         instance.subTree = nextTree;
         vnode.el = nextTree.el;
-        invokeLifecycle(instance, "onUpdate");
+        invokeLifecycle(instance, "updated");
       },
     };
 
@@ -1121,7 +1121,7 @@ SPA_RUNTIME_JS = r"""
   function unmount(vnode, container) {
     if (vnode.type === "component") {
       if (vnode.instance) {
-        invokeLifecycle(vnode.instance, "onUnmount");
+        invokeLifecycle(vnode.instance, "unmounted");
       }
       if (vnode.instance && vnode.instance.subTree) {
         unmount(vnode.instance.subTree, container);

@@ -59,8 +59,6 @@ class Card(Component):
 
     state = {}
     data = {}
-
-    # no return needed: server infers props/state/data/actions/lifecycle
 ```
 
 The runtime merges defaults with incoming values and coerces scalar types (`int`/`float`/`bool`/`str`) safely.

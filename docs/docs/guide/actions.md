@@ -29,8 +29,6 @@ class Counter(Component):
 
         def flip():
             state["visible"] = not state["visible"]
-
-        # no return needed: server infers actions from local callables
 ```
 
 Template binding:
@@ -55,7 +53,7 @@ For declarative operations, supported comparisons in `cond` are emitted as clien
 
 - Define actions inside `setup(self, props)`.
 - You may omit returned `actions` mapping; server can infer actions from local functions.
-- Functions named like lifecycle hooks (`mounted`, `created`, `on_mount`, etc.) are inferred as lifecycle, not actions.
+- Functions named as lifecycle hooks (`created`, `mounted`, `updated`, `unmounted`) are inferred as lifecycle, not actions.
 - Use callables when action logic should execute on server via `server_call`.
 - Use mapping operations (`set`, `add`, `sub`, `toggle`, `multi`, `log`) for direct client-side behavior.
 - Keep state mutations explicit and deterministic.

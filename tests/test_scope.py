@@ -7,14 +7,11 @@ import pytest
 
 from lua_spa.scope import (
     _extract_mapping_value,
-    canonical_lifecycle_name,
     execute_setup_server_callable,
     infer_action_methods,
     invoke_method_callable,
     load_python_scope,
-    normalize_action_names,
     normalize_client_spec,
-    normalize_lifecycle_methods,
     normalize_props_source,
     normalize_state_source,
     resolve_component_callables,
@@ -73,7 +70,7 @@ def test_scope_normalize_client_spec_class_only() -> None:
     assert state["qty"]["from_prop"] == "initialQty"
     assert actions["inc"]["op"] == "server_call"
     assert actions["inc"]["kind"] == "action"
-    assert lifecycle["onMount"] == []
+    assert lifecycle["mounted"] == []
 
 
 def test_scope_rejects_declarative_dict_client_specs() -> None:
@@ -168,22 +165,26 @@ def test_scope_invoke_method_callable_tracing_and_logs(capsys: pytest.CaptureFix
 
 
 def test_scope_lifecycle_and_helpers() -> None:
-    class Owner:
-        def mounted(self) -> dict[str, Any]:
-            return {"op": "log", "value": "mounted"}
-
-    lifecycle = normalize_lifecycle_methods(Owner())
-
-    assert canonical_lifecycle_name("on_mount") == "onMount"
-    assert normalize_action_names("save") == ["save"]
-    assert lifecycle["onMount"][0]["op"] == "log"
-
     class Actions(Component):
         def public_action(self) -> None:
             return None
 
     assert "public_action" in infer_action_methods(Actions())
     assert _extract_mapping_value({"a": 1}, ["x", "a"], 0) == 1
+
+
+def test_scope_rejects_non_canonical_lifecycle_name() -> None:
+    with pytest.raises(ValueError, match="Unknown lifecycle hook"):
+        normalize_client_spec(
+            {
+                "__setup_mapped__": True,
+                "props": {},
+                "state": {},
+                "data": {},
+                "actions": {},
+                "lifecycle": {"Mounted": "run"},
+            }
+        )
 
 
 def test_scope_setup_mapping_is_normalized_automatically() -> None:
@@ -224,7 +225,7 @@ class Features(Component):
     assert state["reload_count"] == 0
     assert actions["reload_packages"]["op"] == "server_call"
     assert actions["reload_packages"]["name"] == "reload_packages"
-    assert lifecycle["onMount"][0]["op"] == "server_call"
+    assert lifecycle["mounted"][0]["op"] == "server_call"
 
 
 def test_scope_setup_automatic_mapping_without_return() -> None:
@@ -253,7 +254,7 @@ class Card(Component):
     assert props["price"] == 7
     assert state == {}
     assert actions == {}
-    assert lifecycle["onMount"] == []
+    assert lifecycle["mounted"] == []
 
 
 def test_scope_setup_infers_actions_and_lifecycle_from_local_functions() -> None:
@@ -282,7 +283,7 @@ class Features(Component):
     assert state["count"] == 0
     assert actions["reload_packages"]["op"] == "server_call"
     assert actions["reload_packages"]["kind"] == "action"
-    assert lifecycle["onMount"][0]["op"] == "server_call"
+    assert lifecycle["mounted"][0]["op"] == "server_call"
 
 
 def test_scope_lifecycle_merges_nested_action_results_without_return() -> None:

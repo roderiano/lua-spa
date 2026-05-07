@@ -84,10 +84,10 @@ function setup({ useState, props, componentName }) {
 
   // 5. Lifecycle hooks
   const lifecycle = {
-    onCreate:  function () {},
-    onMount:   function () { __callAction("init"); },
-    onUpdate:  function () {},
-    onUnmount: function () {},
+    created:   function () {},
+    mounted:   function () { __callAction("init"); },
+    updated:   function () {},
+    unmounted: function () {},
   };
 
   // 6. Exposed state + return
