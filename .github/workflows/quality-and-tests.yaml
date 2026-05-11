@@ -19,25 +19,24 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install ruff==0.6.9 mypy==1.11.2 pytest pytest-cov
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install poetry
+          poetry install --with dev
 
       - name: Run Ruff (lint)
         run: |
-          python -m ruff check src
+          poetry run ruff check src
 
       - name: Run Ruff format check
         run: |
-          python -m ruff format --check src
+          poetry run ruff format --check src
 
       - name: Run Mypy (strict)
         run: |
-          mypy --strict src
+          poetry run mypy --strict src
 
       - name: Run Tests with Coverage (min 90%)
         run: |
-          python -m pytest --cov=src --cov-fail-under=90
+          poetry run pytest --cov=src --cov-fail-under=90
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
