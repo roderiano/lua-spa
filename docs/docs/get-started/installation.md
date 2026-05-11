@@ -25,6 +25,12 @@ Expected output:
 usage: lua-spa [-h] {serve,create} ...
 ```
 
+## Optional: VS Code extension
+
+Install the LSPA extension for syntax highlighting and editor support:
+
+- [LSPA extension for VS Code](https://marketplace.visualstudio.com/items?itemName=roderiano.lua-spa-extension)
+
 ## Optional: virtual environment
 
 ```bash

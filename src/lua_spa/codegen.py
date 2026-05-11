@@ -46,7 +46,7 @@ def build_client_script(python_block: str) -> str:
     props_spec, state_spec, actions_spec, lifecycle_spec = normalize_client_spec(raw_spec)
 
     state_fields = list(state_spec.items())
-    lines: list[str] = ["function setup({ useState, props, componentName }) {"]
+    lines: list[str] = ["function setup({ useState, props, componentName, componentInstanceId }) {"]
     props_literal = _js_literal(props_spec)
     lines.append("  const incomingProps = props || {};")
     lines.append(
@@ -133,27 +133,78 @@ def build_client_script(python_block: str) -> str:
     lines.append("  }")
     lines.append("  function __serverCall(kind, name) {")
     lines.append("    if (!componentName) {")
-    lines.append("      return;")
+    lines.append("      return Promise.resolve(null);")
     lines.append("    }")
-    lines.append("    fetch('/__lua_spa_action', {")
-    lines.append("      method: 'POST',")
-    lines.append("      headers: { 'Content-Type': 'application/json' },")
-    lines.append("      body: JSON.stringify({")
-    lines.append("        component: componentName,")
-    lines.append("        kind: kind,")
-    lines.append("        name: name,")
-    lines.append("        props: resolvedProps,")
-    lines.append("        state: state,")
-    lines.append("      }),")
-    lines.append("    })")
-    lines.append("      .then(function (response) { return response.json(); })")
-    lines.append("      .then(function (payload) {")
-    lines.append("        if (!payload || payload.ok !== true) {")
-    lines.append("          return;")
-    lines.append("        }")
-    lines.append("        __applyServerPatch(payload.result || {});")
+    lines.append("    function __sendServerCall(requestProps, requestState) {")
+    lines.append("      return fetch('/__lua_spa_action', {")
+    lines.append("        method: 'POST',")
+    lines.append("        headers: { 'Content-Type': 'application/json' },")
+    lines.append("        body: JSON.stringify({")
+    lines.append("          component: componentName,")
+    lines.append("          kind: kind,")
+    lines.append("          name: name,")
+    lines.append("          props: requestProps,")
+    lines.append("          state: requestState,")
+    lines.append("        }),")
     lines.append("      })")
-    lines.append("      .catch(function () {});")
+    lines.append("        .then(function (response) { return response.json(); })")
+    lines.append("        .then(function (payload) {")
+    lines.append("          if (!payload || payload.ok !== true) {")
+    lines.append("            return payload;")
+    lines.append("          }")
+    lines.append("          __applyServerPatch(payload.result || {});")
+    lines.append("          return payload;")
+    lines.append("        });")
+    lines.append("    }")
+    lines.append("    var requestPromise;")
+    lines.append("    if (kind === 'lifecycle') {")
+    lines.append("      window.__luaSpaLifecycleChain = window.__luaSpaLifecycleChain || {};")
+    lines.append("      window.__luaSpaLifecycleSnapshot = window.__luaSpaLifecycleSnapshot || {};")
+    lines.append("      window.__luaSpaLifecyclePending = window.__luaSpaLifecyclePending || {};")
+    lines.append(
+        "      var scopePrefix = String(componentName || '') + ':' + String(componentInstanceId || 'global');"
+    )
+    lines.append("      var pendingKey = scopePrefix + ':' + String(name || '');")
+    lines.append(
+        "      var previousChain = window.__luaSpaLifecycleChain[scopePrefix] || Promise.resolve();"
+    )
+    lines.append("      requestPromise = previousChain")
+    lines.append("        .catch(function () {})")
+    lines.append("        .then(function () {")
+    lines.append("          var lifecycleSnapshot = window.__luaSpaLifecycleSnapshot[scopePrefix];")
+    lines.append("          var requestProps = resolvedProps;")
+    lines.append("          var requestState = state;")
+    lines.append("          if (lifecycleSnapshot && typeof lifecycleSnapshot === 'object') {")
+    lines.append(
+        "            if (lifecycleSnapshot.props && typeof lifecycleSnapshot.props === 'object') {"
+    )
+    lines.append("              requestProps = lifecycleSnapshot.props;")
+    lines.append("            }")
+    lines.append(
+        "            if (lifecycleSnapshot.state && typeof lifecycleSnapshot.state === 'object') {"
+    )
+    lines.append("              requestState = lifecycleSnapshot.state;")
+    lines.append("            }")
+    lines.append("          }")
+    lines.append("          return __sendServerCall(requestProps, requestState);")
+    lines.append("        })")
+    lines.append("        .then(function (payload) {")
+    lines.append("          if (payload && payload.ok === true && payload.result) {")
+    lines.append("            window.__luaSpaLifecycleSnapshot[scopePrefix] = payload.result;")
+    lines.append("          }")
+    lines.append("          return payload;")
+    lines.append("        });")
+    lines.append("      window.__luaSpaLifecycleChain[scopePrefix] = requestPromise;")
+    lines.append("      window.__luaSpaLifecyclePending[pendingKey] = requestPromise;")
+    lines.append("      requestPromise.finally(function () {")
+    lines.append("        if (window.__luaSpaLifecyclePending[pendingKey] === requestPromise) {")
+    lines.append("          delete window.__luaSpaLifecyclePending[pendingKey];")
+    lines.append("        }")
+    lines.append("      });")
+    lines.append("    } else {")
+    lines.append("      requestPromise = __sendServerCall(resolvedProps, state);")
+    lines.append("    }")
+    lines.append("    return requestPromise.catch(function () { return null; });")
     lines.append("  }")
     lines.append("  const actions = {")
 
@@ -383,8 +434,11 @@ def _js_action_statement(
             key_literal = _js_literal(callable_name)
             return (
                 "window.__luaSpaLifecycleOnce = window.__luaSpaLifecycleOnce || {}; "
-                f"if (!window.__luaSpaLifecycleOnce[componentName + ':' + {key_literal}]) {{ "
-                f"window.__luaSpaLifecycleOnce[componentName + ':' + {key_literal}] = true; "
+                "var __luaSpaLifecycleScope = String(componentName || '')"
+                " + ':' + String((typeof componentInstanceId !== 'undefined' && componentInstanceId !== null) ? componentInstanceId : 'global')"
+                f" + ':' + {key_literal}; "
+                "if (!window.__luaSpaLifecycleOnce[__luaSpaLifecycleScope]) { "
+                "window.__luaSpaLifecycleOnce[__luaSpaLifecycleScope] = true; "
                 f"__serverCall({_js_literal(kind_name)}, {_js_literal(callable_name)}); "
                 "}"
             )

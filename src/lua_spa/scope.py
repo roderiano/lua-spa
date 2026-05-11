@@ -111,7 +111,9 @@ def resolve_component_instance(local_scope: Mapping[str, Any]) -> Any | None:
     return None
 
 
-def resolve_component_callables(local_scope: Mapping[str, Any]) -> tuple[Any | None, Any | None]:
+def resolve_component_callables(
+    local_scope: Mapping[str, Any],
+) -> tuple[Any | None, Any | None]:
     """Extract setup-derived context/client factories from a Component instance.
 
     Returns a (context_factory, client_factory) tuple created from
@@ -485,6 +487,14 @@ def execute_setup_server_callable(
     )
     setup_data_obj = setup_result.get("data", {})
 
+    # Keep data continuity across lifecycle/action calls by hydrating setup data
+    # from incoming props when those keys already exist on the client.
+    if isinstance(setup_data_obj, dict) and isinstance(props, Mapping):
+        for data_key in list(setup_data_obj.keys()):
+            data_key_str = str(data_key)
+            if data_key_str in props:
+                setup_data_obj[data_key] = props[data_key_str]
+
     if isinstance(state, Mapping):
         for key, value in state.items():
             key_name = str(key)
@@ -495,6 +505,12 @@ def execute_setup_server_callable(
             setup_state_obj.update(setup_state)
 
     props_patch: dict[str, Any] = {}
+    if isinstance(props, Mapping):
+        for key, value in props.items():
+            key_name = str(key)
+            if key_name == "__lua_logs__":
+                continue
+            props_patch[key_name] = value
     tracked_action_results: list[Any] = []
     trace_logs: list[Any] = []
     original_print = builtins.print
@@ -624,14 +640,15 @@ def execute_setup_server_callable(
             props_patch["__lua_logs__"] = []
         props_patch["__lua_logs__"].append(message)
 
-    for tracked in tracked_action_results:
-        _merge_result(tracked)
-
     if isinstance(setup_data_obj, Mapping):
         for data_key, data_value in setup_data_obj.items():
             data_key_str = str(data_key)
-            if data_key_str not in props_patch:
-                props_patch[data_key_str] = data_value
+            props_patch[data_key_str] = data_value
+
+    # Explicit return payloads from invoked actions/lifecycles must win over
+    # data snapshot defaults when both provide the same keys.
+    for tracked in tracked_action_results:
+        _merge_result(tracked)
 
     current_state = dict(setup_state_obj) if isinstance(setup_state_obj, Mapping) else setup_state
     return {

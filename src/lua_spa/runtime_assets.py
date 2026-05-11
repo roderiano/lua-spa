@@ -700,6 +700,7 @@ SPA_RUNTIME_JS = r"""
     var app = {
       config: config,
       registry: registry,
+      instanceCounter: 0,
       mount: function () {
         var container = document.getElementById(config.mountId);
         if (!container) {
@@ -862,6 +863,7 @@ SPA_RUNTIME_JS = r"""
       var result = instance.setup({
         useState: createUseState(instance),
         componentName: instance.name,
+        componentInstanceId: instance.id,
         props: instance.props,
         state: instance.state,
         actions: instance.actions,
@@ -946,6 +948,7 @@ SPA_RUNTIME_JS = r"""
 
     var instance = {
       name: vnode.name,
+      id: String(vnode.name) + "#" + String(app.instanceCounter++),
       props: vnode.props || {},
       hooks: [],
       hookCursor: 0,
@@ -954,11 +957,26 @@ SPA_RUNTIME_JS = r"""
       actions: {},
       lifecycle: {},
       hasCreated: false,
+      hasMountedLifecycle: false,
+      pendingUpdatedLifecycle: false,
       subTree: null,
       isMounted: false,
       container: container,
       anchor: anchor,
       hydrationNode: hydrationNode,
+      runMountedLifecycle: function () {
+        if (instance.hasMountedLifecycle) {
+          return;
+        }
+
+        invokeLifecycle(instance, "mounted");
+        instance.hasMountedLifecycle = true;
+
+        if (instance.pendingUpdatedLifecycle) {
+          instance.pendingUpdatedLifecycle = false;
+          invokeLifecycle(instance, "updated");
+        }
+      },
       update: function () {
         var nextTree = renderComponentSubtree(instance, app);
 
@@ -976,13 +994,31 @@ SPA_RUNTIME_JS = r"""
           instance.isMounted = true;
           instance.subTree = nextTree;
           vnode.el = nextTree.el;
-          invokeLifecycle(instance, "mounted");
+
+          var pendingLifecycle = window.__luaSpaLifecyclePending || {};
+          var createdPendingKey =
+            String(instance.name || "") + ":" + String(instance.id || "") + ":created";
+          var createdPending = pendingLifecycle[createdPendingKey];
+
+          if (createdPending && typeof createdPending.then === "function") {
+            createdPending.finally(function () {
+              instance.runMountedLifecycle();
+            });
+          } else {
+            instance.runMountedLifecycle();
+          }
           return;
         }
 
         patch(instance.subTree, nextTree, instance.container, instance.anchor, app, instance);
         instance.subTree = nextTree;
         vnode.el = nextTree.el;
+
+        if (!instance.hasMountedLifecycle) {
+          instance.pendingUpdatedLifecycle = true;
+          return;
+        }
+
         invokeLifecycle(instance, "updated");
       },
     };
