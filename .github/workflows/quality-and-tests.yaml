@@ -36,9 +36,12 @@ jobs:
 
       - name: Run Tests with Coverage (min 90%)
         run: |
-          poetry run pytest --cov=src --cov-fail-under=90
+          poetry run pytest --cov=src/lua_spa --cov-report=term --cov-report=xml:coverage.xml --cov-fail-under=90
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          disable_search: true
+          fail_ci_if_error: true
