@@ -3,11 +3,7 @@
 <python>
 import json
 import re
-
-try:
-  import requests
-except Exception:  # pragma: no cover - fallback when dependency is unavailable
-  requests = None
+import requests
 
 
 class Features(Component):
@@ -23,24 +19,12 @@ class Features(Component):
 
   def fetch_pypi_versions(self, package_name, package_owner, limit):
     print(f"[features] fetching pypi payload for {package_name}", flush=True)
-    if requests is None:
-      print("[features] requests not installed", flush=True)
-      return {
-        "available": False,
-        "error": "A lib requests nao esta instalada no ambiente.",
-        "versions": [],
-        "latest": "",
-        "author": "",
-        "maintainer": "",
-        "owner_matches": False,
-      }
-
     url = f"https://pypi.org/pypi/{package_name}/json"
+    
     try:
       response = requests.get(url, timeout=8)
       response.raise_for_status()
       payload = response.json()
-      payload_preview = json.dumps(payload, ensure_ascii=True)[:1200]
       print(f"[features] payload returned", flush=True)
     except Exception as error:
       print(f"[features] request failed: {error}", flush=True)
@@ -64,7 +48,6 @@ class Features(Component):
     maintainer = str(info.get("maintainer") or "").strip()
     expected_owner = str(package_owner).strip().lower()
     owner_matches = expected_owner in {author.lower(), maintainer.lower()} if expected_owner else True
-
     ordered_versions = sorted(releases.keys(), key=self._version_sort_key, reverse=True)
     visible_versions = ordered_versions[: max(1, int(limit))]
 
@@ -159,6 +142,8 @@ class Features(Component):
 
     def mounted():
       state["mounted"] = True
+
+    def created():
       reload_packages()
 </python>
 
@@ -177,7 +162,7 @@ class Features(Component):
       <div class="hero-route__install">
         <code>pip install lua-spa=={{ py.pypi.latest }}</code>
       </div>
-      <p class="hero-route__author">Author: {{ py.pypi.author }}</p>
+      <p>Author: {{ py.pypi.author }}</p>
       <p class="hero-route__status">
         status: {{ state.status }} | mounted: {{ state.mounted }} | refresh: {{ state.reload_count }}
       </p>

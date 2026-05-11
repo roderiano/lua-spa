@@ -6,7 +6,6 @@
 @import NotFound from './NotFound/NotFound.lspa'
 @import Features from './Features/Features.lspa'
 @import ComponentTemplate from './ComponentTemplate/ComponentTemplate.lspa'
-@import ComponentTemplate from './ComponentTemplate/ComponentTemplate.lspa'
 
 <python>
 class App(Component):
@@ -20,8 +19,6 @@ class App(Component):
     }
 </python>
 
-<style src="./App.css"></style>
-
 <template>
   <div class="page">
     <AppStars /> 
@@ -30,3 +27,5 @@ class App(Component):
     <AppFooter />
   </div>
 </template>
+
+<style src="./App.css"></style>

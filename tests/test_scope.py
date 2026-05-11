@@ -151,7 +151,9 @@ def test_scope_resolve_methods_actions_no_mappings() -> None:
         resolve_methods_actions({"up": "up"}, owner)
 
 
-def test_scope_invoke_method_callable_tracing_and_logs(capsys: pytest.CaptureFixture[str]) -> None:
+def test_scope_invoke_method_callable_tracing_and_logs(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     class Owner(Component):
         def __init__(self) -> None:
             self.state = _TraceState()
@@ -376,6 +378,130 @@ class Features(Component):
     assert "finished mounting" in patch["props"]["__lua_logs__"]
 
 
+def test_scope_mounted_preserves_incoming_payload_data() -> None:
+    source = """
+class Features(Component):
+    def setup(self, props):
+        state = {"mounted": False, "reload_count": 0, "status": "idle"}
+        data = {
+            "pypi": {
+                "available": False,
+                "error": "",
+                "versions": [],
+                "latest": "",
+                "author": "",
+                "maintainer": "",
+                "owner_matches": False,
+            }
+        }
+
+        def mounted():
+            state["mounted"] = True
+
+        return {
+            "props": props,
+            "state": state,
+            "data": data,
+            "actions": {},
+            "lifecycle": {"mounted": mounted},
+        }
+"""
+
+    patch = execute_setup_server_callable(
+        source,
+        kind="lifecycle",
+        name="mounted",
+        props={
+            "__lua_logs__": [
+                "[features] fetching pypi payload for lua-spa",
+                "[features] payload returned",
+            ],
+            "pypi": {
+                "available": True,
+                "error": "",
+                "versions": ["1.2.0"],
+                "latest": "1.2.0",
+                "author": "Gabriel da Rosa Silveira",
+                "maintainer": "",
+                "owner_matches": False,
+            },
+        },
+        state={"mounted": False, "reload_count": 1, "status": "updated"},
+    )
+
+    assert patch["state"]["mounted"] is True
+    assert patch["state"]["reload_count"] == 1
+    assert patch["state"]["status"] == "updated"
+    assert patch["props"]["pypi"]["available"] is True
+    assert patch["props"]["pypi"]["latest"] == "1.2.0"
+
+
+def test_scope_created_overrides_incoming_default_payload_data() -> None:
+    source = """
+class Features(Component):
+    def setup(self, props):
+        state = {"mounted": False, "reload_count": 0, "status": "idle"}
+        data = {
+            "pypi": {
+                "available": False,
+                "error": "",
+                "versions": [],
+                "latest": "",
+                "author": "",
+                "maintainer": "",
+                "owner_matches": False,
+            }
+        }
+
+        def reload_packages():
+            state["reload_count"] += 1
+            state["status"] = "updated"
+            data["pypi"] = {
+                "available": True,
+                "error": "",
+                "versions": ["1.2.0"],
+                "latest": "1.2.0",
+                "author": "Gabriel da Rosa Silveira",
+                "maintainer": "",
+                "owner_matches": False,
+            }
+
+        def created():
+            reload_packages()
+
+        return {
+            "props": props,
+            "state": state,
+            "data": data,
+            "actions": {"reload_packages": reload_packages},
+            "lifecycle": {"created": created},
+        }
+"""
+
+    patch = execute_setup_server_callable(
+        source,
+        kind="lifecycle",
+        name="created",
+        props={
+            "pypi": {
+                "available": False,
+                "error": "",
+                "versions": [],
+                "latest": "",
+                "author": "",
+                "maintainer": "",
+                "owner_matches": False,
+            }
+        },
+        state={"mounted": False, "reload_count": 0, "status": "idle"},
+    )
+
+    assert patch["state"]["reload_count"] == 1
+    assert patch["state"]["status"] == "updated"
+    assert patch["props"]["pypi"]["available"] is True
+    assert patch["props"]["pypi"]["latest"] == "1.2.0"
+
+
 def test_scope_action_mutating_data_without_return_updates_props_patch() -> None:
     source = """
 class Features(Component):
@@ -528,7 +654,11 @@ class Demo(Component):
 """
 
     with pytest.raises(ValueError, match="Unsupported lifecycle hook value"):
-        execute_setup_server_callable(source, kind="lifecycle", name="mounted", props={}, state={})
+        execute_setup_server_callable(
+            source, kind="lifecycle", name="mounted", props={}, state={}
+        )
 
     with pytest.raises(ValueError, match="Unknown action"):
-        execute_setup_server_callable(source, kind="action", name="missing", props={}, state={})
+        execute_setup_server_callable(
+            source, kind="action", name="missing", props={}, state={}
+        )

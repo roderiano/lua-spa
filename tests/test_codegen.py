@@ -19,7 +19,9 @@ def test_codegen_action_and_value_helpers() -> None:
     operation = _normalize_action_operation({"op": "add", "state": "count", "value": 2})
 
     # When: JS helpers convert them to JavaScript expressions
-    statement = _js_action_statement(operation, {"count": "setCount"}, {"count": "countValue"})
+    statement = _js_action_statement(
+        operation, {"count": "setCount"}, {"count": "countValue"}
+    )
     expr = _js_initial_state_expression(
         {"from_prop": "start", "default": 1, "cast": "int"}, "props"
     )
@@ -48,7 +50,9 @@ def test_codegen_branches_for_multi_log_js_and_conditions() -> None:
     # When: each operation is compiled to a JS statement
     statement = _js_action_statement(multi, {"count": "setCount"}, {"count": "value"})
     log_stmt = _js_action_statement({"op": "log", "value": "x"}, {"count": "setCount"})
-    js_stmt = _js_action_statement({"op": "js", "value": "return;"}, {"count": "setCount"})
+    js_stmt = _js_action_statement(
+        {"op": "js", "value": "return;"}, {"count": "setCount"}
+    )
     conditional_stmt = _js_action_statement(
         {
             "op": "add",
@@ -160,7 +164,9 @@ def test_codegen_additional_runtime_and_action_branches() -> None:
     assert "!value" in toggle_stmt
 
     try:
-        _js_action_statement({"op": "set", "state": "missing", "value": 1}, {"x": "setX"})
+        _js_action_statement(
+            {"op": "set", "state": "missing", "value": 1}, {"x": "setX"}
+        )
     except ValueError:
         pass
     else:
@@ -272,3 +278,34 @@ class App(Component):
     # Given / When: cast runtime expression branches for int/unknown cast
     assert "Number(" in _js_runtime_value_expression(_CastReference("int", 2), "props")
     assert _js_runtime_value_expression(_CastReference("custom", 2), "props") == "2"
+
+
+def test_codegen_lifecycle_calls_are_sequential_with_snapshot_payload() -> None:
+    python_block = """
+class Features(Component):
+    def setup(self, props):
+        return {
+            "props": props,
+            "state": {"mounted": False},
+            "data": {},
+            "actions": {},
+            "lifecycle": {
+                "created": ["load"],
+                "mounted": ["mark"],
+            },
+        }
+"""
+
+    script = build_client_script(python_block)
+
+    assert "window.__luaSpaLifecycleChain" in script
+    assert "window.__luaSpaLifecycleSnapshot" in script
+    assert "var previousChain = window.__luaSpaLifecycleChain[scopePrefix]" in script
+    assert "requestPromise = previousChain" in script
+    assert "lifecycleSnapshot.props" in script
+    assert "lifecycleSnapshot.state" in script
+    assert "componentInstanceId" in script
+    assert (
+        "function setup({ useState, props, componentName, componentInstanceId })"
+        in script
+    )
