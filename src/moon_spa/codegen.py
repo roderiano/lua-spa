@@ -43,14 +43,10 @@ def build_client_script(python_block: str) -> str:
         raw_spec = client_factory({})
     except TypeError:
         raw_spec = client_factory()
-    props_spec, state_spec, actions_spec, lifecycle_spec = normalize_client_spec(
-        raw_spec
-    )
+    props_spec, state_spec, actions_spec, lifecycle_spec = normalize_client_spec(raw_spec)
 
     state_fields = list(state_spec.items())
-    lines: list[str] = [
-        "function setup({ useState, props, componentName, componentInstanceId }) {"
-    ]
+    lines: list[str] = ["function setup({ useState, props, componentName, componentInstanceId }) {"]
     props_literal = _js_literal(props_spec)
     lines.append("  const incomingProps = props || {};")
     lines.append(
@@ -60,9 +56,7 @@ def build_client_script(python_block: str) -> str:
     lines.append(
         f"  const resolvedProps = Object.assign({{}}, {props_literal}, contextSync, incomingProps);"
     )
-    lines.append(
-        "  if (Object.prototype.hasOwnProperty.call(resolvedProps, '__context')) {"
-    )
+    lines.append("  if (Object.prototype.hasOwnProperty.call(resolvedProps, '__context')) {")
     lines.append("    delete resolvedProps.__context;")
     lines.append("  }")
 
@@ -164,15 +158,11 @@ def build_client_script(python_block: str) -> str:
     lines.append("    }")
     lines.append("    var requestPromise;")
     lines.append("    if (kind === 'lifecycle') {")
-    lines.append(
-        "      window.__moonSpaLifecycleChain = window.__moonSpaLifecycleChain || {};"
-    )
+    lines.append("      window.__moonSpaLifecycleChain = window.__moonSpaLifecycleChain || {};")
     lines.append(
         "      window.__moonSpaLifecycleSnapshot = window.__moonSpaLifecycleSnapshot || {};"
     )
-    lines.append(
-        "      window.__moonSpaLifecyclePending = window.__moonSpaLifecyclePending || {};"
-    )
+    lines.append("      window.__moonSpaLifecyclePending = window.__moonSpaLifecyclePending || {};")
     lines.append(
         "      var scopePrefix = String(componentName || '') + ':' + String(componentInstanceId || 'global');"
     )
@@ -188,9 +178,7 @@ def build_client_script(python_block: str) -> str:
     )
     lines.append("          var requestProps = resolvedProps;")
     lines.append("          var requestState = state;")
-    lines.append(
-        "          if (lifecycleSnapshot && typeof lifecycleSnapshot === 'object') {"
-    )
+    lines.append("          if (lifecycleSnapshot && typeof lifecycleSnapshot === 'object') {")
     lines.append(
         "            if (lifecycleSnapshot.props && typeof lifecycleSnapshot.props === 'object') {"
     )
@@ -206,18 +194,14 @@ def build_client_script(python_block: str) -> str:
     lines.append("        })")
     lines.append("        .then(function (payload) {")
     lines.append("          if (payload && payload.ok === true && payload.result) {")
-    lines.append(
-        "            window.__moonSpaLifecycleSnapshot[scopePrefix] = payload.result;"
-    )
+    lines.append("            window.__moonSpaLifecycleSnapshot[scopePrefix] = payload.result;")
     lines.append("          }")
     lines.append("          return payload;")
     lines.append("        });")
     lines.append("      window.__moonSpaLifecycleChain[scopePrefix] = requestPromise;")
     lines.append("      window.__moonSpaLifecyclePending[pendingKey] = requestPromise;")
     lines.append("      requestPromise.finally(function () {")
-    lines.append(
-        "        if (window.__moonSpaLifecyclePending[pendingKey] === requestPromise) {"
-    )
+    lines.append("        if (window.__moonSpaLifecyclePending[pendingKey] === requestPromise) {")
     lines.append("          delete window.__moonSpaLifecyclePending[pendingKey];")
     lines.append("        }")
     lines.append("      });")
@@ -231,9 +215,7 @@ def build_client_script(python_block: str) -> str:
     for action_name_raw, action_cfg in actions_spec.items():
         action_name = str(action_name_raw)
         action_operation = _normalize_action_operation(action_cfg)
-        action_body = _js_action_statement(
-            action_operation, setter_by_state, value_by_state
-        )
+        action_body = _js_action_statement(action_operation, setter_by_state, value_by_state)
         lines.append(f"      {action_name}: function () {{")
         lines.append(f"        {action_body}")
         lines.append("      },")
@@ -298,7 +280,9 @@ def _js_initial_state_expression(config: Any, prop_var_name: str) -> str:
 
         prop_expr = f"{prop_var_name}[{_js_literal(str(from_prop))}]"
         fallback = _js_literal(default_value)
-        base_expr = f"(({prop_expr}) !== undefined && ({prop_expr}) !== null ? ({prop_expr}) : {fallback})"
+        base_expr = (
+            f"(({prop_expr}) !== undefined && ({prop_expr}) !== null ? ({prop_expr}) : {fallback})"
+        )
 
         if cast_kind == "int":
             return f"Number({base_expr})"
@@ -424,15 +408,11 @@ def _js_action_statement(
         for step in steps:
             if not isinstance(step, Mapping):
                 raise ValueError("multi action step must be a mapping")
-            statements.append(
-                _js_action_statement(step, setter_by_state, value_by_state)
-            )
+            statements.append(_js_action_statement(step, setter_by_state, value_by_state))
         return " ".join(statements)
 
     if str(operation.get("op", "")) == "log":
-        value_literal = _js_runtime_value_expression(
-            operation.get("value"), "resolvedProps"
-        )
+        value_literal = _js_runtime_value_expression(operation.get("value"), "resolvedProps")
         return f"console.log('[moon-spa]', {value_literal});"
 
     if str(operation.get("op", "")) == "js":
@@ -445,9 +425,7 @@ def _js_action_statement(
         prop_name = operation.get("prop")
         if not isinstance(prop_name, str) or prop_name.strip() == "":
             raise ValueError("set_prop operation requires string 'prop'")
-        value_literal = _js_runtime_value_expression(
-            operation.get("value"), "resolvedProps"
-        )
+        value_literal = _js_runtime_value_expression(operation.get("value"), "resolvedProps")
         prop_literal = _js_literal(prop_name)
         return f"resolvedProps[{prop_literal}] = {value_literal};"
 
@@ -476,9 +454,7 @@ def _js_action_statement(
 
     setter = setter_by_state[state_name]
     op_kind = str(operation.get("op", "set"))
-    value_literal = _js_runtime_value_expression(
-        operation.get("value"), "resolvedProps"
-    )
+    value_literal = _js_runtime_value_expression(operation.get("value"), "resolvedProps")
 
     if op_kind == "add":
         statement = f"{setter}(function (value) {{ return value + {value_literal}; }});"

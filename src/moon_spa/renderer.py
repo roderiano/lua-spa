@@ -104,9 +104,7 @@ def apply_i_model(template: str, context: Mapping[str, Any]) -> str:
         if lower_tag == "input":
             input_type_match = _TYPE_ATTR_PATTERN.search(clean_attrs)
             input_type = (
-                input_type_match.group("value").strip().lower()
-                if input_type_match
-                else "text"
+                input_type_match.group("value").strip().lower() if input_type_match else "text"
             )
             if input_type in {"checkbox", "radio"}:
                 if bool(resolved_value):
@@ -256,9 +254,7 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
             if not m:
                 continue
             target_expr, iter_expr = m.group(1), m.group(2)
-            targets = [
-                target.strip() for target in target_expr.split(",") if target.strip()
-            ]
+            targets = [target.strip() for target in target_expr.split(",") if target.strip()]
             if not targets:
                 continue
             items = _normalize_iterable(evamoonte_expression(iter_expr, context))
@@ -629,9 +625,7 @@ def _replace_conditional_tag(match: re.Match[str], context: Mapping[str, Any]) -
     return f"{opening}{match.group('body')}</{tag_name}>"
 
 
-def _replace_conditional_self_closing_tag(
-    match: re.Match[str], context: Mapping[str, Any]
-) -> str:
+def _replace_conditional_self_closing_tag(match: re.Match[str], context: Mapping[str, Any]) -> str:
     """Replace a self-closing conditional tag, removing it if the condition is false.
 
     Args:
@@ -721,9 +715,7 @@ def build_server_state(python_block: str, props: Mapping[str, Any]) -> dict[str,
     return server_state
 
 
-def resolve_python_state_initial_value(
-    state_cfg: Any, resolved_props: Mapping[str, Any]
-) -> Any:
+def resolve_python_state_initial_value(state_cfg: Any, resolved_props: Mapping[str, Any]) -> Any:
     """Resolve the initial value of a state field.
 
     Checks for init() callable, from_prop reference, or default value.
@@ -741,9 +733,7 @@ def resolve_python_state_initial_value(
 
     init_candidate = state_cfg.get("init")
     if callable(init_candidate):
-        state_self = SimpleNamespace(
-            props=to_namespace(resolved_props), state=SimpleNamespace()
-        )
+        state_self = SimpleNamespace(props=to_namespace(resolved_props), state=SimpleNamespace())
         try:
             return init_candidate(state_self)
         except TypeError:

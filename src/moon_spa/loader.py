@@ -13,9 +13,7 @@ from typing import Mapping
 from moon_spa.codegen import build_client_script
 from moon_spa.types import ComponentDefinition
 
-_IMPORT_PATTERN = re.compile(
-    r"^\s*@import\s+([A-Za-z_][A-Za-z0-9_]*)\s+from\s+['\"](.+?)['\"]\s*$"
-)
+_IMPORT_PATTERN = re.compile(r"^\s*@import\s+([A-Za-z_][A-Za-z0-9_]*)\s+from\s+['\"](.+?)['\"]\s*$")
 _TEMPLATE_PATTERN = re.compile(r"<template>(.*?)</template>", re.IGNORECASE | re.DOTALL)
 _PYTHON_PATTERN = re.compile(r"<python>(.*?)</python>", re.IGNORECASE | re.DOTALL)
 _STYLE_SRC_PATTERN = re.compile(
@@ -169,12 +167,8 @@ class ComponentLoader:
         if template_match is None:
             outside_template = body
         else:
-            outside_template = (
-                body[: template_match.start()] + body[template_match.end() :]
-            )
-        style_tags = [
-            match.group(0) for match in _STYLE_SRC_PATTERN.finditer(outside_template)
-        ]
+            outside_template = body[: template_match.start()] + body[template_match.end() :]
+        style_tags = [match.group(0) for match in _STYLE_SRC_PATTERN.finditer(outside_template)]
         if not style_tags:
             return ""
         return self._inline_style_src_tags("\n".join(style_tags), base_dir)

@@ -3,12 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
-from lua_spa.app import create_default_framework
-from lua_spa.framework import SpaFramework
-import lua_spa.framework as framework_module
+from moon_spa.app import create_default_framework
+from moon_spa.framework import SpaFramework
+import moon_spa.framework as framework_module
 
 
-def _assert_raises(exc_type: type[BaseException], fn: Callable[..., Any], *args: Any) -> None:
+def _assert_raises(
+    exc_type: type[BaseException], fn: Callable[..., Any], *args: Any
+) -> None:
     try:
         fn(*args)
     except exc_type:
@@ -65,7 +67,7 @@ def test_build_view_renders_html_shell() -> None:
     # Then: the output is a complete HTML document with SPA registry
     assert "<!doctype html>" in html.lower()
     assert "<style>" in html
-    assert "lua-spa-registry" in html
+    assert "moon-spa-registry" in html
 
 
 def test_framework_parse_attributes_and_render_tag_match() -> None:
@@ -123,9 +125,9 @@ def test_framework_router_and_serialize_paths(tmp_path: Path) -> None:
     # When: serializing a payload with special characters and rendering a router view
     escaped = framework._serialize_json_payload({"x": "</script>"})
     router_framework = SpaFramework(
-        view_file=root / "src" / "lua_template" / "index.lspa",
-        components_dir=root / "src" / "lua_template" / "components",
-        static_dir=root / "src" / "lua_template" / "static",
+        view_file=root / "src" / "moon_template" / "index.lspa",
+        components_dir=root / "src" / "moon_template" / "components",
+        static_dir=root / "src" / "moon_template" / "static",
         router={
             "initial_path": "/missing",
             "routes": [
@@ -137,7 +139,7 @@ def test_framework_router_and_serialize_paths(tmp_path: Path) -> None:
 
     # Then: script tags are escaped and the SPA registry is present
     assert "<\\/script>" in escaped
-    assert "lua-spa-registry" in html
+    assert "moon-spa-registry" in html
 
 
 def test_framework_serve_and_unknown_component(monkeypatch: Any) -> None:

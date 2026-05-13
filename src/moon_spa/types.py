@@ -128,16 +128,12 @@ def load_moon_template_config(config_file: Path) -> TemplateConfig:
     host = str(server.get("host", "127.0.0.1"))
     raw_port = server.get("port", 8000)
     page_title = str(
-        data.get(
-            "page_title", "moon-spa — Python Framework for Single Page Applications"
-        )
+        data.get("page_title", "moon-spa — Python Framework for Single Page Applications")
     )
     try:
         port = int(raw_port)
     except (TypeError, ValueError) as error:
-        raise ValueError(
-            "moon_template config field 'server.port' must be an integer"
-        ) from error
+        raise ValueError("moon_template config field 'server.port' must be an integer") from error
 
     return TemplateConfig(
         mount_id=mount_id,

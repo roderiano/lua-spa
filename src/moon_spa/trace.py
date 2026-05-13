@@ -35,9 +35,7 @@ class _PropReference:
     name: str
     default: Any = None
 
-    def _binary(
-        self, op: str, other: Any, reverse: bool = False
-    ) -> "_BinaryExpression":
+    def _binary(self, op: str, other: Any, reverse: bool = False) -> "_BinaryExpression":
         left = other if reverse else self
         right = self if reverse else other
         return _BinaryExpression(op=op, left=left, right=right)
@@ -96,9 +94,7 @@ class _CastReference:
     cast: str
     value: Any
 
-    def _binary(
-        self, op: str, other: Any, reverse: bool = False
-    ) -> "_BinaryExpression":
+    def _binary(self, op: str, other: Any, reverse: bool = False) -> "_BinaryExpression":
         left = other if reverse else self
         right = self if reverse else other
         return _BinaryExpression(op=op, left=left, right=right)

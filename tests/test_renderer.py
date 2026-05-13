@@ -4,7 +4,7 @@ from typing import Any, Callable
 import re
 from unittest.mock import patch
 
-from lua_spa.renderer import (
+from moon_spa.renderer import (
     _normalize_iterable,
     apply_i_model,
     apply_server_conditionals,
@@ -12,7 +12,7 @@ from lua_spa.renderer import (
     build_python_context,
     build_scoped_context,
     build_server_state,
-    evaluate_expression,
+    evamoonte_expression,
     interpolate,
     _replace_conditional_self_closing_tag,
     _replace_conditional_tag,
@@ -22,7 +22,9 @@ from lua_spa.renderer import (
 )
 
 
-def _assert_raises(exc_type: type[BaseException], fn: Callable[..., Any], *args: Any) -> None:
+def _assert_raises(
+    exc_type: type[BaseException], fn: Callable[..., Any], *args: Any
+) -> None:
     try:
         fn(*args)
     except exc_type:
@@ -79,12 +81,14 @@ def test_render_template_with_directives_applies_i_model() -> None:
 def test_renderer_helpers_and_expression_eval() -> None:
     # Given: a multi-layer context and an unknown variable expression
 
-    # When: helpers build the scoped context and evaluate expressions
-    scoped = build_scoped_context({"props": {"a": 1}, "state": {"b": 2}, "py": {"c": 3}})
-    result = evaluate_expression(
+    # When: helpers build the scoped context and evamoonte expressions
+    scoped = build_scoped_context(
+        {"props": {"a": 1}, "state": {"b": 2}, "py": {"c": 3}}
+    )
+    result = evamoonte_expression(
         "a + b + c", {"props": {"a": 1}, "state": {"b": 2}, "py": {"c": 3}}
     )
-    missing = evaluate_expression("unknown + 1", {"props": {}, "state": {}, "py": {}})
+    missing = evamoonte_expression("unknown + 1", {"props": {}, "state": {}, "py": {}})
 
     # Then: scoped merges all layers; missing variables return None
     assert scoped["a"] == 1
@@ -142,7 +146,9 @@ class App(Component):
 """
 
     # When: interpolate, build_python_context, and build_server_state are called
-    text = interpolate("<p>{{ title }}</p>", {"props": {"title": "A"}, "state": {}, "py": {}})
+    text = interpolate(
+        "<p>{{ title }}</p>", {"props": {"title": "A"}, "state": {}, "py": {}}
+    )
     context = build_python_context(py_block, {"title": "Z"})
     state = build_server_state(py_block, {})
 
@@ -159,9 +165,13 @@ def test_renderer_resolve_python_state_initial_value_paths() -> None:
 
     # Then: values are cast to the correct Python types
     assert resolve_python_state_initial_value({"default": "1", "cast": "int"}, {}) == 1
-    assert resolve_python_state_initial_value({"default": "1", "cast": "float"}, {}) == 1.0
+    assert (
+        resolve_python_state_initial_value({"default": "1", "cast": "float"}, {}) == 1.0
+    )
     assert resolve_python_state_initial_value({"default": 1, "cast": "str"}, {}) == "1"
-    assert resolve_python_state_initial_value({"default": 0, "cast": "bool"}, {}) is False
+    assert (
+        resolve_python_state_initial_value({"default": 0, "cast": "bool"}, {}) is False
+    )
     assert resolve_python_state_initial_value({"default": 5, "cast": "raw"}, {}) == 5
 
 
@@ -202,8 +212,12 @@ def test_renderer_private_conditional_replace_helpers() -> None:
     assert self_match is not None
 
     # When: replace helpers are called with true and false contexts
-    kept = _replace_conditional_tag(pair, {"props": {"ok": True}, "state": {}, "py": {}})
-    removed = _replace_conditional_tag(pair, {"props": {"ok": False}, "state": {}, "py": {}})
+    kept = _replace_conditional_tag(
+        pair, {"props": {"ok": True}, "state": {}, "py": {}}
+    )
+    removed = _replace_conditional_tag(
+        pair, {"props": {"ok": False}, "state": {}, "py": {}}
+    )
     kept_self = _replace_conditional_self_closing_tag(
         self_match, {"props": {"ok": True}, "state": {}, "py": {}}
     )
@@ -275,7 +289,7 @@ def test_renderer_loop_targets_and_reserved_keys_path() -> None:
     # Given: multi-target loop with scalar values and a reserved top-level key
     ctx = {"props": {"pairs": [1, 2], "props": "shadow"}, "state": {}, "py": {}}
 
-    # When: loops and scoped context are evaluated
+    # When: loops and scoped context are evamoonted
     html = apply_server_loops(
         '<ul><li i-for="a, b in pairs">{{ a }}-{{ b is None }}</li></ul>',
         ctx,
@@ -328,9 +342,13 @@ def test_renderer_conditional_replace_helpers_exception_fallbacks() -> None:
     assert pair is not None
     assert self_match is not None
 
-    # When: evaluate_expression raises unexpectedly
-    with patch("lua_spa.renderer.evaluate_expression", side_effect=RuntimeError("boom")):
-        replaced_pair = _replace_conditional_tag(pair, {"props": {}, "state": {}, "py": {}})
+    # When: evamoonte_expression raises unexpectedly
+    with patch(
+        "moon_spa.renderer.evamoonte_expression", side_effect=RuntimeError("boom")
+    ):
+        replaced_pair = _replace_conditional_tag(
+            pair, {"props": {}, "state": {}, "py": {}}
+        )
         replaced_self = _replace_conditional_self_closing_tag(
             self_match, {"props": {}, "state": {}, "py": {}}
         )

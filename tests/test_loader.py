@@ -1,12 +1,12 @@
 from pathlib import Path
 
-from lua_spa.loader import ComponentLoader
+from moon_spa.loader import ComponentLoader
 
 
 def test_loader_loads_entry_and_imported_components() -> None:
     # Given: the project components directory
     root = Path(__file__).resolve().parents[1]
-    components_dir = root / "src" / "lua_template" / "components"
+    components_dir = root / "src" / "moon_template" / "components"
     loader = ComponentLoader(components_dir)
 
     # When: the App entry component is loaded
@@ -21,7 +21,7 @@ def test_loader_loads_entry_and_imported_components() -> None:
 def test_loader_inlines_component_external_styles() -> None:
     # Given: a components directory with external CSS files
     root = Path(__file__).resolve().parents[1]
-    components_dir = root / "src" / "lua_template" / "components"
+    components_dir = root / "src" / "moon_template" / "components"
     loader = ComponentLoader(components_dir)
 
     # When: App entry is loaded
