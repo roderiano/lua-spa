@@ -99,3 +99,71 @@
   color: var(--ifm-color-emphasis-700);
   margin: 0;
 }
+
+/* ========== Light Theme ========== */
+
+[data-theme='light'] .heroBanner {
+  background: linear-gradient(135deg, #f0f3f8 0%, #ffffff 100%);
+  border-bottom: 1px solid #dde3ec;
+  box-shadow: 0 4px 12px rgba(91, 122, 200, 0.08);
+}
+
+[data-theme='light'] .heroTitle {
+  color: #1a1f2e;
+  text-shadow: 0 1px 2px rgba(240, 243, 248, 0.3);
+  font-weight: 900;
+  background: linear-gradient(135deg, #1a1f2e 0%, #4a5fa8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -1px;
+}
+
+[data-theme='light'] .heroSubtitle {
+  color: #4a5fa8;
+  font-weight: 600;
+}
+
+[data-theme='light'] .heroTagline {
+  color: #6b7b94;
+}
+
+[data-theme='light'] .install {
+  background: #f0f3f8;
+  border: 1px solid #dde3ec;
+  color: #4a5fa8;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+[data-theme='light'] .install:hover {
+  background: #dde3ec;
+  border-color: #c5d3f0;
+  color: #1a1f2e;
+}
+
+[data-theme='light'] .featureCard {
+  background: #ffffff;
+  border: 1px solid #dde3ec;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(91, 122, 200, 0.04);
+  transition: all 0.3s ease;
+}
+
+[data-theme='light'] .featureCard:hover {
+  border-color: #c5d3f0;
+  box-shadow: 0 8px 20px rgba(91, 122, 200, 0.12);
+  transform: translateY(-4px);
+  background: #fafbfc;
+}
+
+[data-theme='light'] .featureCard h3 {
+  color: #1a1f2e;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+[data-theme='light'] .featureCard p {
+  color: #6b7b94;
+  line-height: 1.6;
+}
