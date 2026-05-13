@@ -1,4 +1,4 @@
-"""Main package for the lua-spa framework.
+"""Main package for the moon-spa framework.
 
 Core modules:
   - framework: SpaFramework, main entry point for the backend
@@ -11,9 +11,9 @@ Core modules:
   - server: HTTP server for serving the SPA
 """
 
-from lua_spa.app import create_default_framework
-from lua_spa.framework import SpaFramework
-from lua_spa.types import ClientMethods, Component, ComponentDefinition, StateField
+from moon_spa.app import create_default_framework
+from moon_spa.framework import SpaFramework
+from moon_spa.types import ClientMethods, Component, ComponentDefinition, StateField
 
 __all__ = [
     "SpaFramework",

@@ -1,14 +1,16 @@
 from pathlib import Path
 from typing import Any, Callable
 
-from lua_spa.app import (
+from moon_spa.app import (
     create_default_framework,
     get_template_source_directory,
     resolve_template_directory,
 )
 
 
-def _assert_raises(exc_type: type[BaseException], fn: Callable[..., Any], *args: Any) -> None:
+def _assert_raises(
+    exc_type: type[BaseException], fn: Callable[..., Any], *args: Any
+) -> None:
     try:
         fn(*args)
     except exc_type:
@@ -39,12 +41,12 @@ def test_build_view_contains_spa_payload() -> None:
     html = framework.build_view()
 
     # Then: the rendered HTML contains SPA bootstrap markers
-    assert "lua-spa-registry" in html
-    assert "lua-spa-config" in html
+    assert "moon-spa-registry" in html
+    assert "moon-spa-config" in html
     assert "Python Framework for Single Page Applications" in html
     assert 'id="app"' in html
     assert 'class="hero__title"' in html
-    assert "window.LuaSpaRuntime.bootstrap()" in html
+    assert "window.SpaRuntime.bootstrap()" in html
 
 
 def test_build_view_allows_props_override() -> None:
@@ -56,7 +58,7 @@ def test_build_view_allows_props_override() -> None:
     html = framework.build_view({"route": "Override"})
 
     # Then: the HTML contains the SPA config and the overridden value
-    assert "lua-spa-config" in html
+    assert "moon-spa-config" in html
     assert "Override" in html
 
 
@@ -72,9 +74,9 @@ def test_get_template_source_directory_exists() -> None:
 
 
 def test_resolve_template_directory_prefers_src_layout(tmp_path: Path) -> None:
-    # Given: a project with src/lua_template layout containing required files
+    # Given: a project with src/moon_template layout containing required files
     root = tmp_path
-    template = root / "src" / "lua_template"
+    template = root / "src" / "moon_template"
     template.mkdir(parents=True)
     (template / "spa.config.json").write_text("{}", encoding="utf-8")
     (template / "index.lspa").write_text("<html></html>", encoding="utf-8")
@@ -87,7 +89,7 @@ def test_resolve_template_directory_prefers_src_layout(tmp_path: Path) -> None:
 
 
 def test_resolve_template_directory_raises_when_missing(tmp_path: Path) -> None:
-    # Given: a project root with no lua_template directory
+    # Given: a project root with no moon_template directory
 
     # When: resolve_template_directory is called
 
@@ -98,10 +100,10 @@ def test_resolve_template_directory_raises_when_missing(tmp_path: Path) -> None:
 def test_get_template_source_directory_raises_when_template_missing(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
-    # Given: a fake module file path whose parent package has no lua_template directory
-    import lua_spa.app as app_module
+    # Given: a fake module file path whose parent package has no moon_template directory
+    import moon_spa.app as app_module
 
-    fake_file = Path("C:/tmp/nonexistent_pkg/src/lua_spa/app.py")
+    fake_file = Path("C:/tmp/nonexistent_pkg/src/moon_spa/app.py")
     monkeypatch.setattr(app_module, "__file__", str(fake_file))
     monkeypatch.chdir(tmp_path)
 
@@ -117,13 +119,13 @@ def test_get_template_source_directory_raises_when_template_missing(
 def test_get_template_source_directory_uses_package_local_fallback(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
-    # Given: a layout where lua_template lives inside the lua_spa package directory
-    import lua_spa.app as app_module
+    # Given: a layout where moon_template lives inside the moon_spa package directory
+    import moon_spa.app as app_module
 
-    package_dir = tmp_path / "site-packages" / "lua_spa"
+    package_dir = tmp_path / "site-packages" / "moon_spa"
     package_dir.mkdir(parents=True)
     (package_dir / "app.py").write_text("", encoding="utf-8")
-    package_template = package_dir / "lua_template"
+    package_template = package_dir / "moon_template"
     package_template.mkdir()
     (package_template / "spa.config.json").write_text("{}", encoding="utf-8")
     (package_template / "index.lspa").write_text("<html></html>", encoding="utf-8")
@@ -140,13 +142,13 @@ def test_get_template_source_directory_uses_package_local_fallback(
 def test_get_template_source_directory_uses_repository_debug_layout(
     monkeypatch: Any, tmp_path: Path
 ) -> None:
-    # Given: a source-debug layout where app.py is under src/lua_spa and scaffold under src/lua_template
-    import lua_spa.app as app_module
+    # Given: a source-debug layout where app.py is under src/moon_spa and scaffold under src/moon_template
+    import moon_spa.app as app_module
 
-    app_file = tmp_path / "repo" / "src" / "lua_spa" / "app.py"
+    app_file = tmp_path / "repo" / "src" / "moon_spa" / "app.py"
     app_file.parent.mkdir(parents=True)
     app_file.write_text("", encoding="utf-8")
-    debug_template = tmp_path / "repo" / "src" / "lua_template"
+    debug_template = tmp_path / "repo" / "src" / "moon_template"
     debug_template.mkdir(parents=True)
     (debug_template / "spa.config.json").write_text("{}", encoding="utf-8")
     (debug_template / "index.lspa").write_text("<html></html>", encoding="utf-8")

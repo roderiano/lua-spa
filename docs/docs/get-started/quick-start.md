@@ -10,16 +10,16 @@ From zero to a running SPA in under 5 minutes.
 ## 1. Create a project
 
 ```bash
-lua-spa create my_app
+moon-spa create my_app
 cd my_app
 ```
 
-This copies the built-in `lua_template` scaffold into `./my_app/`.
+This copies the built-in `moon_template` scaffold into `./my_app/`.
 
 ## 2. Run the dev server
 
 ```bash
-lua-spa serve
+moon-spa serve
 ```
 
 Open [http://127.0.0.1:8000](http://127.0.0.1:8000).
@@ -27,7 +27,7 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000).
 ## 3. Live reload
 
 ```bash
-lua-spa serve --reload
+moon-spa serve --reload
 ```
 
 The server watches `.lspa`, `.py`, `.css`, and `.js` files. The browser refreshes automatically when any file changes.
@@ -36,7 +36,7 @@ The server watches `.lspa`, `.py`, `.css`, and `.js` files. The browser refreshe
 
 ```mermaid
 sequenceDiagram
-    participant CLI as lua-spa serve
+    participant CLI as moon-spa serve
     participant FW as SpaFramework
     participant Loader as ComponentLoader
     participant Server as HTTP Server

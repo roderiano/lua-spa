@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from lua_spa.codegen import (
-    _evaluate_state_init_callable,
+from moon_spa.codegen import (
+    _evamoonte_state_init_callable,
     _js_action_statement,
     _js_initial_state_expression,
     _js_literal,
@@ -11,7 +11,7 @@ from lua_spa.codegen import (
     _normalize_action_operation,
     build_client_script,
 )
-from lua_spa.trace import _BinaryExpression, _CastReference, _PropReference
+from moon_spa.trace import _BinaryExpression, _CastReference, _PropReference
 
 
 def test_codegen_action_and_value_helpers() -> None:
@@ -115,7 +115,7 @@ def test_codegen_fallback_and_error_paths() -> None:
     # When: error paths and fallback branches are exercised
 
     # Then: each edge case behaves as expected
-    assert _evaluate_state_init_callable(InitWrap()) is not None
+    assert _evamoonte_state_init_callable(InitWrap()) is not None
 
     assert _normalize_action_operation({"op": "log", "value": "x"})["op"] == "log"
     try:
@@ -298,9 +298,9 @@ class Features(Component):
 
     script = build_client_script(python_block)
 
-    assert "window.__luaSpaLifecycleChain" in script
-    assert "window.__luaSpaLifecycleSnapshot" in script
-    assert "var previousChain = window.__luaSpaLifecycleChain[scopePrefix]" in script
+    assert "window.__moonSpaLifecycleChain" in script
+    assert "window.__moonSpaLifecycleSnapshot" in script
+    assert "var previousChain = window.__moonSpaLifecycleChain[scopePrefix]" in script
     assert "requestPromise = previousChain" in script
     assert "lifecycleSnapshot.props" in script
     assert "lifecycleSnapshot.state" in script

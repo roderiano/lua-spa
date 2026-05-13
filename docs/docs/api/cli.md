@@ -5,20 +5,20 @@ title: CLI
 
 # CLI Reference
 
-The `lua-spa` command-line tool.
+The `moon-spa` command-line tool.
 
 ```
-lua-spa <command> [options]
+moon-spa <command> [options]
 ```
 
 ## Commands
 
-### `lua-spa create <name>`
+### `moon-spa create <name>`
 
-Scaffold a new project by copying the built-in `lua_template` into a new directory.
+Scaffold a new project by copying the built-in `moon_template` into a new directory.
 
 ```bash
-lua-spa create my_app
+moon-spa create my_app
 ```
 
 | Argument | Description |
@@ -28,7 +28,7 @@ lua-spa create my_app
 **Optional path:**
 
 ```bash
-lua-spa create my_app ./apps
+moon-spa create my_app ./apps
 ```
 
 | Argument | Default | Description |
@@ -41,13 +41,13 @@ lua-spa create my_app ./apps
 
 ---
 
-### `lua-spa serve`
+### `moon-spa serve`
 
 Start the development server.
 
 ```bash
-lua-spa serve
-lua-spa serve --reload
+moon-spa serve
+moon-spa serve --reload
 ```
 
 | Option | Description |
@@ -57,7 +57,7 @@ lua-spa serve --reload
 Prints the server URL on startup:
 
 ```
-Serving lua-spa at http://127.0.0.1:8000
+Serving moon-spa at http://127.0.0.1:8000
 
 With `--reload`, the watcher path is shown relative to the current working directory:
 
@@ -67,20 +67,20 @@ Live reload activated. Watching src for file changes...
 
 ---
 
-### `lua-spa new component <name> [path]`
+### `moon-spa new component <name> [path]`
 
 Create a new component by copying `ComponentTemplate`, renaming files/content,
-and writing it into `lua_template/components/<name>/`.
+and writing it into `moon_template/components/<name>/`.
 
 ```bash
-lua-spa new component UserCard
-lua-spa new component UserCard ./apps/my_project
+moon-spa new component UserCard
+moon-spa new component UserCard ./apps/my_project
 ```
 
 | Argument | Default | Description |
 |---|---|---|
 | `name` | — | Component name (Python identifier, e.g. `UserCard`) |
-| `path` | `.` | Project root where `lua_template` exists |
+| `path` | `.` | Project root where `moon_template` exists |
 
 CLI output includes the exact created locations:
 
@@ -98,20 +98,20 @@ Live reload activated. Watching src for file changes...
 
 ---
 
-### `lua-spa new component <name> [path]`
+### `moon-spa new component <name> [path]`
 
 Create a new component by copying `ComponentTemplate`, renaming files/content,
-and writing it into `lua_template/components/<name>/`.
+and writing it into `moon_template/components/<name>/`.
 
 ```bash
-lua-spa new component UserCard
-lua-spa new component UserCard ./apps/my_project
+moon-spa new component UserCard
+moon-spa new component UserCard ./apps/my_project
 ```
 
 | Argument | Default | Description |
 |---|---|---|
 | `name` | — | Component name (Python identifier, e.g. `UserCard`) |
-| `path` | `.` | Project root where `lua_template` exists |
+| `path` | `.` | Project root where `moon_template` exists |
 
 CLI output includes the exact created locations:
 
@@ -123,16 +123,16 @@ Style created at: <...>/components/UserCard/UserCard.css
 ## Invoke via Python module
 
 ```bash
-python -m lua_spa serve --reload
-python -m lua_spa create my_app
-python -m lua_spa new component UserCard
+python -m moon_spa serve --reload
+python -m moon_spa create my_app
+python -m moon_spa new component UserCard
 ```
 
 ## Serve flow
 
 ```mermaid
 flowchart TD
-    A[lua-spa serve] --> B[create_default_framework]
+    A[moon-spa serve] --> B[create_default_framework]
     B --> C[resolve_template_directory]
     C --> D["load spa.config.json"]
     D --> E[SpaFramework.__init__]
@@ -140,5 +140,5 @@ flowchart TD
     F --> G[SpaServer.serve]
     G --> H[ThreadingHTTPServer listening]
     H --> I[GET /__reload__ stream when --reload]
-    H --> J[POST /__lua_spa_action for server_call]
+    H --> J[POST /__moon_spa_action for server_call]
 ```

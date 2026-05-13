@@ -5,9 +5,9 @@ title: SpaFramework
 
 # SpaFramework
 
-`lua_spa.framework.SpaFramework`
+`moon_spa.framework.SpaFramework`
 
-The main entry point for the lua-spa Python API. Orchestrates loading, rendering, and serving.
+The main entry point for the moon-spa Python API. Orchestrates loading, rendering, and serving.
 
 ## Class diagram
 
@@ -20,7 +20,7 @@ classDiagram
         +tuple server_address
         +tuple component_names
 
-        +from_lua_template_directory(path) SpaFramework
+        +from_moon_template_directory(path) SpaFramework
         +__init__(view_file, components_dir, ...)
         +build_view(props) str
         +reload_components() None
@@ -43,18 +43,18 @@ classDiagram
 
 ## Factory method
 
-### `SpaFramework.from_lua_template_directory(lua_template_dir)`
+### `SpaFramework.from_moon_template_directory(moon_template_dir)`
 
-Creates a framework instance from a `lua_template/` directory.
+Creates a framework instance from a `moon_template/` directory.
 
 ```python
 from pathlib import Path
-from lua_spa.framework import SpaFramework
+from moon_spa.framework import SpaFramework
 
-fw = SpaFramework.from_lua_template_directory(Path("my_app"))
+fw = SpaFramework.from_moon_template_directory(Path("my_app"))
 ```
 
-Reads `spa.config.json` from `lua_template_dir` to configure all options.
+Reads `spa.config.json` from `moon_template_dir` to configure all options.
 
 **Raises:** `FileNotFoundError` if `spa.config.json` or `index.lspa` are missing.
 
@@ -70,7 +70,7 @@ SpaFramework(
     default_props: Mapping[str, Any] | None = None,
     host: str = "127.0.0.1",
     port: int = 8000,
-    page_title: str = "lua-spa",
+    page_title: str = "moon-spa",
     router: Mapping[str, Any] | None = None,
 )
 ```
@@ -85,7 +85,7 @@ SpaFramework(
 | `default_props` | `Mapping \| None` | `None` | Default props for the entry component |
 | `host` | `str` | `"127.0.0.1"` | Server bind host |
 | `port` | `int` | `8000` | Server bind port |
-| `page_title` | `str` | `"lua-spa"` | HTML `<title>` value |
+| `page_title` | `str` | `"moon-spa"` | HTML `<title>` value |
 | `router` | `Mapping \| None` | `None` | Router config (same shape as `spa.config.json` `router`) |
 
 ## Methods
@@ -136,7 +136,7 @@ Executes callable actions/lifecycle hooks from `setup(self, props)` (explicit or
 - `state`: updated state snapshot
 - `props`: props/data patch to apply in browser (includes mutated `data` keys even when action returns `None`)
 
-Used internally by `POST /__lua_spa_action` runtime bridge.
+Used internally by `POST /__moon_spa_action` runtime bridge.
 
 ## Runtime HTTP endpoints
 
@@ -168,7 +168,7 @@ Success response (`200`):
         "state": {"loading": false},
         "props": {
             "pypi": {"latest": "1.2.3", "available": true},
-            "__lua_logs__": ["refresh finished"]
+            "__moon_logs__": ["refresh finished"]
         }
     }
 }

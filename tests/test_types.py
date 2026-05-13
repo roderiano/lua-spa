@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from lua_spa.types import (
+from moon_spa.types import (
     ClientMethods,
     _infer_mount_id_from_router,
-    load_lua_template_config,
+    load_moon_template_config,
 )
 
 
@@ -23,7 +23,9 @@ def test_client_methods_operations() -> None:
     assert client.toggle("open")["op"] == "toggle"
 
 
-def test_load_lua_template_config_defaults_do_not_depend_on_router(tmp_path: Path) -> None:
+def test_load_moon_template_config_defaults_do_not_depend_on_router(
+    tmp_path: Path,
+) -> None:
     # Given: a spa.config.json with router and server sections
     config_file = tmp_path / "spa.config.json"
     config_file.write_text(
@@ -40,7 +42,7 @@ def test_load_lua_template_config_defaults_do_not_depend_on_router(tmp_path: Pat
     )
 
     # When: the config is loaded
-    cfg = load_lua_template_config(config_file)
+    cfg = load_moon_template_config(config_file)
 
     # Then: mount uses standardized default; host and port are read from server
     assert cfg.mount_id == "app"
@@ -48,7 +50,7 @@ def test_load_lua_template_config_defaults_do_not_depend_on_router(tmp_path: Pat
     assert cfg.port == 9090
 
 
-def test_load_lua_template_config_explicit_mount(tmp_path: Path) -> None:
+def test_load_moon_template_config_explicit_mount(tmp_path: Path) -> None:
     # Given: a spa.config.json with explicit mount plus router block
     config_file = tmp_path / "spa.config.json"
     config_file.write_text(
@@ -64,13 +66,13 @@ def test_load_lua_template_config_explicit_mount(tmp_path: Path) -> None:
     )
 
     # When: the config is loaded
-    cfg = load_lua_template_config(config_file)
+    cfg = load_moon_template_config(config_file)
 
     # Then: explicit mount is preserved
     assert cfg.mount_id == "root-app"
 
 
-def test_load_lua_template_config_invalid_server_port(tmp_path: Path) -> None:
+def test_load_moon_template_config_invalid_server_port(tmp_path: Path) -> None:
     # Given: a config with a non-numeric server port
     config_file = tmp_path / "spa.config.json"
     config_file.write_text(
@@ -82,7 +84,7 @@ def test_load_lua_template_config_invalid_server_port(tmp_path: Path) -> None:
 
     # Then: ValueError is raised for the invalid port
     try:
-        load_lua_template_config(config_file)
+        load_moon_template_config(config_file)
     except ValueError:
         return
     raise AssertionError("Expected ValueError")
@@ -106,7 +108,7 @@ def test_types_invalid_config_shapes(tmp_path: Path) -> None:
     # Then: appropriate exceptions are raised for each case
     missing = tmp_path / "missing.json"
     try:
-        load_lua_template_config(missing)
+        load_moon_template_config(missing)
     except FileNotFoundError:
         pass
     else:
@@ -115,7 +117,7 @@ def test_types_invalid_config_shapes(tmp_path: Path) -> None:
     invalid_router = tmp_path / "invalid_router.json"
     invalid_router.write_text(json.dumps({"router": []}), encoding="utf-8")
     try:
-        load_lua_template_config(invalid_router)
+        load_moon_template_config(invalid_router)
     except ValueError:
         pass
     else:
@@ -124,7 +126,7 @@ def test_types_invalid_config_shapes(tmp_path: Path) -> None:
     invalid_props = tmp_path / "invalid_props.json"
     invalid_props.write_text(json.dumps({"initial_props": []}), encoding="utf-8")
     try:
-        load_lua_template_config(invalid_props)
+        load_moon_template_config(invalid_props)
     except ValueError:
         pass
     else:
@@ -133,7 +135,7 @@ def test_types_invalid_config_shapes(tmp_path: Path) -> None:
     invalid_server = tmp_path / "invalid_server.json"
     invalid_server.write_text(json.dumps({"server": []}), encoding="utf-8")
     try:
-        load_lua_template_config(invalid_server)
+        load_moon_template_config(invalid_server)
     except ValueError:
         pass
     else:

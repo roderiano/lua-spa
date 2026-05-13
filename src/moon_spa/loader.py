@@ -10,8 +10,8 @@ import re
 from pathlib import Path
 from typing import Mapping
 
-from lua_spa.codegen import build_client_script
-from lua_spa.types import ComponentDefinition
+from moon_spa.codegen import build_client_script
+from moon_spa.types import ComponentDefinition
 
 _IMPORT_PATTERN = re.compile(r"^\s*@import\s+([A-Za-z_][A-Za-z0-9_]*)\s+from\s+['\"](.+?)['\"]\s*$")
 _TEMPLATE_PATTERN = re.compile(r"<template>(.*?)</template>", re.IGNORECASE | re.DOTALL)

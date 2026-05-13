@@ -34,7 +34,7 @@ function HomepageHeader() {
           </Link>
         </div>
         <div className={styles.install}>
-          <code>pip install lua-spa</code>
+          <code>pip install moon-spa</code>
         </div>
       </div>
     </header>

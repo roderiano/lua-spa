@@ -14,18 +14,18 @@ import re
 from pathlib import Path
 from typing import Any, Mapping
 
-from lua_spa.loader import ComponentLoader
-from lua_spa.renderer import (
+from moon_spa.loader import ComponentLoader
+from moon_spa.renderer import (
     build_python_context,
     build_server_state,
     interpolate,
     render_template_with_directives,
 )
-from lua_spa.scope import execute_setup_server_callable
-from lua_spa.router import Router
-from lua_spa.runtime_assets import SPA_RUNTIME_JS
-from lua_spa.server import SpaServer
-from lua_spa.types import ComponentDefinition, load_lua_template_config
+from moon_spa.scope import execute_setup_server_callable
+from moon_spa.router import Router
+from moon_spa.runtime_assets import SPA_RUNTIME_JS
+from moon_spa.server import SpaServer
+from moon_spa.types import ComponentDefinition, load_moon_template_config
 
 _ATTR_PATTERN = re.compile(r"([:@A-Za-z_][A-Za-z0-9_:\-]*)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')")
 _STYLE_SRC_PATTERN = re.compile(
@@ -42,27 +42,27 @@ class SpaFramework:
     """
 
     @classmethod
-    def from_lua_template_directory(cls, lua_template_dir: Path) -> SpaFramework:
-        """Create a framework instance using only definitions under lua_template/.
+    def from_moon_template_directory(cls, moon_template_dir: Path) -> SpaFramework:
+        """Create a framework instance using only definitions under moon_template/.
 
-        Loads spa.config.json from lua_template_dir and creates a framework configured
+        Loads spa.config.json from moon_template_dir and creates a framework configured
         with that settings.
 
         Args:
-            lua_template_dir: Path to the lua_template directory containing spa.config.json
+            moon_template_dir: Path to the moon_template directory containing spa.config.json
                      and a components/ subdirectory.
 
         Returns:
             A configured SpaFramework instance.
 
         Raises:
-            FileNotFoundError: If spa.config.json or the lua_template file doesn't exist.
+            FileNotFoundError: If spa.config.json or the moon_template file doesn't exist.
         """
-        config = load_lua_template_config(lua_template_dir / "spa.config.json")
+        config = load_moon_template_config(moon_template_dir / "spa.config.json")
         return cls(
-            view_file=lua_template_dir / "index.lspa",
-            components_dir=lua_template_dir / "components",
-            static_dir=lua_template_dir / "static",
+            view_file=moon_template_dir / "index.lspa",
+            components_dir=moon_template_dir / "components",
+            static_dir=moon_template_dir / "static",
             mount_id=config.mount_id,
             default_props=config.initial_props,
             host=config.host,
@@ -81,7 +81,7 @@ class SpaFramework:
         default_props: Mapping[str, Any] | None = None,
         host: str = "127.0.0.1",
         port: int = 8000,
-        page_title: str = "lua-spa",
+        page_title: str = "moon-spa",
         router: Mapping[str, Any] | None = None,
     ) -> None:
         """Initialize a SPA framework instance.
@@ -235,7 +235,7 @@ class SpaFramework:
     def _build_bootstrap_block(self, props: Mapping[str, Any]) -> str:
         """Build the bootstrap JSON payloads and runtime script.
 
-        Creates the lua-spa-registry (component definitions) and lua-spa-config
+        Creates the moon-spa-registry (component definitions) and moon-spa-config
         (entry point and props), then embeds the client-side runtime JavaScript.
 
         Args:
@@ -272,15 +272,15 @@ class SpaFramework:
         config_payload = self._serialize_json_payload(config)
 
         return (
-            '<script type="application/json" id="lua-spa-registry">'
+            '<script type="application/json" id="moon-spa-registry">'
             + registry_payload
             + "</script>"
-            + '<script type="application/json" id="lua-spa-config">'
+            + '<script type="application/json" id="moon-spa-config">'
             + config_payload
             + "</script>"
             + "<script>"
             + SPA_RUNTIME_JS
-            + "\nwindow.LuaSpaRuntime.bootstrap();</script>"
+            + "\nwindow.SpaRuntime.bootstrap();</script>"
         )
 
     def _serialize_json_payload(self, payload: Mapping[str, Any]) -> str:
@@ -298,7 +298,7 @@ class SpaFramework:
     def _render_component(self, name: str, props: Mapping[str, Any]) -> str:
         """Render a component to HTML with the given props.
 
-        Calls component.context() for server state, evaluates {{ }} expressions,
+        Calls component.context() for server state, evamoontes {{ }} expressions,
         applies l-if conditionals, and recursively expands child components.
 
         Args:
@@ -433,7 +433,7 @@ class SpaFramework:
 
         Args:
             attrs_raw: Raw attribute string.
-            context: Rendering context for expression evaluation.
+            context: Rendering context for expression evamoontion.
 
         Returns:
             Dict mapping attribute names to interpolated values.

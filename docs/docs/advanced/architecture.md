@@ -5,7 +5,7 @@ title: Architecture
 
 # Architecture
 
-lua-spa is a Python-first SPA framework that blends **server-side rendering** with **client-side hydration**. It has no JavaScript build step — the browser runtime is a single self-contained script embedded at build time.
+moon-spa is a Python-first SPA framework that blends **server-side rendering** with **client-side hydration**. It has no JavaScript build step — the browser runtime is a single self-contained script embedded at build time.
 
 ## High-level architecture
 
@@ -37,7 +37,7 @@ flowchart TB
     fw --> server
     server -->|HTML + Bootstrap JSON| boot
     boot --> rt
-    rt -->|POST __lua_spa_action| server
+    rt -->|POST __moon_spa_action| server
     server -->|state props patch JSON| rt
     rt -->|GET __reload__ reload mode| server
     rt --> dom
@@ -72,7 +72,7 @@ sequenceDiagram
     FW-->>Server: complete HTML page
     Server-->>Client: 200 OK
     Client->>Client: runtime hydrates DOM
-    Client->>Server: POST /__lua_spa_action (callable action/lifecycle)
+    Client->>Server: POST /__moon_spa_action (callable action/lifecycle)
     Server->>FW: execute_server_callable(...)
     FW-->>Server: state/props patch
     Server-->>Client: {ok, result}
@@ -114,6 +114,6 @@ flowchart LR
 1. **No build step** — The Python package ships a self-contained JS runtime. Users never run `npm`.
 2. **SSR first** — Every page load starts as server-rendered HTML. JavaScript enhances, not replaces.
 3. **Python is the authority** — Component logic lives in Python. JavaScript is generated automatically.
-4. **Server-driven callables** — Callable actions/lifecycle run through `POST /__lua_spa_action` and patch state/props deterministically.
+4. **Server-driven callables** — Callable actions/lifecycle run through `POST /__moon_spa_action` and patch state/props deterministically.
 5. **Inference by default** — `setup(self, props)` may omit return mapping; server infers props/state/data/actions/lifecycle.
 6. **Zero client dependencies** — The browser runtime has no external npm dependencies.

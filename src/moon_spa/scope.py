@@ -11,7 +11,7 @@ import sys
 from types import FunctionType
 from typing import Any, Mapping
 
-from lua_spa.trace import (
+from moon_spa.trace import (
     _py_bool,
     _py_float,
     _py_int,
@@ -19,7 +19,7 @@ from lua_spa.trace import (
     _TraceProps,
     _TraceState,
 )
-from lua_spa.types import Component, StateField
+from moon_spa.types import Component, StateField
 
 _CLIENT_RESERVED_NAMES = {
     "Props",
@@ -508,7 +508,7 @@ def execute_setup_server_callable(
     if isinstance(props, Mapping):
         for key, value in props.items():
             key_name = str(key)
-            if key_name == "__lua_logs__":
+            if key_name == "__moon_logs__":
                 continue
             props_patch[key_name] = value
     tracked_action_results: list[Any] = []
@@ -636,9 +636,9 @@ def execute_setup_server_callable(
         elif hook_value is not None:
             raise ValueError(f"Unsupported lifecycle hook value for {name}")
     for message in trace_logs:
-        if "__lua_logs__" not in props_patch:
-            props_patch["__lua_logs__"] = []
-        props_patch["__lua_logs__"].append(message)
+        if "__moon_logs__" not in props_patch:
+            props_patch["__moon_logs__"] = []
+        props_patch["__moon_logs__"].append(message)
 
     if isinstance(setup_data_obj, Mapping):
         for data_key, data_value in setup_data_obj.items():

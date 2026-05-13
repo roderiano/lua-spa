@@ -1,4 +1,4 @@
-"""Shared type definitions and configuration for the lua-spa framework."""
+"""Shared type definitions and configuration for the moon-spa framework."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from typing import Any, Mapping
 
 
 @dataclass(frozen=True)
-class LuaTemplateConfig:
-    """Configuration loaded from lua_template/spa.config.json.
+class TemplateConfig:
+    """Configuration loaded from moon_template/spa.config.json.
 
     Stores mount ID, initial props, router, and server settings
     for the SPA application.
@@ -20,7 +20,7 @@ class LuaTemplateConfig:
     initial_props: Mapping[str, Any]
     host: str
     port: int
-    page_title: str = "lua-spa"
+    page_title: str = "moon-spa"
     router: Mapping[str, Any] | None = None
 
 
@@ -96,46 +96,46 @@ def _infer_mount_id_from_router(router: Mapping[str, Any] | None) -> str | None:
     return str(mount_id)
 
 
-def load_lua_template_config(config_file: Path) -> LuaTemplateConfig:
+def load_moon_template_config(config_file: Path) -> TemplateConfig:
     """Load SPA configuration from a JSON file.
 
-    Reads lua_template/spa.config.json and returns a LuaTemplateConfig with
+    Reads moon_template/spa.config.json and returns a TemplateConfig with
     mount_id, initial_props, host, and port. Raises FileNotFoundError if the
     file doesn't exist, ValueError if fields are malformed.
     """
     if not config_file.exists():
-        raise FileNotFoundError(f"LuaTemplate config file not found: {config_file}")
+        raise FileNotFoundError(f"Template config file not found: {config_file}")
 
     raw = config_file.read_text(encoding="utf-8")
     data = json.loads(raw)
 
     router = data.get("router")
     if router is not None and not isinstance(router, Mapping):
-        raise ValueError("lua_template config field 'router' must be an object")
+        raise ValueError("moon_template config field 'router' must be an object")
 
     mount_id = str(data.get("mount_id") or "app")
 
     initial_props = data.get("initial_props", {})
     if not isinstance(initial_props, dict):
-        raise ValueError("lua_template config field 'initial_props' must be an object")
+        raise ValueError("moon_template config field 'initial_props' must be an object")
 
     server = data.get("server", {})
     if server is None:
         server = {}
     if not isinstance(server, dict):
-        raise ValueError("lua_template config field 'server' must be an object")
+        raise ValueError("moon_template config field 'server' must be an object")
 
     host = str(server.get("host", "127.0.0.1"))
     raw_port = server.get("port", 8000)
     page_title = str(
-        data.get("page_title", "lua-spa — Python Framework for Single Page Applications")
+        data.get("page_title", "moon-spa — Python Framework for Single Page Applications")
     )
     try:
         port = int(raw_port)
     except (TypeError, ValueError) as error:
-        raise ValueError("lua_template config field 'server.port' must be an integer") from error
+        raise ValueError("moon_template config field 'server.port' must be an integer") from error
 
-    return LuaTemplateConfig(
+    return TemplateConfig(
         mount_id=mount_id,
         initial_props=initial_props,
         host=host,

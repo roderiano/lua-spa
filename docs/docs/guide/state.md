@@ -7,7 +7,7 @@ title: State
 
 State is reactive data kept in the browser. When state changes, the component re-renders automatically.
 
-lua-spa state is declared inside `setup(self, props)`.
+moon-spa state is declared inside `setup(self, props)`.
 
 Use plain mappings for runtime state values. Server callables can mutate those values,
 and the runtime patches the browser state.
@@ -19,7 +19,7 @@ class Counter(Component):
     def setup(self, props):
         state = {
             "count": 0,
-            "title": props.get("title", "lua-spa"),
+            "title": props.get("title", "moon-spa"),
             "visible": True,
         }
 

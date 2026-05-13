@@ -1,9 +1,9 @@
 from pathlib import Path
 
 
-def test_lua_template_files_exist() -> None:
-    # Given: the src/lua_template base directory
-    base = Path("src/lua_template")
+def test_moon_template_files_exist() -> None:
+    # Given: the src/moon_template base directory
+    base = Path("src/moon_template")
 
     # When: we check for required template files
 

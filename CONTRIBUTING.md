@@ -1,9 +1,9 @@
 <div align="center">
-  <img src="src/lua_template/static/logo.png" alt="lua-spa logo" width="120" height="120" />
+  <img src="src/moon_template/static/logo.png" alt="moon-spa logo" width="120" height="120" />
   <h1><strong>LUA-SPA CONTRIBUTING</strong></h1>
 </div>
 <div align="center">
-  First off, thank you for considering contributing to lua-spa! It's people like you that make lua-spa such a great tool.
+  First off, thank you for considering contributing to moon-spa! It's people like you that make moon-spa such a great tool.
 </div>
 
 
@@ -30,7 +30,7 @@ Create branches with the issue number prefix:
     <issue-number>-<type>-<short-description>
 
 Examples:
--   13-bug-missing-lua_template-scaffold-directory
+-   13-bug-missing-moon_template-scaffold-directory
 -   42-feature-router-params
 -   77-docs-update-contributing-guide
 
@@ -108,7 +108,7 @@ git checkout -b <issue-number>-<type>-<short-description>
 Run app:
 
 ``` bash
-poetry run lua-spa serve --reload
+poetry run moon-spa serve --reload
 ```
 
 Run tests:
@@ -120,7 +120,7 @@ poetry run pytest
 Run coverage:
 
 ``` bash
-poetry run pytest --cov=src/lua_spa --cov-report=term
+poetry run pytest --cov=src/moon_spa --cov-report=term
 ```
 
 Lint & typing:

@@ -5,7 +5,7 @@ title: Performance
 
 # Performance
 
-## What makes lua-spa fast
+## What makes moon-spa fast
 
 ### Server-side rendering (SSR)
 
@@ -17,7 +17,7 @@ gantt
     dateFormat X
     axisFormat %s
 
-    section lua-spa
+    section moon-spa
     HTML delivered (SSR) : 0, 1
     Runtime hydration     : 1, 2
     Interactive           : 2, 3
@@ -35,7 +35,7 @@ The runtime only patches nodes that actually changed. Large parts of the DOM are
 
 ### No virtual DOM allocation
 
-lua-spa's differ works directly on real DOM nodes using `document.createTreeWalker`. There is no intermediate VDOM object tree to allocate and garbage-collect.
+moon-spa's differ works directly on real DOM nodes using `document.createTreeWalker`. There is no intermediate VDOM object tree to allocate and garbage-collect.
 
 ### Inline CSS
 

@@ -214,11 +214,11 @@ class Summary(Component):
 
 | | `setup().data` — `py` namespace | `setup().state` |
 |---|---|---|
-| When evaluated | server-side render + server callable patches | client-side reactive |
+| When evamoonted | server-side render + server callable patches | client-side reactive |
 | Reacts to user input | via server-call actions/lifecycle | ✅ |
 | Can run Python / import libs | ✅ | ❌ |
 | Available in template | ✅ as `{{ py.x }}` or `{{ x }}` | ✅ as `{{ state.x }}` |
-| Survives browser navigation | ❌ re-evaluated on next request | ✅ lives in JS memory |
+| Survives browser navigation | ❌ re-evamoonted on next request | ✅ lives in JS memory |
 
 Because computed variables are server-side, they are ideal for:
 - Formatting values derived from props (prices, dates, labels)

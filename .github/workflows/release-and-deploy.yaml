@@ -50,7 +50,7 @@ jobs:
           VERSION=${{ steps.get_version.outputs.version }}
           VERSION=${VERSION#v}
 
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://pypi.org/pypi/lua-spa/$VERSION/json)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://pypi.org/pypi/moon-spa/$VERSION/json)
 
           if [ "$STATUS" = "200" ]; then
             echo "Version already exists on PyPI. Skipping publish."

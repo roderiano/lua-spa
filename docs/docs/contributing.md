@@ -3,7 +3,7 @@ sidebar_position: 1
 title: Contributing
 ---
 
-# Contributing to lua-spa
+# Contributing to moon-spa
 
 Thank you for your interest! This guide covers everything from opening an issue to submitting a pull request.
 
@@ -16,8 +16,8 @@ Thank you for your interest! This guide covers everything from opening an issue 
 
 Clone respository:
 ```bash
-git clone https://github.com/roderiano/lua-spa.git
-cd lua-spa
+git clone https://github.com/roderiano/moon-spa.git
+cd moon-spa
 ```
 
 
@@ -30,7 +30,7 @@ poetry install
 Run app:
 
 ``` bash
-poetry run lua-spa serve --reload
+poetry run moon-spa serve --reload
 ```
 
 Run tests:
@@ -42,7 +42,7 @@ poetry run pytest
 Run coverage:
 
 ``` bash
-poetry run pytest --cov=src/lua_spa --cov-report=term
+poetry run pytest --cov=src/moon_spa --cov-report=term
 ```
 
 Lint & typing:
@@ -66,7 +66,7 @@ Run `pytest` and `mypy` separately before opening a PR.
 
 ```mermaid
 graph TD
-    subgraph src ["src/lua_spa/"]
+    subgraph src ["src/moon_spa/"]
         main.py
         app.py
         framework.py
@@ -90,7 +90,7 @@ graph TD
         t6[test_server.py]
     end
 
-    subgraph template ["src/lua_template/"]
+    subgraph template ["src/moon_template/"]
         tpl[index.lspa]
         cfg[spa.config.json]
         comp[components/]
@@ -105,8 +105,8 @@ graph TD
 | New state operation | `types.py` (`ClientMethods`) + `codegen.py` |
 | New CLI command | `main.py` |
 | New router feature | `router.py` |
-| New config field | `types.py` (`LuaTemplateConfig`) + `framework.py` |
-| Default template | `src/lua_template/` |
+| New config field | `types.py` (`TemplateConfig`) + `framework.py` |
+| Default template | `src/moon_template/` |
 
 ## Contribution flow
 
@@ -199,7 +199,7 @@ git checkout -b <issue-number>-<type>-<short-description>
 ```
 
 Examples:
--   13-bug-missing-lua_template-scaffold-directory
+-   13-bug-missing-moon_template-scaffold-directory
 -   42-feature-router-params
 -   77-docs-update-contributing-guide
 
@@ -212,7 +212,7 @@ Tip: create the branch directly from the GitHub issue page when possible.
 Run app:
 
 ``` bash
-poetry run lua-spa serve --reload
+poetry run moon-spa serve --reload
 ```
 
 Run tests:
@@ -224,7 +224,7 @@ poetry run pytest
 Run coverage:
 
 ``` bash
-poetry run pytest --cov=src/lua_spa --cov-report=term
+poetry run pytest --cov=src/moon_spa --cov-report=term
 ```
 
 Lint & typing:

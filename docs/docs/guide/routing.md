@@ -5,7 +5,7 @@ title: Routing
 
 # Routing
 
-The lua-spa router is configured entirely in `spa.config.json` — no code needed. It supports nested routes, dynamic parameters, index routes, wildcard fallbacks, and route guards.
+The moon-spa router is configured entirely in `spa.config.json` — no code needed. It supports nested routes, dynamic parameters, index routes, wildcard fallbacks, and route guards.
 
 ```mermaid
 flowchart TD
@@ -163,7 +163,7 @@ flowchart TD
   D --> E["Render matched component stack"]
 ```
 
-### How `children` is implemented in lua-spa
+### How `children` is implemented in moon-spa
 
 Internally, nested routing happens in three stages:
 
@@ -368,7 +368,7 @@ class Admin(Component):
 
 ## Route guards
 
-The `"guard"` field names a JavaScript guard function registered on `window.LuaSpaGuards`. Guards run client-side before navigation:
+The `"guard"` field names a JavaScript guard function registered on `window.SpaGuards`. Guards run client-side before navigation:
 
 ```json
 {
@@ -380,7 +380,7 @@ The `"guard"` field names a JavaScript guard function registered on `window.LuaS
 
 ```js
 // In a <script> tag or separate JS file loaded before the SPA
-window.LuaSpaGuards = {
+window.SpaGuards = {
   requireLogin: function (route) {
     if (!localStorage.getItem("token")) {
       return "/login";   // redirect

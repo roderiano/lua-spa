@@ -15,7 +15,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlparse
 
-
 _clients: set[Any] = set()
 _clients_lock = threading.Lock()
 _watch_started = threading.Event()
@@ -92,7 +91,7 @@ class _SpaHandler(BaseHTTPRequestHandler):
         Serves the root (/) and /index.html with the built SPA view.
         Returns 404 for all other paths.
         """
-        framework = self.server.lua_framework  # type: ignore
+        framework = self.server.moon_framework  # type: ignore
         request_path = urlparse(self.path).path
 
         if request_path == "/__reload__":
@@ -134,8 +133,8 @@ class _SpaHandler(BaseHTTPRequestHandler):
         if getattr(self.server, "reload_enabled", False):
             inject = (
                 "\n<script>\n"
-                "const __luaReload = new EventSource('/__reload__');\n"
-                "__luaReload.onmessage = () => window.location.reload();\n"
+                "const __moonReload = new EventSource('/__reload__');\n"
+                "__moonReload.onmessage = () => window.location.reload();\n"
                 "</script>\n"
             )
             body = body.replace("</body>", inject + "</body>")
@@ -150,10 +149,10 @@ class _SpaHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         """Handle POST requests for runtime server-call actions."""
-        framework = self.server.lua_framework  # type: ignore
+        framework = self.server.moon_framework  # type: ignore
         request_path = urlparse(self.path).path
 
-        if request_path != "/__lua_spa_action":
+        if request_path != "/__moon_spa_action":
             self.send_error(HTTPStatus.NOT_FOUND, "Not Found")
             return
 
@@ -214,7 +213,7 @@ class SpaServer:
     @staticmethod
     def serve(framework: Any, host: str, port: int, reload: bool = False) -> None:
         server = ThreadingHTTPServer((host, port), _SpaHandler)
-        server.lua_framework = framework  # type: ignore
+        server.moon_framework = framework  # type: ignore
         server.reload_enabled = reload  # type: ignore
 
         if reload and not _watch_started.is_set():

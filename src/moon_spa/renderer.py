@@ -1,7 +1,7 @@
-"""Server-side template rendering, interpolation, and conditional evaluation.
+"""Server-side template rendering, interpolation, and conditional evamoontion.
 
 Converts component templates with {{ }} expressions and l-if attributes
-into HTML by evaluating expressions in the context of props, state, and py objects.
+into HTML by evamoonting expressions in the context of props, state, and py objects.
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ def render_template_with_directives(template: str, context: Mapping[str, Any]) -
 
     Args:
         template: The HTML template string.
-        context: The evaluation context (props, state, py).
+        context: The evamoontion context (props, state, py).
 
     Returns:
         The rendered HTML string with all directives processed.
@@ -75,7 +75,7 @@ def apply_i_model(template: str, context: Mapping[str, Any]) -> str:
 
     Args:
         template: The HTML template string.
-        context: The evaluation context (props, state, py).
+        context: The evamoontion context (props, state, py).
 
     Returns:
         HTML with i-model removed and initial input state materialized.
@@ -93,7 +93,7 @@ def apply_i_model(template: str, context: Mapping[str, Any]) -> str:
             return match.group(0)
 
         model_expr = model_attr.group("expr")
-        resolved_value = evaluate_expression(model_expr, context)
+        resolved_value = evamoonte_expression(model_expr, context)
         clean_attrs = _MODEL_ATTR_PATTERN.sub("", attrs).strip()
         lower_tag = tag.lower()
 
@@ -150,7 +150,7 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
 
     Args:
         template: The HTML template string.
-        context: The evaluation context (props, state, py).
+        context: The evamoontion context (props, state, py).
 
     Returns:
         The HTML string with i-for loops expanded.
@@ -257,7 +257,7 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
             targets = [target.strip() for target in target_expr.split(",") if target.strip()]
             if not targets:
                 continue
-            items = _normalize_iterable(evaluate_expression(iter_expr, context))
+            items = _normalize_iterable(evamoonte_expression(iter_expr, context))
             if not items:
                 replacement = ""
             else:
@@ -300,7 +300,7 @@ def apply_server_loops(template: str, context: Mapping[str, Any]) -> str:
 
 
 def build_scoped_context(context: Mapping[str, Any]) -> dict[str, Any]:
-    """Build a scoped dictionary for expression evaluation.
+    """Build a scoped dictionary for expression evamoontion.
 
     Combines props, state, and py into a flat namespace and nested objects.
     This allows both {{ count }} and {{ state.count }} to work.
@@ -357,15 +357,15 @@ def to_namespace(value: Any) -> Any:
     return value
 
 
-def evaluate_expression(expression: str, context: Mapping[str, Any]) -> Any:
-    """Evaluate a Python expression in the component context.
+def evamoonte_expression(expression: str, context: Mapping[str, Any]) -> Any:
+    """Evamoonte a Python expression in the component context.
 
     Args:
         expression: A Python expression string, e.g. "count > 5".
         context: Dictionary with "props", "state", "py" keys.
 
     Returns:
-        The result of eval(), or None if evaluation fails.
+        The result of eval(), or None if evamoontion fails.
     """
     scoped = build_scoped_context(context)
     try:
@@ -375,7 +375,7 @@ def evaluate_expression(expression: str, context: Mapping[str, Any]) -> Any:
 
 
 def interpolate(template: str, context: Mapping[str, Any]) -> str:
-    """Replace {{ expression }} with evaluated values.
+    """Replace {{ expression }} with evamoonted values.
 
     Args:
         template: HTML with {{ }} interpolations.
@@ -407,7 +407,7 @@ def apply_server_conditionals(template: str, context: Mapping[str, Any]) -> str:
 
     Args:
         template: HTML fragment after interpolation.
-        context: Dictionary with "props", "state", and "py" evaluation scopes.
+        context: Dictionary with "props", "state", and "py" evamoontion scopes.
 
     Returns:
         HTML with conditional directives resolved and directive attributes removed.
@@ -581,7 +581,7 @@ def apply_server_conditionals(template: str, context: Mapping[str, Any]) -> str:
                 expr = node["expr"]
                 should_render = False
                 if cond in ("l-if", "l-else-if"):
-                    should_render = bool(evaluate_expression(expr or "", context))
+                    should_render = bool(evamoonte_expression(expr or "", context))
                 elif cond == "l-else":
                     should_render = True
 
@@ -609,7 +609,7 @@ def _replace_conditional_tag(match: re.Match[str], context: Mapping[str, Any]) -
     """
     expression = match.group("expr")
     try:
-        should_render = bool(evaluate_expression(expression, context))
+        should_render = bool(evamoonte_expression(expression, context))
     except Exception:
         should_render = False
 
@@ -637,7 +637,7 @@ def _replace_conditional_self_closing_tag(match: re.Match[str], context: Mapping
     """
     expression = match.group("expr")
     try:
-        should_render = bool(evaluate_expression(expression, context))
+        should_render = bool(evamoonte_expression(expression, context))
     except Exception:
         should_render = False
 
@@ -662,7 +662,7 @@ def build_python_context(python_block: str, props: Mapping[str, Any]) -> dict[st
     Returns:
         The dict returned from setup data, or empty dict if no component setup is found.
     """
-    from lua_spa.scope import (
+    from moon_spa.scope import (
         load_python_scope,
         normalize_context_result,
         resolve_component_callables,
@@ -688,7 +688,7 @@ def build_server_state(python_block: str, props: Mapping[str, Any]) -> dict[str,
     Returns:
         A dict mapping state names to their initial values.
     """
-    from lua_spa.scope import (
+    from moon_spa.scope import (
         load_python_scope,
         normalize_client_spec,
         resolve_component_callables,

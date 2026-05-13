@@ -5,9 +5,9 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-import lua_spa.scope as scope_module
+import moon_spa.scope as scope_module
 
-from lua_spa.scope import (
+from moon_spa.scope import (
     _build_client_factory,
     _coerce_setup_result,
     _extract_class_properties,
@@ -32,8 +32,8 @@ from lua_spa.scope import (
     resolve_methods_actions,
     swap_attribute,
 )
-from lua_spa.trace import _TraceState
-from lua_spa.types import Component, StateField
+from moon_spa.trace import _TraceState
+from moon_spa.types import Component, StateField
 
 
 def test_scope_resolve_component_callables_with_python_spec() -> None:
@@ -208,7 +208,7 @@ def test_scope_setup_mapping_is_normalized_automatically() -> None:
     source = """
 class Features(Component):
     def setup(self, props):
-        props = {"title": "lua-spa", **props}
+        props = {"title": "moon-spa", **props}
         state = {"mounted": False, "reload_count": 0, "status": "idle"}
         data = {"pypi": {"available": True, "latest": "1.0.0"}}
 
@@ -237,7 +237,7 @@ class Features(Component):
     assert context["pypi"]["available"] is True
 
     props, state, actions, lifecycle = normalize_client_spec(client_fn({}))
-    assert props["title"] == "lua-spa"
+    assert props["title"] == "moon-spa"
     assert props["pypi"]["latest"] == "1.0.0"
     assert state["reload_count"] == 0
     assert actions["reload_packages"]["op"] == "server_call"
@@ -374,11 +374,11 @@ class Features(Component):
     )
 
     assert patch["state"]["count"] == 1
-    assert "__lua_logs__" in patch["props"]
-    assert isinstance(patch["props"]["__lua_logs__"], list)
-    assert "component mounted" in patch["props"]["__lua_logs__"]
-    assert "incrementing counter" in patch["props"]["__lua_logs__"]
-    assert "finished mounting" in patch["props"]["__lua_logs__"]
+    assert "__moon_logs__" in patch["props"]
+    assert isinstance(patch["props"]["__moon_logs__"], list)
+    assert "component mounted" in patch["props"]["__moon_logs__"]
+    assert "incrementing counter" in patch["props"]["__moon_logs__"]
+    assert "finished mounting" in patch["props"]["__moon_logs__"]
 
 
 def test_scope_mounted_preserves_incoming_payload_data() -> None:
@@ -415,8 +415,8 @@ class Features(Component):
         kind="lifecycle",
         name="mounted",
         props={
-            "__lua_logs__": [
-                "[features] fetching pypi payload for lua-spa",
+            "__moon_logs__": [
+                "[features] fetching pypi payload for moon-spa",
                 "[features] payload returned",
             ],
             "pypi": {
@@ -816,7 +816,7 @@ class Demo(Component):
 
     assert mounted_patch["state"]["calls"] == 1
     assert mounted_patch["props"]["payload_is_none"] is True
-    assert "payload None" in mounted_patch["props"]["__lua_logs__"]
+    assert "payload None" in mounted_patch["props"]["__moon_logs__"]
 
     assert updated_patch["state"]["calls"] == 2
     assert updated_patch["props"]["inline_payload_none"] is True

@@ -5,7 +5,7 @@ title: Code Generator
 
 # Code Generator
 
-`lua_spa.codegen` · `lua_spa.scope` · `lua_spa.trace`
+`moon_spa.codegen` · `moon_spa.scope` · `moon_spa.trace`
 
 These three modules form the **Python-to-JavaScript compiler** that turns `Component.setup(self, props)` output into a `setup()` JS function.
 
@@ -25,7 +25,7 @@ flowchart TD
 
 ## `load_python_scope(python_block) → dict`
 
-`lua_spa.scope`
+`moon_spa.scope`
 
 Executes the `<python>` block in a full Python environment (all built-ins available). Adds:
 - `Component` base class
@@ -37,7 +37,7 @@ Executes the `<python>` block in a full Python environment (all built-ins availa
 Returns `(context_fn, client_fn)` from a `Component` subclass implementing `setup(self, props)`.
 Legacy `context()/client()` and top-level setup styles are rejected.
 
-## Tracing proxies (`lua_spa.trace`)
+## Tracing proxies (`moon_spa.trace`)
 
 When setup-derived operations are normalized, traced objects are used to preserve expression references and operation semantics.
 
@@ -61,7 +61,7 @@ classDiagram
     }
 ```
 
-This allows expressions like `self.add("count", props.initialCount + 1)` to be converted to a JavaScript expression rather than evaluated eagerly in Python.
+This allows expressions like `self.add("count", props.initialCount + 1)` to be converted to a JavaScript expression rather than evamoonted eagerly in Python.
 
 ## Generated `setup()` structure
 
@@ -101,7 +101,7 @@ function setup({ useState, props, componentName }) {
 ### Computed variables (`setup().data` → `py` namespace)
 
 `setup(self, props)` can return a mapping, or omit `return` and let the server infer the spec.
-The `data` section is evaluated server-side and injected into render context as `py`.
+The `data` section is evamoonted server-side and injected into render context as `py`.
 It is not compiled to JavaScript by itself; it is hydrated through props patches when returned by server callables.
 
 ```python
@@ -152,7 +152,7 @@ Each state field in `setup().state` compiles to a `useState` hook. The initial v
 | Python declaration | Internal spec | Generated JS |
 |---|---|---|
 | `"count": 0` | `{"default": 0}` | `useState(0)` |
-| `"name": "lua"` | `{"default": "lua"}` | `useState("lua")` |
+| `"name": "moon"` | `{"default": "moon"}` | `useState("moon")` |
 | `StateField("n", default=0, cast="int")` | `{"default": 0, "cast": "int"}` | `useState(0)` |
 | `StateField("q", from_prop="qty", default=1, cast="int")` | `{"from_prop": "qty", "default": 1, "cast": "int"}` | `useState(Number(resolvedProps["qty"] ?? 1))` |
 

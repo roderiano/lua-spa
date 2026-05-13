@@ -5,11 +5,11 @@ title: Philosophy
 
 # Philosophy
 
-## Why lua-spa exists
+## Why moon-spa exists
 
 Modern frontend development has drifted toward enormous complexity: JavaScript bundlers, transpilers, virtual DOMs, state management libraries, and megabyte-sized bundles — all to display a web page.
 
-lua-spa asks: **what if Python handled it all?**
+moon-spa asks: **what if Python handled it all?**
 
 ## Core beliefs
 
@@ -23,16 +23,16 @@ Server-rendered HTML is fast, SEO-friendly, and accessible. JavaScript should en
 
 ### No build step is a feature
 
-Every extra tool in the chain is a point of failure, a configuration burden, and an onboarding obstacle. lua-spa ships the runtime inside the package. `pip install` is the entire setup.
+Every extra tool in the chain is a point of failure, a configuration burden, and an onboarding obstacle. moon-spa ships the runtime inside the package. `pip install` is the entire setup.
 
 ### Constraints enable clarity
 
-By restricting client logic to Python-declared specs, lua-spa can:
+By restricting client logic to Python-declared specs, moon-spa can:
 - Generate optimized JavaScript automatically
 - Validate component contracts at load time
 - Make components fully readable without executing them
 
-## What lua-spa is NOT
+## What moon-spa is NOT
 
 - A full React/Vue replacement for complex client applications
 - A server framework (it's a SPA layer — pair it with FastAPI, Flask, etc.)
@@ -41,7 +41,7 @@ By restricting client logic to Python-declared specs, lua-spa can:
 
 ## The name
 
-**lua** (Portuguese for *moon*) — lightweight, reflected light from a larger body.  
+**moon** (Portuguese for *moon*) — lightweight, reflected light from a larger body.  
 **spa** — Single Page Application.
 
 A minimal SPA framework that reflects Python's simplicity.

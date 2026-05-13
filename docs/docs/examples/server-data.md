@@ -22,7 +22,7 @@ flowchart LR
 
 ```python
 # app.py or FastAPI route
-from lua_spa.app import create_default_framework
+from moon_spa.app import create_default_framework
 import json
 
 framework = create_default_framework()
@@ -77,4 +77,4 @@ class UserList(Component):
 
 For data that only needs to render once (no client mutation), use `py`. For data the client needs to react to, seed a `StateField` from a prop.
 
-If a server action/lifecycle later mutates `data`, those keys are emitted back as props patch automatically via `POST /__lua_spa_action`.
+If a server action/lifecycle later mutates `data`, those keys are emitted back as props patch automatically via `POST /__moon_spa_action`.

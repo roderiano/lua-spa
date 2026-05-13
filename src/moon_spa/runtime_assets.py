@@ -1,4 +1,4 @@
-"""Client-side runtime used by the Lua SPA framework."""
+"""Client-side runtime used by the  SPA framework."""
 
 SPA_RUNTIME_JS = r"""
 (function () {
@@ -36,25 +36,25 @@ SPA_RUNTIME_JS = r"""
     });
   }
 
-  function evaluateRawExpression(expression, context) {
+  function evamoonteRawExpression(expression, context) {
     try {
       var scopedContext = Object.assign({ True: true, False: false, None: null }, context || {});
-      var evaluator = new Function("ctx", "with (ctx) { return (" + expression + "); }");
-      return evaluator(scopedContext);
+      var evamoontor = new Function("ctx", "with (ctx) { return (" + expression + "); }");
+      return evamoontor(scopedContext);
     } catch (error) {
-      console.warn("[lua-spa] expression failed:", expression, error);
+      console.warn("[moon-spa] expression failed:", expression, error);
       return undefined;
     }
   }
 
-  function evaluateExpression(expression, context) {
-    var value = evaluateRawExpression(expression, context);
+  function evamoonteExpression(expression, context) {
+    var value = evamoonteRawExpression(expression, context);
     return value == null ? "" : String(value);
   }
 
   function interpolate(template, context) {
     return template.replace(/{{\s*(.*?)\s*}}/g, function (_, expression) {
-      return evaluateExpression(expression, context);
+      return evamoonteExpression(expression, context);
     });
   }
 
@@ -240,7 +240,7 @@ SPA_RUNTIME_JS = r"""
       if (hasFor) {
         var forSpec = parseForExpression(node.getAttribute("i-for"));
         if (forSpec) {
-          var iterableValue = evaluateRawExpression(forSpec.iterable, context);
+          var iterableValue = evamoonteRawExpression(forSpec.iterable, context);
           var items = normalizeIterable(iterableValue);
           var total = items.length;
 
@@ -295,9 +295,9 @@ SPA_RUNTIME_JS = r"""
 
           var shouldRender = false;
           if (candidateHasIf) {
-            shouldRender = !!evaluateRawExpression(candidate.getAttribute("l-if") || "", context);
+            shouldRender = !!evamoonteRawExpression(candidate.getAttribute("l-if") || "", context);
           } else if (candidateHasElseIf) {
-            shouldRender = !!evaluateRawExpression(candidate.getAttribute("l-else-if") || "", context);
+            shouldRender = !!evamoonteRawExpression(candidate.getAttribute("l-else-if") || "", context);
           } else {
             shouldRender = true;
           }
@@ -370,7 +370,7 @@ SPA_RUNTIME_JS = r"""
     var tagName = node.tagName;
     var conditionalExpression = node.getAttribute("l-if");
     if (!skipConditionalCheck && conditionalExpression !== null) {
-      var shouldRender = !!evaluateRawExpression(conditionalExpression, context);
+      var shouldRender = !!evamoonteRawExpression(conditionalExpression, context);
       if (!shouldRender) {
         return null;
       }
@@ -393,7 +393,7 @@ SPA_RUNTIME_JS = r"""
           return;
         }
         if (attribute.name.indexOf(":") === 0) {
-          componentProps[attribute.name.slice(1)] = evaluateRawExpression(attribute.value, context);
+          componentProps[attribute.name.slice(1)] = evamoonteRawExpression(attribute.value, context);
           return;
         }
         if (attribute.name === "__props") {
@@ -457,7 +457,7 @@ SPA_RUNTIME_JS = r"""
       } else if (attribute.name.indexOf("@") === 0) {
         events[attribute.name.slice(1)] = attribute.value;
       } else if (attribute.name.indexOf(":") === 0) {
-        props[attribute.name.slice(1)] = evaluateRawExpression(attribute.value, context);
+        props[attribute.name.slice(1)] = evamoonteRawExpression(attribute.value, context);
       } else {
         props[attribute.name] = interpolate(attribute.value, context);
       }
@@ -471,19 +471,19 @@ SPA_RUNTIME_JS = r"""
       if (lowerTag === "input") {
         var inputType = String(node.getAttribute("type") || "text").toLowerCase();
         if (inputType === "checkbox" || inputType === "radio") {
-          props.checked = !!evaluateRawExpression(modelExpr, context);
+          props.checked = !!evamoonteRawExpression(modelExpr, context);
           modelEvent = "change";
         } else {
-          var inputValue = evaluateRawExpression(modelExpr, context);
+          var inputValue = evamoonteRawExpression(modelExpr, context);
           props.value = inputValue == null ? "" : inputValue;
           modelEvent = "input";
         }
       } else if (lowerTag === "textarea") {
-        var textValue = evaluateRawExpression(modelExpr, context);
+        var textValue = evamoonteRawExpression(modelExpr, context);
         props.value = textValue == null ? "" : textValue;
         modelEvent = "input";
       } else if (lowerTag === "select") {
-        var selectedValue = evaluateRawExpression(modelExpr, context);
+        var selectedValue = evamoonteRawExpression(modelExpr, context);
         props.value = selectedValue == null ? "" : selectedValue;
         modelEvent = "change";
       }
@@ -682,7 +682,7 @@ SPA_RUNTIME_JS = r"""
         if (!guardName) {
           continue;
         }
-        var guards = window.LuaSpaGuards || {};
+        var guards = window.SpaGuards || {};
         var guardFn = guards[guardName];
         if (typeof guardFn !== "function") {
           window.location.hash = "#" + normalizePath(fallback);
@@ -807,7 +807,7 @@ SPA_RUNTIME_JS = r"""
       var factory = new Function(script + "\nreturn (typeof setup === 'function' ? setup : null);");
       return factory();
     } catch (error) {
-      console.error("[lua-spa] component script compilation failed", error);
+      console.error("[moon-spa] component script compilation failed", error);
       return null;
     }
   }
@@ -847,7 +847,7 @@ SPA_RUNTIME_JS = r"""
     try {
       hook();
     } catch (error) {
-      console.error("[lua-spa] lifecycle hook failed", hookName, error);
+      console.error("[moon-spa] lifecycle hook failed", hookName, error);
     }
   }
 
@@ -995,7 +995,7 @@ SPA_RUNTIME_JS = r"""
           instance.subTree = nextTree;
           vnode.el = nextTree.el;
 
-          var pendingLifecycle = window.__luaSpaLifecyclePending || {};
+          var pendingLifecycle = window.__moonSpaLifecyclePending || {};
           var createdPendingKey =
             String(instance.name || "") + ":" + String(instance.id || "") + ":created";
           var createdPending = pendingLifecycle[createdPendingKey];
@@ -1302,7 +1302,7 @@ SPA_RUNTIME_JS = r"""
       }
     }
 
-    var listeners = el.__luaSpaListeners || {};
+    var listeners = el.__moonSpaListeners || {};
     var previousEvents = previous || {};
     var nextEvents = next || {};
 
@@ -1339,18 +1339,18 @@ SPA_RUNTIME_JS = r"""
       el.addEventListener(eventName, nextListener);
     });
 
-    el.__luaSpaListeners = listeners;
+    el.__moonSpaListeners = listeners;
   }
 
   function bootstrap() {
-    var registry = readJsonScript("lua-spa-registry");
-    var config = readJsonScript("lua-spa-config");
+    var registry = readJsonScript("moon-spa-registry");
+    var config = readJsonScript("moon-spa-config");
     var app = createApp(config, registry);
     app.mount();
     return app;
   }
 
-  window.LuaSpaRuntime = {
+  window.SpaRuntime = {
     bootstrap: bootstrap,
   };
 })();

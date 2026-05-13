@@ -5,7 +5,7 @@ title: spa.config.json
 
 # spa.config.json
 
-The project configuration file, placed at the root of the `lua_template` directory.
+The project configuration file, placed at the root of the `moon_template` directory.
 
 ## Full schema
 
@@ -40,7 +40,7 @@ The project configuration file, placed at the root of the `lua_template` directo
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `page_title` | `string` | `"lua-spa"` | HTML `<title>` tag value |
+| `page_title` | `string` | `"moon-spa"` | HTML `<title>` tag value |
 | `mount_id` | `string` | `"app"` | DOM element ID where the app mounts |
 | `initial_props` | `object` | `{}` | Default props passed to the entry component |
 | `server.host` | `string` | `"127.0.0.1"` | Bind address |
@@ -69,8 +69,8 @@ When `router` is enabled:
 
 ```mermaid
 flowchart LR
-    A["spa.config.json"] -->|parsed| B[LuaTemplateConfig dataclass]
+    A["spa.config.json"] -->|parsed| B[TemplateConfig dataclass]
     B --> C[SpaFramework.__init__]
 ```
 
-`LuaTemplateConfig` is a frozen dataclass defined in `lua_spa.types`.
+`TemplateConfig` is a frozen dataclass defined in `moon_spa.types`.

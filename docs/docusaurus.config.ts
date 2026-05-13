@@ -3,7 +3,7 @@ import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
-  title: 'Lua SPA Documentation',
+  title: ' SPA Documentation',
   tagline: 'Python Framework for Single Page Applications',
   favicon: 'img/favicon.svg',
 
@@ -11,11 +11,11 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://lua-spa.dev',
+  url: 'https://moon-spa.dev',
   baseUrl: '/',
 
-  organizationName: 'lua-spa',
-  projectName: 'lua-spa',
+  organizationName: 'moon-spa',
+  projectName: 'moon-spa',
 
   onBrokenLinks: 'warn',
 
@@ -58,9 +58,9 @@ const config: Config = {
     navbar: {
       title: 'LUA-SPA',
       logo: {
-        alt: 'lua-spa logo',
-        src: 'img/lua-spa-logo.svg',
-        srcDark: 'img/lua-spa-logo.svg',
+        alt: 'moon-spa logo',
+        src: 'img/moon-spa-logo.svg',
+        srcDark: 'img/moon-spa-logo.svg',
       },
       items: [
         {
@@ -76,7 +76,7 @@ const config: Config = {
           label: 'API',
         },
         {
-          href: 'https://github.com/roderiano/lua-spa',
+          href: 'https://github.com/roderiano/moon-spa',
           label: 'GitHub',
           position: 'right',
         },
@@ -96,11 +96,11 @@ const config: Config = {
         {
           title: 'Community',
           items: [
-            { label: 'GitHub', href: 'https://github.com/roderiano/lua-spa' },
+            { label: 'GitHub', href: 'https://github.com/roderiano/moon-spa' },
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} lua-spa. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} moon-spa. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,

@@ -5,13 +5,13 @@ title: Backend Integration
 
 # Backend Integration
 
-lua-spa is a Python framework. Its HTTP server is intentionally minimal — but you can embed it inside a larger Python application or replace the server entirely.
+moon-spa is a Python framework. Its HTTP server is intentionally minimal — but you can embed it inside a larger Python application or replace the server entirely.
 
 ## Using `SpaFramework` directly
 
 ```python
 from pathlib import Path
-from lua_spa.framework import SpaFramework
+from moon_spa.framework import SpaFramework
 
 framework = SpaFramework(
     view_file=Path("my_app/index.lspa"),
@@ -39,7 +39,7 @@ with open("dist/index.html", "w") as f:
 ```python
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
-from lua_spa.app import create_default_framework
+from moon_spa.app import create_default_framework
 
 api = FastAPI()
 spa = create_default_framework()
@@ -60,7 +60,7 @@ flowchart LR
     Browser -->|GET /| SpaFramework
     SpaFramework -->|build_view| HtmlPage
     HtmlPage -->|SSR + bootstrap| Browser
-    Browser -->|POST /__lua_spa_action| SpaFramework
+    Browser -->|POST /__moon_spa_action| SpaFramework
     SpaFramework -->|state/props patch| Browser
     Browser -->|GET /__reload__| SpaFramework
     Browser -->|fetch /api/...| FastAPI
@@ -70,12 +70,12 @@ flowchart LR
 
 ## Runtime bridge endpoints
 
-When using lua-spa built-in server, these runtime routes are reserved:
+When using moon-spa built-in server, these runtime routes are reserved:
 
-- `POST /__lua_spa_action`: executes callable actions/lifecycle and returns `{ok, result}`
+- `POST /__moon_spa_action`: executes callable actions/lifecycle and returns `{ok, result}`
 - `GET /__reload__`: SSE stream used only when `serve(..., reload=True)`
 
-If you embed lua-spa behind another framework/proxy, preserve these routes or mount lua-spa
+If you embed moon-spa behind another framework/proxy, preserve these routes or mount moon-spa
 under a dedicated prefix and update your integration accordingly.
 
 ## Passing server data to components

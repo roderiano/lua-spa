@@ -85,7 +85,7 @@ Declarative action mappings support these operations:
 - `log` (emits browser `console.log`)
 - `js` (raw JavaScript statement)
 - `set_prop` (updates `props` payload)
-- `server_call` (invokes `POST /__lua_spa_action`)
+- `server_call` (invokes `POST /__moon_spa_action`)
 
 Callable actions/lifecycle hooks are normalized into `server_call` operations.
 
@@ -105,7 +105,7 @@ Use these names exactly in `setup().lifecycle`.
 Declarative state field metadata. Use as class/object attributes when state should be seeded from a prop.
 
 ```python
-from lua_spa.types import StateField
+from moon_spa.types import StateField
 
 class Example(Component):
     def setup(self, props):

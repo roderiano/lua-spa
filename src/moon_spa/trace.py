@@ -28,7 +28,7 @@ class _TraceCondition:
 class _PropReference:
     """Represents a reference to a component prop, captured during method execution.
 
-    Used to track which props are accessed so they can be evaluated at runtime
+    Used to track which props are accessed so they can be evamoonted at runtime
     on the client side rather than baked into the compiled code.
     """
 

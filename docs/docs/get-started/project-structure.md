@@ -5,7 +5,7 @@ title: Project Structure
 
 # Project Structure
 
-A lua-spa project created with `lua-spa create my_app` looks like this:
+A moon-spa project created with `moon-spa create my_app` looks like this:
 
 ```
 my_app/
@@ -40,7 +40,7 @@ graph TD
 
 ### `index.lspa`
 
-The HTML shell. lua-spa fills these placeholders at build time:
+The HTML shell. moon-spa fills these placeholders at build time:
 
 | Placeholder | Value |
 |---|---|
