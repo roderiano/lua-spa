@@ -104,9 +104,7 @@ def _serve(reload: bool = False) -> None:
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="moon-spa", description="moon-spa framework CLI"
-    )
+    parser = argparse.ArgumentParser(prog="moon-spa", description="moon-spa framework CLI")
     subparsers = parser.add_subparsers(dest="command")
 
     serve_parser = subparsers.add_parser(

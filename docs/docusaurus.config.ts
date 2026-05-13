@@ -56,7 +56,7 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'LUA-SPA',
+      title: 'MOON-SPA',
       logo: {
         alt: 'moon-spa logo',
         src: 'img/moon-spa-logo.svg',

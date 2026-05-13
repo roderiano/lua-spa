@@ -1,6 +1,6 @@
 <div align="center">
   <img src="src/moon_template/static/logo.png" alt="moon-spa logo" width="120" height="120" />
-  <h1><strong>LUA-SPA CONTRIBUTING</strong></h1>
+  <h1><strong>MOON-SPA CONTRIBUTING</strong></h1>
 </div>
 <div align="center">
   First off, thank you for considering contributing to moon-spa! It's people like you that make moon-spa such a great tool.

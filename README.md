@@ -1,7 +1,7 @@
 
 <div align="center">
   <img src="http://github.com/roderiano/moon-spa/raw/release/src/moon_template/static/logo.png" alt="moon-spa logo" width="120" height="120" />
-  <h1><strong>LUA-SPA</strong></h1>
+  <h1><strong>MOON-SPA</strong></h1>
 </div>
 
 <p align="center">

@@ -5,18 +5,22 @@ from pathlib import Path
 
 import pytest
 
-import lua_spa.main as cli_main
-from lua_spa.main import main
+import moon_spa.main as cli_main
+from moon_spa.main import main
 
 
-def test_create_command_copies_template(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_create_command_copies_template(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     # Given: a minimal template directory structure and a monkeypatched template source
     template_dir = tmp_path / "template"
     template_dir.mkdir()
     (template_dir / "spa.config.json").write_text("{}", encoding="utf-8")
     (template_dir / "index.lspa").write_text("<template></template>", encoding="utf-8")
     (template_dir / "components").mkdir()
-    monkeypatch.setattr("lua_spa.main.get_template_source_directory", lambda: template_dir)
+    monkeypatch.setattr(
+        "moon_spa.main.get_template_source_directory", lambda: template_dir
+    )
 
     # When: the create command is executed
     main(["create", "my_project", str(tmp_path)])
@@ -64,7 +68,7 @@ def test_serve_command_dispatches_to_server(monkeypatch: pytest.MonkeyPatch) -> 
         called["serve"] = True
         called["reload"] = reload
 
-    monkeypatch.setattr("lua_spa.main._serve", _fake_serve)
+    monkeypatch.setattr("moon_spa.main._serve", _fake_serve)
 
     # When: the serve command is invoked
     main(["serve"])
@@ -82,7 +86,7 @@ def test_default_command_prints_help(capsys: pytest.CaptureFixture[str]) -> None
 
     # Then: help text is printed to stdout
     captured = capsys.readouterr()
-    assert "usage: lua-spa" in captured.out
+    assert "usage: moon-spa" in captured.out
 
 
 def test_internal_serve_uses_framework(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -96,7 +100,9 @@ def test_internal_serve_uses_framework(monkeypatch: pytest.MonkeyPatch) -> None:
             called["serve"] = True
             called["reload"] = reload
 
-    monkeypatch.setattr("lua_spa.main.create_default_framework", lambda: FakeFramework())
+    monkeypatch.setattr(
+        "moon_spa.main.create_default_framework", lambda: FakeFramework()
+    )
 
     # When: _serve is called
     cli_main._serve()
@@ -106,7 +112,9 @@ def test_internal_serve_uses_framework(monkeypatch: pytest.MonkeyPatch) -> None:
     assert called["reload"] is False
 
 
-def test_new_component_command_dispatches_creation(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_new_component_command_dispatches_creation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Given: a monkeypatched component creator
     called = {"name": None, "path": None}
 
@@ -115,7 +123,7 @@ def test_new_component_command_dispatches_creation(monkeypatch: pytest.MonkeyPat
         called["path"] = path
         return Path("components") / f"{name}.lspa", Path("components") / f"{name}.css"
 
-    monkeypatch.setattr("lua_spa.main._create_component", _fake_create_component)
+    monkeypatch.setattr("moon_spa.main._create_component", _fake_create_component)
 
     # When: new component command is invoked
     main(["new", "component", "Widget", "."])
@@ -127,11 +135,13 @@ def test_new_component_command_dispatches_creation(monkeypatch: pytest.MonkeyPat
 
 def test_create_component_from_server_action_template(tmp_path: Path) -> None:
     # Given: a project layout containing ComponentTemplate
-    components_dir = tmp_path / "src" / "lua_template" / "components"
+    components_dir = tmp_path / "src" / "moon_template" / "components"
     source_dir = components_dir / "ComponentTemplate"
     source_dir.mkdir(parents=True)
-    (tmp_path / "src" / "lua_template" / "spa.config.json").write_text("{}", encoding="utf-8")
-    (tmp_path / "src" / "lua_template" / "index.lspa").write_text(
+    (tmp_path / "src" / "moon_template" / "spa.config.json").write_text(
+        "{}", encoding="utf-8"
+    )
+    (tmp_path / "src" / "moon_template" / "index.lspa").write_text(
         "<template></template>", encoding="utf-8"
     )
     (source_dir / "ComponentTemplate.lspa").write_text(
@@ -179,32 +189,42 @@ def test_resolve_template_dir_for_new_component_fallback(
     def _raise_not_found(_: Path) -> Path:
         raise FileNotFoundError("missing")
 
-    monkeypatch.setattr("lua_spa.main.resolve_template_directory", _raise_not_found)
-    monkeypatch.setattr("lua_spa.main.get_template_source_directory", lambda: fallback)
+    monkeypatch.setattr("moon_spa.main.resolve_template_directory", _raise_not_found)
+    monkeypatch.setattr("moon_spa.main.get_template_source_directory", lambda: fallback)
 
     resolved = cli_main._resolve_template_dir_for_new_component(str(tmp_path))
     assert resolved == fallback
 
 
-def test_create_component_raises_when_template_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_create_component_raises_when_template_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     template_dir = tmp_path / "template"
     components = template_dir / "components" / "ComponentTemplate"
     components.mkdir(parents=True)
-    monkeypatch.setattr("lua_spa.main._resolve_template_dir_for_new_component", lambda _: template_dir)
+    monkeypatch.setattr(
+        "moon_spa.main._resolve_template_dir_for_new_component", lambda _: template_dir
+    )
 
     with pytest.raises(FileNotFoundError, match="ComponentTemplate not found"):
         cli_main._create_component("UserCard", str(tmp_path))
 
 
-def test_create_component_raises_when_target_exists(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_create_component_raises_when_target_exists(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     template_dir = tmp_path / "template"
     source_dir = template_dir / "components" / "ComponentTemplate"
     source_dir.mkdir(parents=True)
-    (source_dir / "ComponentTemplate.lspa").write_text("ComponentTemplate", encoding="utf-8")
+    (source_dir / "ComponentTemplate.lspa").write_text(
+        "ComponentTemplate", encoding="utf-8"
+    )
     (source_dir / "ComponentTemplate.css").write_text(".x{}", encoding="utf-8")
     target_dir = template_dir / "components" / "UserCard"
     target_dir.mkdir(parents=True)
-    monkeypatch.setattr("lua_spa.main._resolve_template_dir_for_new_component", lambda _: template_dir)
+    monkeypatch.setattr(
+        "moon_spa.main._resolve_template_dir_for_new_component", lambda _: template_dir
+    )
 
     with pytest.raises(FileExistsError, match="Component directory already exists"):
         cli_main._create_component("UserCard", str(tmp_path))
@@ -221,7 +241,7 @@ def test_new_component_command_exits_when_creator_fails(
     def _boom(_: str, __: str) -> tuple[Path, Path]:
         raise ValueError("invalid component")
 
-    monkeypatch.setattr("lua_spa.main._create_component", _boom)
+    monkeypatch.setattr("moon_spa.main._create_component", _boom)
 
     with pytest.raises(SystemExit) as exc:
         main(["new", "component", "Bad", "."])

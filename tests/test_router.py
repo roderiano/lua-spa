@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lua_spa.router import (
+from moon_spa.router import (
     Router,
     _components_for_route,
     _encode_attr_value,

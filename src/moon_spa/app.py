@@ -9,11 +9,7 @@ from moon_spa.framework import SpaFramework
 
 
 def _is_valid_template_directory(path: Path) -> bool:
-    return (
-        path.is_dir()
-        and (path / "spa.config.json").exists()
-        and (path / "index.lspa").exists()
-    )
+    return path.is_dir() and (path / "spa.config.json").exists() and (path / "index.lspa").exists()
 
 
 def _template_source_candidates(

@@ -188,9 +188,9 @@ class _SpaHandler(BaseHTTPRequestHandler):
                 state=state if isinstance(state, dict) else {},
             )
         except Exception as error:
-            response = json.dumps(
-                {"ok": False, "error": str(error)}, ensure_ascii=True
-            ).encode("utf-8")
+            response = json.dumps({"ok": False, "error": str(error)}, ensure_ascii=True).encode(
+                "utf-8"
+            )
             self.send_response(HTTPStatus.BAD_REQUEST)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(response)))
@@ -198,9 +198,7 @@ class _SpaHandler(BaseHTTPRequestHandler):
             self.wfile.write(response)
             return
 
-        response = json.dumps({"ok": True, "result": result}, ensure_ascii=True).encode(
-            "utf-8"
-        )
+        response = json.dumps({"ok": True, "result": result}, ensure_ascii=True).encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(response)))
@@ -221,9 +219,7 @@ class SpaServer:
         if reload and not _watch_started.is_set():
             _watch_started.set()
             watch_path = (
-                str(framework._view_file.parents[1])
-                if hasattr(framework, "_view_file")
-                else "."
+                str(framework._view_file.parents[1]) if hasattr(framework, "_view_file") else "."
             )
             try:
                 relative_watch_path = os.path.relpath(watch_path, os.getcwd())
@@ -234,10 +230,7 @@ class SpaServer:
                 args=(relative_watch_path, framework),
                 daemon=True,
             ).start()
-            print(
-                "Live reload activated. "
-                f"Watching {relative_watch_path} for file changes..."
-            )
+            print("Live reload activated. " f"Watching {relative_watch_path} for file changes...")
 
         with server:
             server.serve_forever()

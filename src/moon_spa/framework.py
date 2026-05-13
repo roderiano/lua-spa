@@ -27,9 +27,7 @@ from moon_spa.runtime_assets import SPA_RUNTIME_JS
 from moon_spa.server import SpaServer
 from moon_spa.types import ComponentDefinition, load_moon_template_config
 
-_ATTR_PATTERN = re.compile(
-    r"([:@A-Za-z_][A-Za-z0-9_:\-]*)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')"
-)
+_ATTR_PATTERN = re.compile(r"([:@A-Za-z_][A-Za-z0-9_:\-]*)\s*=\s*(?:\"([^\"]*)\"|'([^']*)')")
 _STYLE_SRC_PATTERN = re.compile(
     r"<style\s+[^>]*src\s*=\s*(?:\"([^\"]+)\"|'([^']+)')[^>]*>\s*</style>",
     re.IGNORECASE,
@@ -103,9 +101,7 @@ class SpaFramework:
         """
         self._view_file = view_file
         self._components_dir = components_dir
-        self._static_dir = (
-            static_dir if static_dir is not None else view_file.parent / "static"
-        )
+        self._static_dir = static_dir if static_dir is not None else view_file.parent / "static"
         self.entry_component = entry_component
         self.mount_id = mount_id
         self.page_title = page_title
@@ -164,12 +160,8 @@ class SpaFramework:
             spa_outlet = self._render_component(self.entry_component, initial_props)
         bootstrap = self._build_bootstrap_block(initial_props)
 
-        page = page_shell.replace(
-            "{{ SPA_MOUNT_ID }}", html.escape(self.mount_id, quote=True)
-        )
-        page = page.replace(
-            "{{ SPA_PAGE_TITLE }}", html.escape(self.page_title, quote=False)
-        )
+        page = page_shell.replace("{{ SPA_MOUNT_ID }}", html.escape(self.mount_id, quote=True))
+        page = page.replace("{{ SPA_PAGE_TITLE }}", html.escape(self.page_title, quote=False))
         page = page.replace("{{ SPA_OUTLET }}", spa_outlet)
         page = page.replace("{{ SPA_BOOTSTRAP }}", bootstrap)
         return page
@@ -203,9 +195,7 @@ class SpaFramework:
                 candidate = self._static_dir / candidate_name
                 if candidate.exists() and candidate.is_file():
                     mime_type, _ = mimetypes.guess_type(str(candidate))
-                    return candidate.read_bytes(), (
-                        mime_type or "application/octet-stream"
-                    )
+                    return candidate.read_bytes(), (mime_type or "application/octet-stream")
             return None
 
         if not request_path.startswith("/static/"):
@@ -229,9 +219,7 @@ class SpaFramework:
         mime_type, _ = mimetypes.guess_type(str(candidate))
         return candidate.read_bytes(), (mime_type or "application/octet-stream")
 
-    def serve(
-        self, host: str | None = None, port: int | None = None, reload: bool = False
-    ) -> None:
+    def serve(self, host: str | None = None, port: int | None = None, reload: bool = False) -> None:
         """Start the HTTP server.
 
         Blocks indefinitely, serving the SPA on the specified host and port.
@@ -267,9 +255,7 @@ class SpaFramework:
         entry_python_context: Mapping[str, Any] = {}
         entry_component = self._components.get(self.entry_component)
         if entry_component is not None:
-            entry_python_context = build_python_context(
-                entry_component.python_block, props
-            )
+            entry_python_context = build_python_context(entry_component.python_block, props)
 
         synced_props = dict(props)
         if isinstance(entry_python_context, Mapping) and len(entry_python_context) > 0:
@@ -359,9 +345,7 @@ class SpaFramework:
         }
         return self._expand_child_components(route_template, context)
 
-    def _expand_child_components(
-        self, template: str, context: Mapping[str, Any]
-    ) -> str:
+    def _expand_child_components(self, template: str, context: Mapping[str, Any]) -> str:
         """Recursively expand custom component tags into their rendered HTML.
 
         Processes largest component names first to avoid conflicts (e.g., render
@@ -394,9 +378,7 @@ class SpaFramework:
                 rendered,
             )
             rendered = self_closing_pattern.sub(
-                lambda match: self._render_tag_match(
-                    component_name, match.group(1), "", context
-                ),
+                lambda match: self._render_tag_match(component_name, match.group(1), "", context),
                 rendered,
             )
 
@@ -446,9 +428,7 @@ class SpaFramework:
             child_props["children"] = inner_html
         return self._render_component(component_name, child_props)
 
-    def _parse_attributes(
-        self, attrs_raw: str, context: Mapping[str, Any]
-    ) -> dict[str, Any]:
+    def _parse_attributes(self, attrs_raw: str, context: Mapping[str, Any]) -> dict[str, Any]:
         """Parse HTML attributes and interpolate their values.
 
         Args:
