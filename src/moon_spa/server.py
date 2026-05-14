@@ -62,9 +62,9 @@ def _watch_files(path: str, framework: Any) -> None:
                 elif last_mtime[full] != mtime:
                     last_mtime[full] = mtime
                     changed = True
+                    print(f"Changes detected on '{f}', rebuilding view...")
 
         if changed:
-            print("Changes detected, rebuilding view...")
             try:
                 reload_components = getattr(framework, "reload_components", None)
                 if callable(reload_components):
