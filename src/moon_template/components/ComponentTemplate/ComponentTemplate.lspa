@@ -10,6 +10,10 @@ class ComponentTemplate(Component):
       "mounted": False,
       "reload_count": 0,
       "status": "idle",
+      "name": "",
+      "category": "",
+      "agreed": False,
+      "last_event": "none",
     }
 
     data = {
@@ -24,6 +28,23 @@ class ComponentTemplate(Component):
     def mounted():
       state["mounted"] = True
       reload_data()
+
+    def on_input():
+      state["last_event"] = "input"
+
+    def on_change():
+      state["last_event"] = "change"
+
+    def on_blur():
+      state["last_event"] = "blur"
+
+    def on_keyup():
+      state["last_event"] = "keyup"
+
+    def on_submit():
+      form_values = state.get("component_form", {})
+      state["last_event"] = "submit"
+      state["status"] = "submitted"
 </python>
 
 <style src="./ComponentTemplate.css"></style>
@@ -34,6 +55,38 @@ class ComponentTemplate(Component):
     <p>{{ data.message }}</p>
     <p align="center">{{ state.reload_count }}</p>
     <p>status: {{ state.status }} | mounted: {{ state.mounted }}</p>
+    <p>last event: {{ state.last_event }}</p>
+
+    <form name="component_form" @submit="on_submit">
+      <input
+        type="text"
+        name="name"
+        i-model="state.name"
+        @input="on_input"
+        @blur="on_blur"
+        @keyup="on_keyup"
+        placeholder="Name"
+      />
+
+      <select name="category" i-model="state.category" @change="on_change">
+        <option value="">Select category</option>
+        <option value="A">Category A</option>
+        <option value="B">Category B</option>
+      </select>
+
+      <label>
+        <input
+          type="checkbox"
+          name="agreed"
+          i-model="state.agreed"
+          @change="on_change"
+        />
+        Accepted terms
+      </label>
+
+      <button type="submit">Submit form</button>
+    </form>
+
     <button type="button" @click="reload_data">Reload</button>
   </section>
 </template>

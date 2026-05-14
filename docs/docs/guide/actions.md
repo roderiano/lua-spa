@@ -39,6 +39,23 @@ Template binding:
 <button @click="increment">+</button>
 ```
 
+## Event bindings
+
+You can bind actions to any DOM event using the `@event` syntax:
+
+```html
+<input @input="onInput" />
+<input @change="onChange" />
+<input @blur="onBlur" />
+<input @keyup="onKeyup" />
+<form @submit="onSubmit">...</form>
+```
+
+- `@input`, `@change`, `@blur`, `@keyup`, `@submit`, and other DOM events are supported.
+- For forms, on submit, all form fields are collected into a dictionary and assigned to `state[form_name]` (see the Templating guide for details).
+- The state is always updated before the action runs.
+- The action receives the latest state, including form data if applicable.
+
 ## Conditional actions
 
 ```python

@@ -80,6 +80,7 @@ Behavior:
 - On input/change, runtime updates the bound `state` key and re-renders.
 - Works best with `state.*` paths.
 
+
 ## Event binding `@event`
 
 ```html
@@ -89,6 +90,48 @@ Behavior:
 ```
 
 The value is the action name inferred from `setup(self, props)` local callables.
+
+## Form submission and state structure
+
+When a form is submitted using `@submit`, all form fields are collected into a dictionary. This dictionary is assigned to a key in the root of the state object, named after the form's `name` attribute. For example, a form with `name="myform"` will have its data available as `state.myform`.
+
+**Key points:**
+- The form data is stored at the root of the state, under the form name (e.g., `state.myform`).
+- No extra metadata is included—only the form fields and their values.
+- The state is updated with the latest form data before the action handler is called.
+- In your action, you can access all submitted fields as a dictionary: `state["myform"]["fieldname"]`.
+
+**Example:**
+
+```html
+<form name="profile" @submit="saveProfile">
+  <input name="username" i-model="state.username" />
+  <input name="email" i-model="state.email" />
+  <button type="submit">Save</button>
+</form>
+```
+
+On submit, the state will include:
+
+```python
+state = {
+  ...,
+  "profile": {
+    "username": "...",
+    "email": "..."
+  }
+}
+```
+
+In your action handler:
+
+```python
+def saveProfile(self, state, props):
+    profile = state["profile"]
+    # profile["username"], profile["email"]
+```
+
+This applies to all forms using `@submit`. The state is always synchronized before the action runs.
 
 ## Dynamic attributes `:attr`
 

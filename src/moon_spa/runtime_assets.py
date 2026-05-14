@@ -899,6 +899,7 @@ SPA_RUNTIME_JS = r"""
       enumerate: helpers.enumerate,
       len: helpers.len,
       props: instance.props,
+      data: instance.props,
       state: instance.state,
       actions: instance.actions,
       py: instance.props,
@@ -1292,13 +1293,99 @@ SPA_RUNTIME_JS = r"""
       }
     }
 
-    function invokeNamedAction(actionName, event) {
+    function collectFormFields(formElement) {
+      var values = {};
+      if (!formElement || !formElement.elements) {
+        return values;
+      }
+
+      Array.from(formElement.elements).forEach(function (field) {
+        if (!field || !field.name || field.disabled) {
+          return;
+        }
+
+        var name = field.name;
+        var lowerType = String(field.type || "").toLowerCase();
+        if (lowerType === "submit" || lowerType === "button" || lowerType === "reset") {
+          return;
+        }
+
+        if (lowerType === "radio") {
+          if (field.checked) {
+            values[name] = field.value;
+          } else if (!Object.prototype.hasOwnProperty.call(values, name)) {
+            values[name] = null;
+          }
+          return;
+        }
+
+        if (lowerType === "checkbox") {
+          var checkboxes = formElement.querySelectorAll(
+            'input[type="checkbox"][name="' + name.replace(/"/g, '\\"') + '"]'
+          );
+          if (checkboxes.length > 1) {
+            if (!Array.isArray(values[name])) {
+              values[name] = [];
+            }
+            if (field.checked) {
+              values[name].push(field.value || true);
+            }
+          } else {
+            values[name] = !!field.checked;
+          }
+          return;
+        }
+
+        if (field.tagName === "SELECT" && field.multiple) {
+          values[name] = Array.from(field.selectedOptions || []).map(function (option) {
+            return option.value;
+          });
+          return;
+        }
+
+        values[name] = field.value;
+      });
+
+      return values;
+    }
+
+    function buildSubmitDict(event, element) {
+      var formElement = null;
+      if (event && event.target && event.target.tagName === "FORM") {
+        formElement = event.target;
+      } else if (element && element.tagName === "FORM") {
+        formElement = element;
+      } else if (element && typeof element.closest === "function") {
+        formElement = element.closest("form");
+      }
+
+      if (!formElement) {
+        return null;
+      }
+
+      var formName =
+        formElement.getAttribute("name") || formElement.getAttribute("id") || "form";
+      var dict = {};
+      dict[formName] = collectFormFields(formElement);
+      return dict;
+    }
+
+    function syncSubmitDictToState(submitDict) {
+      if (!submitDict || !currentComponent || !currentComponent.state) {
+        return;
+      }
+      Object.keys(submitDict).forEach(function (formName) {
+        currentComponent.state[formName] = submitDict[formName];
+      });
+    }
+
+    function invokeNamedAction(actionName, event, payload) {
       if (!currentComponent || !currentComponent.actions || typeof actionName !== "string") {
         return;
       }
       var action = currentComponent.actions[actionName];
       if (typeof action === "function") {
-        action(event);
+        action(event, payload);
       }
     }
 
@@ -1327,12 +1414,25 @@ SPA_RUNTIME_JS = r"""
       }
 
       var nextListener = function (event) {
+        var submitDict = null;
+        if (eventName === "submit") {
+          if (event && typeof event.preventDefault === "function") {
+            event.preventDefault();
+          }
+          submitDict = buildSubmitDict(event, el);
+          if (event && submitDict) {
+            event.dict = submitDict;
+            event.formDict = submitDict;
+          }
+          syncSubmitDictToState(submitDict);
+        }
+
         if (descriptor.kind === "model") {
           applyModelExpression(descriptor.expr, eventName, event, el);
-          invokeNamedAction(descriptor.action, event);
+          invokeNamedAction(descriptor.action, event, submitDict);
           return;
         }
-        invokeNamedAction(descriptor.action, event);
+        invokeNamedAction(descriptor.action, event, submitDict);
       };
 
       listeners[eventName] = nextListener;
