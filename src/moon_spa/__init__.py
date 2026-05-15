@@ -22,5 +22,4 @@ __all__ = [
     "ClientMethods",
     "ComponentDefinition",
     "StateField",
-    "__version__",
 ]
