@@ -10,20 +10,48 @@ class ComponentTemplate(Component):
       "mounted": False,
       "reload_count": 0,
       "status": "idle",
+      "name": "",
+      "category": "",
+      "agreed": False,
+      "last_event": "none",
     }
 
     data = {
       "message": "waiting",
     }
 
-    def reload_data():
+    def reload_data(reload_mounted=False):
       state["reload_count"] += 1
-      state["status"] = "updated"
-      data["message"] = f"reload #{state['reload_count']}"
+      state["status"] = "updated" if reload_mounted else "updated-no-arg"
+      data["message"] = f"reload #{state['reload_count']} (reload_mounted={reload_mounted})"
 
     def mounted():
       state["mounted"] = True
-      reload_data()
+      reload_data(reload_mounted=True)
+
+    def on_input():
+      state["last_event"] = "input"
+
+    def on_change():
+      state["last_event"] = "change"
+
+    def on_blur():
+      state["last_event"] = "blur"
+
+    def on_keyup():
+      state["last_event"] = "keyup"
+
+    def on_submit():
+      form_values = state.get("component_form", {})
+      state["last_event"] = "submit"
+      state["status"] = "submitted"
+
+    def label_with(name, count):
+      return f"Hello {name} ({count})"
+
+    def enable_button(reload_count):
+      return reload_count > 5
+
 </python>
 
 <style src="./ComponentTemplate.css"></style>
@@ -32,8 +60,42 @@ class ComponentTemplate(Component):
   <section>
     <h2>{{ props.title }}</h2>
     <p>{{ data.message }}</p>
+    <p>{{ label_with('Moon', state.reload_count) }}</p>
+    <p>title length: {{ len(props.title) }}</p>
     <p align="center">{{ state.reload_count }}</p>
     <p>status: {{ state.status }} | mounted: {{ state.mounted }}</p>
-    <button type="button" @click="reload_data">Reload</button>
+    <p>last event: {{ state.last_event }}</p>
+
+    <form name="component_form" @submit="on_submit">
+      <input
+        type="text"
+        name="name"
+        i-model="state.name"
+        @input="on_input"
+        @blur="on_blur"
+        @keyup="on_keyup"
+        placeholder="Name"
+      />
+
+      <select name="category" i-model="state.category" @change="on_change">
+        <option value="">Select category</option>
+        <option value="A">Category A</option>
+        <option value="B">Category B</option>
+      </select>
+
+      <label>
+        <input
+          type="checkbox"
+          name="agreed"
+          i-model="state.agreed"
+          @change="on_change"
+        />
+        Accepted terms
+      </label>
+
+      <button type="submit">Submit form</button>
+    </form>
+
+    <button type="button" :class="enable_button(state.reload_count) ? 'is-enabled' : 'is-disabled'" @click="reload_data(True)">Reload</button>
   </section>
 </template>

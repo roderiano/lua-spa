@@ -62,9 +62,9 @@ def _watch_files(path: str, framework: Any) -> None:
                 elif last_mtime[full] != mtime:
                     last_mtime[full] = mtime
                     changed = True
+                    print(f"Changes detected on '{f}', rebuilding view...")
 
         if changed:
-            print("Changes detected, rebuilding view...")
             try:
                 reload_components = getattr(framework, "reload_components", None)
                 if callable(reload_components):
@@ -174,6 +174,7 @@ class _SpaHandler(BaseHTTPRequestHandler):
         callable_name = str(payload.get("name") or "")
         props = payload.get("props")
         state = payload.get("state")
+        args = payload.get("args")
 
         if component_name == "" or callable_name == "":
             self.send_error(HTTPStatus.BAD_REQUEST, "Missing component/name")
@@ -186,6 +187,7 @@ class _SpaHandler(BaseHTTPRequestHandler):
                 callable_name=callable_name,
                 props=props if isinstance(props, dict) else {},
                 state=state if isinstance(state, dict) else {},
+                args=args if isinstance(args, list) else [],
             )
         except Exception as error:
             response = json.dumps({"ok": False, "error": str(error)}, ensure_ascii=True).encode(
