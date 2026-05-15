@@ -7,6 +7,7 @@ then inspects and normalizes the resulting client specs (props, state, actions, 
 from __future__ import annotations
 
 import builtins
+import inspect
 import sys
 from types import FunctionType
 from typing import Any, Mapping
@@ -382,11 +383,18 @@ def _normalize_setup_spec(
     for action_name, action_value in raw_actions.items():
         action_name_str = str(action_name)
         if callable(action_value):
-            actions_spec[action_name_str] = {
-                "op": "server_call",
-                "kind": "action",
-                "name": action_name_str,
-            }
+            if callable(action_value):
+                sig = inspect.signature(action_value)
+
+                actions_spec[action_name_str] = {
+                    "op": "server_call",
+                    "kind": "action",
+                    "name": action_name_str,
+                    "params": {
+                        name: (None if param.default is inspect.Parameter.empty else param.default)
+                        for name, param in sig.parameters.items()
+                    },
+                }
             continue
         if isinstance(action_value, Mapping):
             actions_spec[action_name_str] = dict(action_value)
@@ -454,6 +462,7 @@ def execute_setup_server_callable(
     name: str,
     props: Mapping[str, Any] | None,
     state: Mapping[str, Any] | None,
+    args: list[Any] | None = None,
 ) -> dict[str, Any]:
     """Execute a setup action/lifecycle callable at request time.
 
@@ -578,9 +587,15 @@ def execute_setup_server_callable(
         if not callable(target):
             raise ValueError(f"Unknown action: {name}")
         builtins.print = _trace_print
+        call_args = list(args) if isinstance(args, list) else []
         try:
-            result = target()
+            if len(call_args) > 0:
+                result = target(*call_args)
+            else:
+                result = target()
         except TypeError:
+            if len(call_args) > 0:
+                raise
             result = target(None)
         finally:
             builtins.print = original_print
@@ -595,7 +610,8 @@ def execute_setup_server_callable(
             builtins.print = _trace_print
             try:
                 result = hook_callable()
-            except TypeError:
+            except TypeError as ex:
+                print(ex)
                 result = hook_callable(None)
             finally:
                 builtins.print = original_print

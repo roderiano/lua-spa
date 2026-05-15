@@ -174,6 +174,7 @@ class _SpaHandler(BaseHTTPRequestHandler):
         callable_name = str(payload.get("name") or "")
         props = payload.get("props")
         state = payload.get("state")
+        args = payload.get("args")
 
         if component_name == "" or callable_name == "":
             self.send_error(HTTPStatus.BAD_REQUEST, "Missing component/name")
@@ -186,6 +187,7 @@ class _SpaHandler(BaseHTTPRequestHandler):
                 callable_name=callable_name,
                 props=props if isinstance(props, dict) else {},
                 state=state if isinstance(state, dict) else {},
+                args=args if isinstance(args, list) else [],
             )
         except Exception as error:
             response = json.dumps({"ok": False, "error": str(error)}, ensure_ascii=True).encode(

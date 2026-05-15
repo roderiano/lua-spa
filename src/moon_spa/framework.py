@@ -16,8 +16,10 @@ from typing import Any, Mapping
 
 from moon_spa.loader import ComponentLoader
 from moon_spa.renderer import (
+    build_python_actions_context,
     build_python_context,
     build_server_state,
+    evamoonte_expression,
     interpolate,
     render_template_with_directives,
 )
@@ -317,10 +319,12 @@ class SpaFramework:
         component = self._components[name]
         server_state = build_server_state(component.python_block, props)
         python_context = build_python_context(component.python_block, props)
+        actions_context = build_python_actions_context(component.python_block, props)
         context: dict[str, Any] = {
             "props": dict(props),
             "state": server_state,
             "py": python_context,
+            "actions": actions_context,
         }
 
         html_fragment = interpolate(component.template, context)
@@ -342,6 +346,7 @@ class SpaFramework:
             "props": dict(props),
             "state": {},
             "py": {},
+            "actions": {},
         }
         return self._expand_child_components(route_template, context)
 
@@ -391,6 +396,7 @@ class SpaFramework:
         callable_name: str,
         props: Mapping[str, Any] | None,
         state: Mapping[str, Any] | None,
+        args: list[Any] | None = None,
     ) -> dict[str, Any]:
         """Execute a setup action/lifecycle callable and return state/props patches."""
         component = self._components.get(component_name)
@@ -403,6 +409,7 @@ class SpaFramework:
             name=callable_name,
             props=props,
             state=state,
+            args=args,
         )
 
     def _render_tag_match(
@@ -442,6 +449,15 @@ class SpaFramework:
         for match in _ATTR_PATTERN.finditer(attrs_raw):
             name = match.group(1)
             value = match.group(2) if match.group(2) is not None else match.group(3)
+
+            # :attr is a dynamic expression attribute and is evaluated directly.
+            if name.startswith(":"):
+                attr_name = name[1:]
+                if attr_name == "":
+                    continue
+                parsed[attr_name] = evamoonte_expression(value, context)
+                continue
+
             resolved = interpolate(value, context)
             if name == "__props" and isinstance(resolved, str):
                 payload = resolved[9:] if resolved.startswith("__json__:") else resolved

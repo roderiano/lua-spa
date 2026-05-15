@@ -314,11 +314,13 @@ def build_scoped_context(context: Mapping[str, Any]) -> dict[str, Any]:
     props_map = dict(context.get("props", {}))
     state_map = dict(context.get("state", {}))
     py_map = dict(context.get("py", {}))
+    actions_map = dict(context.get("actions", {}))
 
     scoped: dict[str, Any] = {
         "props": to_namespace(props_map),
         "state": to_namespace(state_map),
         "py": to_namespace(py_map),
+        "actions": to_namespace(actions_map),
     }
 
     flat_context: dict[str, Any] = {}
@@ -328,7 +330,7 @@ def build_scoped_context(context: Mapping[str, Any]) -> dict[str, Any]:
                 flat_context[key] = value
 
     for key, value in flat_context.items():
-        if key in {"props", "state", "py"}:
+        if key in {"props", "state", "py", "actions"}:
             continue
         scoped[key] = to_namespace(value)
 
@@ -676,6 +678,34 @@ def build_python_context(python_block: str, props: Mapping[str, Any]) -> dict[st
 
     result = context_factory(dict(props))
     return normalize_context_result(result)
+
+
+def build_python_actions_context(python_block: str, props: Mapping[str, Any]) -> dict[str, Any]:
+    """Resolve setup(self, props).actions for server-side expression evaluation."""
+    from moon_spa.scope import load_python_scope, resolve_component_callables
+
+    local_scope = load_python_scope(python_block)
+    _, client_factory = resolve_component_callables(local_scope)
+    if client_factory is None:
+        return {}
+
+    try:
+        raw_spec = client_factory(dict(props))
+    except TypeError:
+        raw_spec = client_factory()
+
+    if not isinstance(raw_spec, Mapping):
+        return {}
+
+    raw_actions = raw_spec.get("actions", {})
+    if not isinstance(raw_actions, Mapping):
+        return {}
+
+    actions: dict[str, Any] = {}
+    for action_name, action_value in raw_actions.items():
+        if callable(action_value):
+            actions[str(action_name)] = action_value
+    return actions
 
 
 def build_server_state(python_block: str, props: Mapping[str, Any]) -> dict[str, Any]:

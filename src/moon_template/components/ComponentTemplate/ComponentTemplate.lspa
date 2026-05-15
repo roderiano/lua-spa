@@ -20,14 +20,14 @@ class ComponentTemplate(Component):
       "message": "waiting",
     }
 
-    def reload_data():
+    def reload_data(reload_mounted=False):
       state["reload_count"] += 1
-      state["status"] = "updated"
-      data["message"] = f"reload #{state['reload_count']}"
+      state["status"] = "updated" if reload_mounted else "updated-no-arg"
+      data["message"] = f"reload #{state['reload_count']} (reload_mounted={reload_mounted})"
 
     def mounted():
       state["mounted"] = True
-      reload_data()
+      reload_data(reload_mounted=True)
 
     def on_input():
       state["last_event"] = "input"
@@ -45,6 +45,10 @@ class ComponentTemplate(Component):
       form_values = state.get("component_form", {})
       state["last_event"] = "submit"
       state["status"] = "submitted"
+
+    def label_with(name, count):
+      return f"Hello {name} ({count})"
+
 </python>
 
 <style src="./ComponentTemplate.css"></style>
@@ -53,6 +57,8 @@ class ComponentTemplate(Component):
   <section>
     <h2>{{ props.title }}</h2>
     <p>{{ data.message }}</p>
+    <p>{{ label_with('Moon', state.reload_count) }}</p>
+    <p>title length: {{ len(props.title) }}</p>
     <p align="center">{{ state.reload_count }}</p>
     <p>status: {{ state.status }} | mounted: {{ state.mounted }}</p>
     <p>last event: {{ state.last_event }}</p>
@@ -87,6 +93,6 @@ class ComponentTemplate(Component):
       <button type="submit">Submit form</button>
     </form>
 
-    <button type="button" @click="reload_data">Reload</button>
+    <button type="button" :class="len(state.status) > 5 and 'is-enabled' or 'is-disabled'" @click="reload_data(True)">Reload</button>
   </section>
 </template>

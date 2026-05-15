@@ -15,12 +15,17 @@ Interpolates an expression result into text or attribute content:
 <p>{{ state.count }}</p>
 <p>{{ props.name }}</p>
 <p>{{ 2 + 2 }}</p>
+<p>{{ len(props.name) }}</p>
 ```
 
 The context available inside `{{ }}`:
 - `state` — reactive state object
 - `props` — component props
 - `py` — namespace populated by `setup().data`
+- `actions` — action namespace from `setup().actions`
+
+Function calls with arguments are supported in interpolation (for example: `{{ len(props.name) }}`).
+Prefer pure expressions here. Triggering action side effects should be done with `@event`.
 
 ## Conditional rendering
 
@@ -85,11 +90,17 @@ Behavior:
 
 ```html
 <button @click="increment">+</button>
+<button @click="incrementBy(2)">+2</button>
 <input @input="updateName" />
 <form @submit="handleSubmit">...</form>
 ```
 
-The value is the action name inferred from `setup(self, props)` local callables.
+Event handlers accept either:
+- action name, e.g. `@click="increment"`
+- action call with arguments, e.g. `@click="incrementBy(2)"`
+
+Arguments are evaluated in template context (`state`, `props`, `py`, `actions`).
+Use events for side-effect actions (server calls).
 
 ## Form submission and state structure
 
@@ -138,9 +149,16 @@ This applies to all forms using `@submit`. The state is always synchronized befo
 ```html
 <div :class="state.visible and 'show' or 'hide'">...</div>
 <img :src="props.imageUrl" />
+<button :title="len(props.name)">Hover</button>
 ```
 
 `:` evamoontes the expression and applies the result to the attribute name.
+
+Function calls with arguments are supported in dynamic attributes, for example:
+- `:title="len(props.name)"`
+- `:data-size="len(state.items)"`
+
+Prefer pure expressions in `:attr`. For actions with side effects, use `@event`.
 
 ## Processing order (server-side)
 

@@ -131,11 +131,11 @@ def build_client_script(python_block: str) -> str:
         )
     lines.append("    }")
     lines.append("  }")
-    lines.append("  function __serverCall(kind, name) {")
+    lines.append("  function __serverCall(kind, name, ...args) {")
     lines.append("    if (!componentName) {")
     lines.append("      return Promise.resolve(null);")
     lines.append("    }")
-    lines.append("    function __sendServerCall(requestProps, requestState) {")
+    lines.append("    function __sendServerCall(requestProps, requestState, requestArgs) {")
     lines.append("      return fetch('/__moon_spa_action', {")
     lines.append("        method: 'POST',")
     lines.append("        headers: { 'Content-Type': 'application/json' },")
@@ -145,6 +145,7 @@ def build_client_script(python_block: str) -> str:
     lines.append("          name: name,")
     lines.append("          props: requestProps,")
     lines.append("          state: requestState,")
+    lines.append("          args: Array.isArray(requestArgs) ? requestArgs : [],")
     lines.append("        }),")
     lines.append("      })")
     lines.append("        .then(function (response) { return response.json(); })")
@@ -190,7 +191,7 @@ def build_client_script(python_block: str) -> str:
     lines.append("              requestState = lifecycleSnapshot.state;")
     lines.append("            }")
     lines.append("          }")
-    lines.append("          return __sendServerCall(requestProps, requestState);")
+    lines.append("          return __sendServerCall(requestProps, requestState, []);")
     lines.append("        })")
     lines.append("        .then(function (payload) {")
     lines.append("          if (payload && payload.ok === true && payload.result) {")
@@ -206,7 +207,7 @@ def build_client_script(python_block: str) -> str:
     lines.append("        }")
     lines.append("      });")
     lines.append("    } else {")
-    lines.append("      requestPromise = __sendServerCall(resolvedProps, state);")
+    lines.append("      requestPromise = __sendServerCall(resolvedProps, state, args);")
     lines.append("    }")
     lines.append("    return requestPromise.catch(function () { return null; });")
     lines.append("  }")
@@ -215,8 +216,13 @@ def build_client_script(python_block: str) -> str:
     for action_name_raw, action_cfg in actions_spec.items():
         action_name = str(action_name_raw)
         action_operation = _normalize_action_operation(action_cfg)
-        action_body = _js_action_statement(action_operation, setter_by_state, value_by_state)
-        lines.append(f"      {action_name}: function () {{")
+        action_body = _js_action_statement(
+            action_operation,
+            setter_by_state,
+            value_by_state,
+            action_args_var="actionArgs",
+        )
+        lines.append(f"      {action_name}: function (...actionArgs) {{")
         lines.append(f"        {action_body}")
         lines.append("      },")
 
@@ -364,6 +370,7 @@ def _normalize_action_operation(action_cfg: Any) -> dict[str, Any]:
             "op": "server_call",
             "kind": kind_name,
             "name": callable_name,
+            "params": action_cfg.get("params", {}),
         }
 
     state_name = action_cfg.get("state")
@@ -384,6 +391,7 @@ def _js_action_statement(
     operation: Mapping[str, Any],
     setter_by_state: Mapping[str, str],
     value_by_state: Mapping[str, str] | None = None,
+    action_args_var: str | None = None,
 ) -> str:
     """Generate a JavaScript statement for an action operation.
 
@@ -408,7 +416,14 @@ def _js_action_statement(
         for step in steps:
             if not isinstance(step, Mapping):
                 raise ValueError("multi action step must be a mapping")
-            statements.append(_js_action_statement(step, setter_by_state, value_by_state))
+            statements.append(
+                _js_action_statement(
+                    step,
+                    setter_by_state,
+                    value_by_state,
+                    action_args_var=action_args_var,
+                )
+            )
         return " ".join(statements)
 
     if str(operation.get("op", "")) == "log":
@@ -446,7 +461,10 @@ def _js_action_statement(
                 f"__serverCall({_js_literal(kind_name)}, {_js_literal(callable_name)}); "
                 "}"
             )
-        return f"__serverCall({_js_literal(kind_name)}, {_js_literal(callable_name)});"
+        args_suffix = ""
+        if action_args_var is not None and action_args_var != "":
+            args_suffix = f", ...{action_args_var}"
+        return f"__serverCall({_js_literal(kind_name)}, {_js_literal(callable_name)}{args_suffix});"
 
     state_name = str(operation["state"])
     if state_name not in setter_by_state:

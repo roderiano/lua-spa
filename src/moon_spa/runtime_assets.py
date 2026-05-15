@@ -888,7 +888,12 @@ SPA_RUNTIME_JS = r"""
     if (instance.props && typeof instance.props.children === "string") {
       templateSource = templateSource.replace(/{{\s*children\s*}}/g, instance.props.children);
     }
-    var flatContext = Object.assign({}, instance.props || {}, instance.state || {}, instance.props || {});
+    var flatContext = Object.assign(
+      {},
+      instance.props || {},
+      instance.state || {},
+      instance.props || {}
+    );
     var helpers = {
       range: range,
       enumerate: enumerate,
@@ -1389,6 +1394,67 @@ SPA_RUNTIME_JS = r"""
       }
     }
 
+    function invokeNamedActionWithArgs(actionName, args, event, payload) {
+      if (!currentComponent || !currentComponent.actions || typeof actionName !== "string") {
+        return;
+      }
+      var action = currentComponent.actions[actionName];
+      if (typeof action !== "function") {
+        return;
+      }
+      if (Array.isArray(args)) {
+        action.apply(null, args);
+        return;
+      }
+      action(event, payload);
+    }
+
+    function buildEventEvalContext(event, payload) {
+      var actionBag = (currentComponent && currentComponent.actions) || {};
+      var stateBag = (currentComponent && currentComponent.state) || {};
+      var propsBag = (currentComponent && currentComponent.props) || {};
+      return Object.assign({}, actionBag, stateBag, propsBag, {
+        actions: actionBag,
+        state: stateBag,
+        props: propsBag,
+        event: event,
+        payload: payload,
+        dict: payload,
+        formDict: payload,
+      });
+    }
+
+    function invokeEventExpression(actionExpression, event, payload) {
+      if (typeof actionExpression !== "string") {
+        return;
+      }
+      var expression = actionExpression.trim();
+      if (expression === "") {
+        return;
+      }
+
+      var callMatch = expression.match(/^([A-Za-z_$][A-Za-z0-9_$]*)\s*\((.*)\)$/);
+      if (!callMatch) {
+        invokeNamedAction(expression, event, payload);
+        return;
+      }
+
+      var actionName = callMatch[1];
+      var argsExpression = String(callMatch[2] || "").trim();
+      var args = [];
+      if (argsExpression !== "") {
+        var evaluatedArgs = evamoonteRawExpression(
+          "[" + argsExpression + "]",
+          buildEventEvalContext(event, payload)
+        );
+        if (Array.isArray(evaluatedArgs)) {
+          args = evaluatedArgs;
+        }
+      }
+
+      invokeNamedActionWithArgs(actionName, args, event, payload);
+    }
+
     var listeners = el.__moonSpaListeners || {};
     var previousEvents = previous || {};
     var nextEvents = next || {};
@@ -1429,10 +1495,10 @@ SPA_RUNTIME_JS = r"""
 
         if (descriptor.kind === "model") {
           applyModelExpression(descriptor.expr, eventName, event, el);
-          invokeNamedAction(descriptor.action, event, submitDict);
+          invokeEventExpression(descriptor.action, event, submitDict);
           return;
         }
-        invokeNamedAction(descriptor.action, event, submitDict);
+        invokeEventExpression(descriptor.action, event, submitDict);
       };
 
       listeners[eventName] = nextListener;
