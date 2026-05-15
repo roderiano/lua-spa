@@ -17,6 +17,7 @@ from typing import Any, Mapping
 from moon_spa.loader import ComponentLoader
 from moon_spa.renderer import (
     build_python_actions_context,
+    build_python_helpers_context,
     build_python_context,
     build_server_state,
     evamoonte_expression,
@@ -261,7 +262,12 @@ class SpaFramework:
 
         synced_props = dict(props)
         if isinstance(entry_python_context, Mapping) and len(entry_python_context) > 0:
-            synced_props["__context"] = dict(entry_python_context)
+            safe_context: dict[str, Any] = {}
+            for context_key, context_value in dict(entry_python_context).items():
+                if callable(context_value):
+                    continue
+                safe_context[str(context_key)] = context_value
+            synced_props["__context"] = safe_context
 
         config = {
             "mountId": self.mount_id,
@@ -320,11 +326,13 @@ class SpaFramework:
         server_state = build_server_state(component.python_block, props)
         python_context = build_python_context(component.python_block, props)
         actions_context = build_python_actions_context(component.python_block, props)
+        helpers_context = build_python_helpers_context(component.python_block, props)
         context: dict[str, Any] = {
             "props": dict(props),
             "state": server_state,
             "py": python_context,
             "actions": actions_context,
+            "helpers": helpers_context,
         }
 
         html_fragment = interpolate(component.template, context)
@@ -347,6 +355,7 @@ class SpaFramework:
             "state": {},
             "py": {},
             "actions": {},
+            "helpers": {},
         }
         return self._expand_child_components(route_template, context)
 

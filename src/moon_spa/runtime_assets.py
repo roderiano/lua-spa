@@ -880,6 +880,9 @@ SPA_RUNTIME_JS = r"""
     if (setupResult.actions && typeof setupResult.actions === "object") {
       instance.actions = setupResult.actions;
     }
+    if (setupResult.helpers && typeof setupResult.helpers === "object") {
+      instance.helpers = setupResult.helpers;
+    }
     if (setupResult.lifecycle && typeof setupResult.lifecycle === "object") {
       instance.lifecycle = setupResult.lifecycle;
     }
@@ -892,6 +895,7 @@ SPA_RUNTIME_JS = r"""
       {},
       instance.props || {},
       instance.state || {},
+      instance.helpers || {},
       instance.props || {}
     );
     var helpers = {
@@ -907,6 +911,7 @@ SPA_RUNTIME_JS = r"""
       data: instance.props,
       state: instance.state,
       actions: instance.actions,
+      helpers: instance.helpers,
       py: instance.props,
     });
 
@@ -961,6 +966,7 @@ SPA_RUNTIME_JS = r"""
       setup: compileSetup(componentDef.script),
       state: {},
       actions: {},
+      helpers: {},
       lifecycle: {},
       hasCreated: false,
       hasMountedLifecycle: false,

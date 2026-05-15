@@ -152,8 +152,24 @@ def resolve_component_callables(
             return {}
         if isinstance(setup_result, Mapping):
             setup_data = setup_result.get("data", {})
-            if isinstance(setup_data, Mapping):
-                return setup_data
+            data_map = dict(setup_data) if isinstance(setup_data, Mapping) else {}
+
+            lifecycle_map = setup_result.get("lifecycle", {})
+            lifecycle_names = (
+                {str(key) for key in lifecycle_map.keys()}
+                if isinstance(lifecycle_map, Mapping)
+                else set()
+            )
+            for local_name, local_value in dict(setup_locals or {}).items():
+                if not isinstance(local_name, str):
+                    continue
+                if local_name.startswith("_"):
+                    continue
+                if local_name in lifecycle_names:
+                    continue
+                if callable(local_value):
+                    data_map[local_name] = local_value
+            return data_map
         return {}
 
     def _client_from_setup(props: Any | None = None) -> Any:
@@ -260,12 +276,24 @@ def _coerce_setup_result(
             if callable_name not in inferred_lifecycle
         }
 
+    lifecycle_names = (
+        {str(name) for name in mapped_lifecycle.keys()}
+        if isinstance(mapped_lifecycle, Mapping)
+        else set()
+    )
+    helper_names = [
+        callable_name
+        for callable_name in local_callables.keys()
+        if callable_name not in lifecycle_names
+    ]
+
     return {
         "props": dict(setup_props) if mapped_props is None else mapped_props,
         "state": {} if mapped_state is None else mapped_state,
         "data": {} if mapped_data is None else mapped_data,
         "actions": {} if mapped_actions is None else mapped_actions,
         "lifecycle": {} if mapped_lifecycle is None else mapped_lifecycle,
+        "__helpers__": helper_names,
     }
 
 
@@ -521,6 +549,8 @@ def execute_setup_server_callable(
                 continue
             props_patch[key_name] = value
     tracked_action_results: list[Any] = []
+    helper_called = False
+    helper_value: Any = None
     trace_logs: list[Any] = []
     original_print = builtins.print
 
@@ -600,6 +630,41 @@ def execute_setup_server_callable(
         finally:
             builtins.print = original_print
         _merge_result(result)
+    elif kind == "helper":
+        lifecycle = setup_result.get("lifecycle", {})
+        lifecycle_names = (
+            {str(hook_name) for hook_name in lifecycle.keys()}
+            if isinstance(lifecycle, Mapping)
+            else set()
+        )
+
+        helper_callables: dict[str, Any] = {}
+        for local_name, local_value in dict(setup_locals or {}).items():
+            if not isinstance(local_name, str):
+                continue
+            if local_name.startswith("_"):
+                continue
+            if local_name in lifecycle_names:
+                continue
+            if callable(local_value):
+                helper_callables[local_name] = local_value
+
+        helper_target = helper_callables.get(name)
+        if not callable(helper_target):
+            raise ValueError(f"Unknown helper: {name}")
+
+        builtins.print = _trace_print
+        call_args = list(args) if isinstance(args, list) else []
+        try:
+            helper_value = helper_target(*call_args)
+            helper_called = True
+        except TypeError:
+            if len(call_args) > 0:
+                raise
+            helper_value = helper_target()
+            helper_called = True
+        finally:
+            builtins.print = original_print
     elif kind == "lifecycle":
         lifecycle = setup_result.get("lifecycle", {})
         if not isinstance(lifecycle, Mapping):
@@ -651,26 +716,30 @@ def execute_setup_server_callable(
                         _merge_result(result)
         elif hook_value is not None:
             raise ValueError(f"Unsupported lifecycle hook value for {name}")
-    for message in trace_logs:
-        if "__moon_logs__" not in props_patch:
-            props_patch["__moon_logs__"] = []
-        props_patch["__moon_logs__"].append(message)
+    if kind != "helper":
+        for message in trace_logs:
+            if "__moon_logs__" not in props_patch:
+                props_patch["__moon_logs__"] = []
+            props_patch["__moon_logs__"].append(message)
 
-    if isinstance(setup_data_obj, Mapping):
-        for data_key, data_value in setup_data_obj.items():
-            data_key_str = str(data_key)
-            props_patch[data_key_str] = data_value
+        if isinstance(setup_data_obj, Mapping):
+            for data_key, data_value in setup_data_obj.items():
+                data_key_str = str(data_key)
+                props_patch[data_key_str] = data_value
 
-    # Explicit return payloads from invoked actions/lifecycles must win over
-    # data snapshot defaults when both provide the same keys.
-    for tracked in tracked_action_results:
-        _merge_result(tracked)
+        # Explicit return payloads from invoked actions/lifecycles must win over
+        # data snapshot defaults when both provide the same keys.
+        for tracked in tracked_action_results:
+            _merge_result(tracked)
 
     current_state = dict(setup_state_obj) if isinstance(setup_state_obj, Mapping) else setup_state
-    return {
+    response_payload: dict[str, Any] = {
         "state": current_state,
         "props": props_patch,
     }
+    if helper_called:
+        response_payload["value"] = helper_value
+    return response_payload
 
 
 def _make_closure_cell(value: Any) -> Any:

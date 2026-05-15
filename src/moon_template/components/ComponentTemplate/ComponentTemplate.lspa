@@ -49,6 +49,9 @@ class ComponentTemplate(Component):
     def label_with(name, count):
       return f"Hello {name} ({count})"
 
+    def enable_button(reload_count):
+      return reload_count > 5
+
 </python>
 
 <style src="./ComponentTemplate.css"></style>
@@ -93,6 +96,6 @@ class ComponentTemplate(Component):
       <button type="submit">Submit form</button>
     </form>
 
-    <button type="button" :class="len(state.status) > 5 and 'is-enabled' or 'is-disabled'" @click="reload_data(True)">Reload</button>
+    <button type="button" :class="enable_button(state.reload_count) ? 'is-enabled' : 'is-disabled'" @click="reload_data(True)">Reload</button>
   </section>
 </template>
